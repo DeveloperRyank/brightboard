@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Starter quiz · Brightboard{% endblock %}
+{% block content %}
+{% set conf_labels = {
+  "just_starting": "Just starting out",
+  "getting_there": "Getting there",
+  "pretty_strong": "Pretty strong already"
+} %}
+{% set style_labels = {
+  "lessons": "Animated lessons",
+  "tests": "Exam Center papers",
+  "papers": "Past-paper upload"
+} %}
+{% set style_hints = {
+  "lessons": "Learn with step-by-step whiteboard lessons",
+  "tests": "Learn by answering real exam questions",
+  "papers": "Upload papers and let the AI find your gaps"
+} %}
+
+<div class="hero fade-up">
+  <div class="eyebrow">Starter quiz · {{ student.name }}</div>
+  <h1>Let's find where to start</h1>
+  <p>A few quick questions so your tutor knows what to teach first and how you like to learn. There are no right answers.</p>
+</div>
+
+{% if error %}<div class="banner">{{ error }}</div>{% endif %}
+
+<form method="post" action="{{ url_for('quiz') }}" class="glass quiz-card fade-up">
+  <div class="q-step">
+    <span class="q-legend">1 · Which subject do you want to work on first?</span>
+    <select id="subject" name="subject" class="field" style="width:100%;">
+      <option value="">Choose a subject…</option>
+      {% for s in subjects %}
+      <option value="{{ s.slug }}" {{ 'selected' if form.get('subject') == s.slug }}>{{ s.icon }} {{ s.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="q-step">
+    <span class="q-legend">2 · Which topics do you find hardest? <span class="q-hint">tick up to 3</span></span>
+    <div id="topics" class="topic-pick"></div>
+    <div id="topics-empty" class="quiz-empty">Pick a subject above to see its topics.</div>
+  </div>
+
+  <div class="q-step">
+    <span class="q-legend">3 · How confident do you feel in that subject right now?</span>
+    <div class="opt-row">
+      {% for c in confidence_levels %}
+      <label class="opt-pill {{ 'sel' if form.get('confidence') == c }}">
+        <input type="radio" name="confidence" value="{{ c }}" {{ 'checked' if form.get('confidence') == c }}>
+        {{ conf_labels.get(c, c) }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="q-step">
+    <span class="q-legend">4 · How do you like to study?</span>
+    <div class="opt-row">
+      {% for st in study_styles %}
+      <label class="opt-pill {{ 'sel' if form.get('style') == st }}" title="{{ style_hints.get(st, '') }}">
+        <input type="radio" name="style" value="{{ st }}" {{ 'checked' if form.get('style') == st }}>
+        {{ style_labels.get(st, st) }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <button class="btn gradient" type="submit">Finish · start learning →</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const TOPIC_MAP = {{ topic_map | tojson }};
+  const INIT_SUBJECT = {{ (form.get('subject') or '') | tojson }};
+  const INIT_TOPICS = {{ (form.getlist('topics') if form.getlist else []) | tojson }};
+
+  const topicsEl = document.getElementById("topics");
+  const emptyEl = document.getElementById("topics-empty");
+  const subjectEl = document.getElementById("subject");
+  const MAX_TOPICS = 3;
+
+  function renderTopics(subject, selected) {
+    topicsEl.innerHTML = "";
+    const list = TOPIC_MAP[subject] || [];
+    emptyEl.style.display = list.length ? "none" : "block";
+    emptyEl.textContent = subject
+      ? "Pick a subject above to see its topics."
+      : "Pick a subject above to see its topics.";
+    for (const t of list) {
+      const label = document.createElement("label");
+      const isSel = selected.includes(t.slug);
+      if (isSel) label.classList.add("sel");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.name = "topics";
+      cb.value = t.slug;
+      cb.checked = isSel;
+      cb.addEventListener("change", () => {
+        const checked = topicsEl.querySelectorAll("input:checked");
+        if (!cb.checked) { label.classList.remove("sel"); return; }
+        if (checked.length > MAX_TOPICS) {
+          cb.checked = false;
+          return;
+        }
+        label.classList.add("sel");
+      });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(t.name));
+      topicsEl.appendChild(label);
+    }
+  }
+
+  subjectEl.addEventListener("change", () => renderTopics(subjectEl.value, []));
+  renderTopics(INIT_SUBJECT, INIT_TOPICS || []);
+
+  // keep radio pills visually in sync
+  document.querySelectorAll(".opt-pill input[type=radio]").forEach((r) => {
+    r.addEventListener("change", () => {
+      document.querySelectorAll(`.opt-pill input[name="${r.name}"]`).forEach((o) => {
+        o.closest(".opt-pill").classList.toggle("sel", o.checked);
+      });
+    });
+  });
+</script>
+{% endblock %}

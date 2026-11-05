@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Your results — {{ name }}{% endblock %}
+{% block content %}
+<div class="hero fade-up">
+  <div class="eyebrow"><a href="{{ url_for('subject', subject=subject) }}" style="color: var(--cyan);">← {{ subject_name(subject) }} topics</a></div>
+  <h1>{{ name }} — results</h1>
+</div>
+
+<div id="marking" class="marking-panel glass">
+  <div class="marking-board">
+    <span class="chalk-line l1"></span>
+    <span class="chalk-line l2"></span>
+    <span class="chalk-line l3"></span>
+    <span class="chalk-tick">✓</span>
+  </div>
+  <div class="load-title" id="marking-title">Marking your paper…</div>
+  <div class="load-sub" id="marking-sub">The examiner is reading every answer and updating your concept mastery. You can leave this page — your results will be waiting in Analytics.</div>
+  <div class="spinner" style="width:22px;height:22px;margin:14px auto 0;"></div>
+</div>
+
+<div id="session-breakdown"></div>
+
+<script>
+  const JOB_ID = {{ job_id | tojson }};
+  const JOB_STATUS = {{ status | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/session.js') }}"></script>
+<script src="{{ url_for('static', filename='js/results.js') }}"></script>
+{% endblock %}

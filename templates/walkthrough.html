@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Walkthrough — {{ filename }}{% endblock %}
+{% block content %}
+<div class="wt-head fade-up">
+  <div class="eyebrow"><a href="{{ url_for('upload') }}" style="color: var(--cyan);">← Uploads</a></div>
+  <h1>Guided walkthrough</h1>
+  <div class="wt-src mono">{{ filename }}</div>
+  <div class="wt-progress">
+    <span class="wt-count mono">Question <b id="wt-now">1</b> of {{ questions | length }}</span>
+    <span class="wt-bar"><i id="wt-fill"></i></span>
+    <span class="wt-topic mono" id="wt-topic"></span>
+  </div>
+</div>
+
+<div class="wt-qcard glass fade-up" id="q-card">
+  <div class="wt-q-meta">
+    <span class="q-tag mono" id="q-number"></span>
+    <span class="q-tag" id="q-marks"></span>
+    <span class="concept-chip" id="q-concept" style="display:none;"></span>
+  </div>
+  <div class="wt-q-text" id="q-text"></div>
+  <div class="wt-q-src">From your paper — this is the question exactly as it was printed. The tutor teaches the idea behind it; nothing here is a new question.</div>
+</div>
+
+<div class="board-wrap">
+  <canvas id="board"></canvas>
+  <div class="overlay" id="loading" style="display:none;">
+    <div class="load-board">
+      <div class="load-title" id="load-title">Reading the question on your paper…</div>
+      <div class="load-bar"><i></i></div>
+      <div class="load-sub" id="load-sub">The tutor is preparing the board for this question — the first draw takes up to a minute.</div>
+    </div>
+  </div>
+  <div class="overlay" id="load-error" style="display:none;">
+    <div class="error-box" style="max-width: 560px;">
+      <pre id="load-error-text"></pre>
+      <button class="btn" id="btn-retry" style="margin-top: 10px;">↻ Try this question again</button>
+      <a class="btn ghost" href="{{ url_for('upload') }}" style="margin-top: 10px;">Back to uploads</a>
+    </div>
+  </div>
+</div>
+
+<div class="narration" id="narration"></div>
+
+<div class="sound-hint" id="sound-hint">
+  🔇 Your browser is blocking sound — the walkthrough is playing silently. Tap anywhere to hear the tutor.
+</div>
+
+<div class="lesson-controls" id="wt-controls" style="visibility:hidden;">
+  <button class="btn ghost" id="btn-playpause">⏸ Pause</button>
+  <label class="mono" style="font-size: 13px; color: var(--muted);">Speed
+    <select id="speed" class="mono" style="background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;">
+      <option value="slow">slow</option>
+      <option value="normal" selected>normal</option>
+      <option value="fast">fast</option>
+    </select>
+  </label>
+  <button class="btn ghost" id="btn-prev">← Back a step</button>
+  <span class="step-counter mono" id="step-counter"></span>
+  <span class="spacer"></span>
+  <button class="btn" id="btn-next">Next step →</button>
+</div>
+
+<div class="wt-decide" id="decide">
+  <button class="btn gradient" id="btn-got" disabled>✓ Got it — next question</button>
+  <button class="btn ghost" id="btn-diff" disabled>↻ Explain this differently</button>
+  <span class="wt-decide-note" id="decide-note">The tutor finishes this explanation, then you decide.</span>
+</div>
+
+<div class="rec-card" id="wt-done" style="display:none; margin-top: 18px;">
+  <div class="target">🎓</div>
+  <div class="rec-text">That's the whole paper — every question on it has been walked through, and your concept mastery has been updated as you went.</div>
+  <a class="btn" href="{{ url_for('analytics') }}">See what changed →</a>
+</div>
+
+<script id="questions-data" type="application/json">{{ questions | tojson }}</script>
+<script>
+  const WT_ID = {{ wt_id | tojson }};
+  const SUBJECT = {{ subject | tojson }};
+  const START_INDEX = {{ start_index | tojson }};
+  const SERVER_TTS = {{ server_tts | tojson }};
+  const TOTAL = {{ questions | length | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/whiteboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/voice.js') }}"></script>
+<script src="{{ url_for('static', filename='js/walkthrough.js') }}"></script>
+{% endblock %}

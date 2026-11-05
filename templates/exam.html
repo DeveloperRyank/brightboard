@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Exam Center — {{ name }}{% endblock %}
+{% block content %}
+<div class="exam-top fade-up">
+  <div class="eyebrow"><a href="{{ url_for('subject', subject=subject) }}" style="color: var(--cyan);">← {{ subject_name(subject) }} topics</a></div>
+  <div class="exam-title-row">
+    <h1>Exam Center</h1>
+    <div class="exam-clock mono" id="exam-clock" title="Time on this paper">00:00</div>
+  </div>
+  <p class="sub">{{ name }} · {{ questions | length }} real {{ cur_name }} past-paper questions. Answer them all, hand the paper in, and marking runs in the background — you can leave the page and come back to your results.</p>
+</div>
+
+<div class="exam-shell">
+  <aside class="exam-rail glass">
+    <div class="rail-head">
+      <span class="mono">Question paper</span>
+      <span class="mono" id="rail-count">0 / {{ questions | length }}</span>
+    </div>
+    <div class="rail-progress"><i id="rail-bar"></i></div>
+    <ol class="rail-list" id="rail-list"></ol>
+    <button class="btn gradient wide" id="btn-submit" disabled>Hand in paper</button>
+    <a class="btn ghost wide" href="{{ url_for('subject', subject=subject) }}">Leave exam</a>
+    <p class="rail-note mono" id="draft-note"></p>
+  </aside>
+
+  <section class="exam-stage">
+    <article class="q-card glass" id="q-card">
+      <header class="q-head">
+        <span class="q-num mono" id="q-num">Question 1</span>
+        <span class="q-type" id="q-type"></span>
+        <span class="q-concept" id="q-concept"></span>
+      </header>
+      <div class="q-body" id="q-text"></div>
+      <p class="q-hint" id="q-hint"></p>
+      <div class="q-answer" id="answer-slot"></div>
+      <footer class="q-foot">
+        <span class="mono q-meta" id="q-meta"></span>
+        <span class="spacer"></span>
+        <button class="btn ghost small" id="btn-clear" title="Clear this answer">Clear</button>
+        <button class="btn ghost" id="btn-prev">← Back</button>
+        <button class="btn" id="btn-next">Save &amp; next →</button>
+      </footer>
+    </article>
+    <p class="exam-keys mono">Ctrl + Enter saves and moves on · Alt + ← / → jumps between questions · your answers are kept on this device until you hand the paper in</p>
+  </section>
+</div>
+
+<script id="questions-data" type="application/json">{{ questions | tojson }}</script>
+<script>
+  const SUBJECT = {{ subject | tojson }};
+  const TOPIC = {{ topic | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/exam.js') }}"></script>
+{% endblock %}

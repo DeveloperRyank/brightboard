@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Brightboard — Subjects{% endblock %}
+{% block content %}
+<div class="hero fade-up">
+  <div class="eyebrow">{{ cur_name }} · {{ cur_country }}</div>
+  <h1>What do you want to master today{{ ', ' + student.name if student else '' }}?</h1>
+  <p>Pick a subject, then choose a whiteboard lesson, answer real past-paper questions in the Exam Center, or upload a paper for the AI to analyse and fold into your profile.</p>
+</div>
+
+<div class="cur-switch fade-up">
+  <span class="cur-label">Curriculum</span>
+  {% for c in curricula %}
+  <form method="post" action="{{ url_for('set_curriculum') }}">
+    <input type="hidden" name="curriculum" value="{{ c.slug }}">
+    <button type="submit" class="cur-pill {{ 'sel' if c.slug == cur }}">{{ c.name }}</button>
+  </form>
+  {% endfor %}
+</div>
+
+{% if recommendation %}
+<div class="rec-card fade-up">
+  <div class="target">🎯</div>
+  <div class="rec-text">
+    {% if recommendation.self_reported %}
+      You told us <strong>{{ recommendation.topic_name }}</strong> troubles you — let's start there.
+    {% else %}
+      Your weakest concept right now is
+      {% if recommendation.concept_name %}
+        <strong>{{ recommendation.concept_name }}</strong> in {{ recommendation.topic_name }}
+      {% else %}
+        <strong>{{ recommendation.topic_name }}</strong>
+      {% endif %}
+      {% if recommendation.score is not none %}
+        (mastery {{ (recommendation.score * 100) | round | int }}%)
+      {% endif %}
+      {% if recommendation.error_label %}
+        · pattern: <strong>{{ recommendation.error_label }}</strong>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% if student and student.style == 'papers' %}
+    <a class="btn gradient" href="{{ url_for('upload') }}">Upload a paper</a>
+  {% elif student and student.style == 'tests' %}
+    <a class="btn gradient" href="{{ url_for('exam', subject=recommendation.subject, topic=recommendation.topic) }}">Enter the Exam Center</a>
+  {% else %}
+    <a class="btn gradient" href="{{ url_for('lesson', subject=recommendation.subject, topic=recommendation.topic) }}">Study it now</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="section-head">
+  <h2>Subjects</h2>
+  {% if cur == 'kcse' %}
+    <span class="tag">Chemistry is live on real KCSE past papers · others unlock as question banks are added</span>
+  {% else %}
+    <span class="tag">{{ cur_name }} subjects unlock as question banks are added</span>
+  {% endif %}
+</div>
+
+<div class="subject-grid">
+  {% for s in subjects %}
+  {% set ready = s.live and s.has_data %}
+  <a class="subject-card fade-up" href="{{ url_for('subject', subject=s.slug) }}"
+     style="--accent: {{ s.accent }};">
+    <span class="pill {{ 'live' if ready else 'soon' }}">{{ 'Live' if ready else 'Soon' }}</span>
+    <span class="s-glow"></span>
+    <span class="s-icon">{{ s.icon }}</span>
+    <div class="s-title">{{ s.name }}</div>
+    <div class="s-meta">{{ s.topic_count }} topics
+      {%- if s.studied %} · {{ s.studied }} studied · {{ (s.avg_score * 100) | round | int }}% avg{% endif %}
+    </div>
+    <div class="bar s-bar"><div style="width: {{ ((s.avg_score or 0) * 100) | round | int }}%; background: {{ s.accent }};"></div></div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}My progress — Brightboard{% endblock %}
+{% block content %}
+{% set studied = mastery | length %}
+{% set total_answers = mastery | sum(attribute='answers') %}
+{% set avg = (mastery | sum(attribute='score') / studied) if studied else none %}
+
+<div class="hero fade-up">
+  <div class="eyebrow">Your complete analysis</div>
+  <h1>My progress</h1>
+  <p>Everything the tutor has learned about you — tracked concept by concept, from lessons, the Exam Center and the papers you uploaded.</p>
+</div>
+
+<div class="tile-grid">
+  <div class="tile fade-up"><div class="t-label">Topics studied</div><div class="t-value">{{ studied }}</div></div>
+  <div class="tile fade-up"><div class="t-label">Concepts tracked</div><div class="t-value">{{ concepts | length }}</div></div>
+  <div class="tile fade-up"><div class="t-label">Questions answered</div><div class="t-value">{{ total_answers }}</div></div>
+  <div class="tile fade-up"><div class="t-label">Avg mastery</div>
+    <div class="t-value">{% if avg is not none %}{{ (avg * 100) | round | int }}<small>%</small>{% else %}—{% endif %}</div></div>
+  <div class="tile fade-up"><div class="t-label">Papers analysed</div><div class="t-value">{{ documents | length }}</div></div>
+</div>
+
+{% if recommendation %}
+<div class="rec-card fade-up">
+  <div class="target">🎯</div>
+  <div class="rec-text">
+    Next focus:
+    {% if recommendation.concept_name %}
+      <strong>{{ recommendation.concept_name }}</strong> in {{ recommendation.topic_name }}
+    {% else %}
+      <strong>{{ recommendation.topic_name }}</strong>
+    {% endif %}
+    {% if recommendation.score is not none %} — mastery {{ (recommendation.score * 100) | round | int }}%{% endif %}
+    {% if recommendation.error_label %} · watch for <strong>{{ recommendation.error_label }}</strong>{% endif %}
+  </div>
+  <a class="btn gradient" href="{{ url_for('lesson', subject=recommendation.subject, topic=recommendation.topic) }}">Study it</a>
+</div>
+{% endif %}
+
+{% if jobs %}
+<div class="section-head"><h2>Marking jobs</h2><span class="tag">Papers you handed in</span></div>
+<div class="job-list fade-up">
+  {% for j in jobs %}
+  <a class="job-row" href="{{ url_for('results', job_id=j.id) }}">
+    <span class="job-name">{{ topic_name(j.subject, j.topic) }}</span>
+    <span class="chip {{ 'correct' if j.status == 'done' else ('incorrect' if j.status == 'error' else 'err') }}">
+      {{ 'marked' if j.status == 'done' else ('failed' if j.status == 'error' else 'marking…') }}
+    </span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not studied %}
+<div class="empty">No data yet — do a lesson, answer a paper in the Exam Center, or upload a paper, and your analytics will build here.</div>
+{% else %}
+<div class="chart-grid">
+  <div class="chart-card fade-up">
+    <h3>Weakest concepts</h3>
+    <p class="c-sub">Bayesian mastery per concept — lowest first.</p>
+    <div class="chart-box"><canvas id="chart-concepts"></canvas></div>
+  </div>
+  <div class="chart-card fade-up">
+    <h3>Mastery by topic</h3>
+    <p class="c-sub">Average of the concepts inside each topic.</p>
+    <div class="chart-box"><canvas id="chart-topics"></canvas></div>
+  </div>
+  <div class="chart-card fade-up">
+    <h3>Mistake patterns</h3>
+    <p class="c-sub">Why answers go wrong, across every concept.</p>
+    <div class="chart-box"><canvas id="chart-errors"></canvas></div>
+  </div>
+  <div class="chart-card fade-up">
+    <h3>Mastery by subject</h3>
+    <p class="c-sub">Average score per subject you've studied.</p>
+    <div class="chart-box"><canvas id="chart-subjects"></canvas></div>
+  </div>
+  <div class="chart-card fade-up">
+    <h3>Recent accuracy</h3>
+    <p class="c-sub">Cumulative correct rate over your last {{ history | length }} answers.</p>
+    <div class="chart-box"><canvas id="chart-history"></canvas></div>
+  </div>
+</div>
+
+<div class="section-head">
+  <h2>Concept mastery</h2>
+  <span class="tag">Every concept the tutor is tracking for you</span>
+</div>
+<div class="concept-rows glass" style="padding: 18px; border-radius: 16px;">
+  {% for c in concepts %}
+  <div class="concept-row fade-up">
+    <div class="c-name">{{ c.name }}
+      <small>{{ c.subject_name }} · {{ c.topic_name }} · {{ c.answers }} answer{{ '' if c.answers == 1 else 's' }}{% if c.error_type %} · {{ c.error_type_label }}{% endif %}</small>
+    </div>
+    <div class="bar c-bar"><div style="width: {{ (c.p * 100) | round | int }}%; background: {% if c.p < 0.4 %}var(--red){% elif c.p < 0.7 %}var(--amber){% else %}var(--green){% endif %};"></div></div>
+    <div class="c-p mono">{{ (c.p * 100) | round | int }}%</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="section-head">
+  <h2>Recent questions</h2>
+</div>
+<table class="history">
+  <thead><tr><th>Topic</th><th>Concept</th><th>Result</th><th>Pattern</th></tr></thead>
+  <tbody>
+  {% for h in history[:20] %}
+    <tr>
+      <td>{{ topic_name(h.subject, h.topic) }}</td>
+      <td style="color: var(--muted);">{{ concept_label(h) or '—' }}</td>
+      <td class="{{ 'ok' if h.correct else 'bad' }}">{{ '✓ correct' if h.correct else '✗ not correct' }}</td>
+      <td style="color: var(--muted);">{{ error_labels.get(h.error_type, h.error_type or '—') }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4" style="color: var(--muted);">No answers recorded yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script id="analytics-data" type="application/json">{{ {
+  "mastery": mastery,
+  "concepts": concepts,
+  "subjects": subjects,
+  "history": history,
+  "error_labels": error_labels,
+  "error_types": error_types
+} | tojson }}</script>
+<script>
+(function () {
+  if (typeof Chart === "undefined") return;
+  const D = JSON.parse(document.getElementById("analytics-data").textContent);
+  Chart.defaults.color = "#93a3bc";
+  Chart.defaults.borderColor = "rgba(255,255,255,0.06)";
+  Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
+  const grid = { color: "rgba(255,255,255,0.05)" };
+  const colour = (p) => (p < 0.4 ? "#fca5a5" : p < 0.7 ? "#fde68a" : "#86efac");
+
+  if (D.concepts.length) {
+    const rows = D.concepts.slice(0, 14);
+    new Chart(document.getElementById("chart-concepts"), {
+      type: "bar",
+      data: {
+        labels: rows.map(r => r.name),
+        datasets: [{ label: "Mastery %", data: rows.map(r => Math.round(r.p * 100)),
+          backgroundColor: rows.map(r => colour(r.p)), borderRadius: 6 }],
+      },
+      options: {
+        indexAxis: "y", responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { min: 0, max: 100, grid }, y: { grid: { display: false } } },
+      },
+    });
+  }
+
+  if (D.mastery.length) {
+    const rows = D.mastery.slice(0, 14);
+    new Chart(document.getElementById("chart-topics"), {
+      type: "bar",
+      data: {
+        labels: rows.map(r => r.name || r.topic),
+        datasets: [{
+          label: "Mastery %",
+          data: rows.map(r => Math.round(r.score * 100)),
+          backgroundColor: rows.map(r => colour(r.score)),
+          borderRadius: 6,
+        }],
+      },
+      options: {
+        indexAxis: "y", responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { min: 0, max: 100, grid }, y: { grid: { display: false } } },
+      },
+    });
+  }
+
+  const errTotals = {};
+  for (const t of D.error_types) errTotals[t] = 0;
+  for (const c of D.concepts) if (c.error_type) errTotals[c.error_type] = (errTotals[c.error_type] || 0) + 1;
+  for (const m of D.mastery) for (const [k, v] of Object.entries(m.errors || {})) errTotals[k] = (errTotals[k] || 0) + v;
+  const errKeys = D.error_types.filter(k => errTotals[k] > 0);
+  if (errKeys.length) {
+    new Chart(document.getElementById("chart-errors"), {
+      type: "doughnut",
+      data: {
+        labels: errKeys.map(k => D.error_labels[k] || k),
+        datasets: [{ data: errKeys.map(k => errTotals[k]),
+          backgroundColor: ["#fca5a5", "#fde68a", "#c4b5fd", "#93a3bc", "#7dd3fc"],
+          borderColor: "#0d1420", borderWidth: 2 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, cutout: "62%",
+        plugins: { legend: { position: "bottom" } } },
+    });
+  } else {
+    document.getElementById("chart-errors").parentElement.innerHTML =
+      '<div class="empty">No mistakes recorded yet.</div>';
+  }
+
+  const subj = D.subjects.filter(s => s.studied);
+  if (subj.length) {
+    new Chart(document.getElementById("chart-subjects"), {
+      type: "bar",
+      data: {
+        labels: subj.map(s => s.name),
+        datasets: [{ label: "Avg mastery %", data: subj.map(s => Math.round((s.avg_score || 0) * 100)),
+          backgroundColor: subj.map(s => s.accent || "#7dd3fc"), borderRadius: 6 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { min: 0, max: 100, grid }, x: { grid: { display: false } } } },
+    });
+  }
+
+  const hist = D.history.slice().reverse();
+  if (hist.length) {
+    let right = 0;
+    const cum = hist.map((h, i) => { right += h.correct ? 1 : 0; return Math.round((right / (i + 1)) * 100); });
+    new Chart(document.getElementById("chart-history"), {
+      type: "line",
+      data: { labels: cum.map((_, i) => i + 1),
+        datasets: [{ label: "Cumulative accuracy %", data: cum, borderColor: "#7dd3fc",
+          backgroundColor: "rgba(125,211,252,0.15)", fill: true, tension: 0.3, pointRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { min: 0, max: 100, grid }, x: { grid: { display: false } } } },
+    });
+  }
+})();
+</script>
+{% endblock %}

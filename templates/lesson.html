@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Lesson — {{ name }}{% endblock %}
+{% block content %}
+<div class="lesson-head">
+  <h1>{{ name }}</h1>
+  <span class="concept-chip" id="concept-chip" style="display: none;"></span>
+  <span class="step-counter mono" id="step-counter"></span>
+</div>
+<p class="sub">The lesson draws itself like a teacher at the board — watch, listen, and let it flow. Stuck? Pause and ask, by typing or by voice.</p>
+
+<div class="board-wrap">
+  <canvas id="board"></canvas>
+  <div class="overlay" id="loading" style="display: none;">
+    <div class="load-board">
+      <svg class="doodles" viewBox="0 0 340 110" aria-hidden="true">
+        <path class="doodle d1" pathLength="1"
+              d="M62 12 v26 l-17 40 a11 11 0 0 0 10 15 h24 a11 11 0 0 0 10 -15 l-17 -40 v-26 z M54 12 h22" />
+        <ellipse class="doodle d2" pathLength="1" cx="170" cy="55" rx="34" ry="13" />
+        <ellipse class="doodle d2" pathLength="1" cx="170" cy="55" rx="34" ry="13" transform="rotate(60 170 55)" />
+        <ellipse class="doodle d2" pathLength="1" cx="170" cy="55" rx="34" ry="13" transform="rotate(-60 170 55)" />
+        <circle class="doodle d2" pathLength="1" cx="170" cy="55" r="4" />
+        <path class="doodle d3" pathLength="1" d="M248 94 h84 M248 94 v-72" />
+        <path class="doodle d4" pathLength="1" d="M256 84 q14 -6 22 -20 t26 -26 t20 -12" />
+      </svg>
+      <div class="load-title" id="load-title">Drawing your lesson…</div>
+      <ul class="load-steps" id="load-steps"></ul>
+      <div class="load-bar"><i></i></div>
+      <div class="load-sub" id="load-sub">The board is being chalked stroke by stroke — the first draw of a topic takes up to a minute.</div>
+    </div>
+  </div>
+  <div class="overlay" id="load-error" style="display: none;">
+    <div class="error-box" style="max-width: 560px;">
+      <pre id="load-error-text"></pre>
+      <button class="btn" id="btn-retry" style="margin-top: 10px;">↻ Try again</button>
+      <a class="btn ghost" href="{{ url_for('subject', subject=subject) }}" style="margin-top: 10px;">Back to topics</a>
+    </div>
+  </div>
+</div>
+
+<div class="narration" id="narration"></div>
+
+<div class="sound-hint" id="sound-hint">
+  🔇 Your browser is blocking sound — the lesson is playing silently. Tap anywhere to hear the tutor.
+</div>
+
+<div class="lesson-controls" id="lesson-controls" style="visibility: hidden;">
+  <button class="btn ghost" id="btn-playpause">⏸ Pause</button>
+  <label class="mono" style="font-size: 13px; color: var(--muted);">Speed
+    <select id="speed" class="mono" style="background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;">
+      <option value="slow">slow</option>
+      <option value="normal" selected>normal</option>
+      <option value="fast">fast</option>
+    </select>
+  </label>
+  <button class="btn ghost" id="btn-prev">← Previous</button>
+  <button class="btn" id="btn-next">Next →</button>
+  <button class="btn warn" id="btn-ask">✋ Stop and ask a question</button>
+  <span class="spacer"></span>
+  <button class="btn ghost small" id="btn-regenerate">↻ Redraw lesson</button>
+</div>
+
+<div class="rec-card" id="lesson-done" style="display: none; margin-top: 18px;">
+  <div class="target">🎓</div>
+  <div class="rec-text">Lesson complete. Ready to prove it on real {{ subject_name(subject) }} questions?</div>
+  <a class="btn" id="done-exam" href="{{ url_for('exam', subject=subject, topic=topic) }}">Prove it in the Exam Center →</a>
+</div>
+
+<div class="ask-panel" id="ask-panel">
+  <h3>Lesson paused — ask the tutor anything</h3>
+  <div class="paused-note">Board, text and voice are frozen. You paused on: <em id="paused-step"></em></div>
+  <textarea id="ask-input" rows="3" placeholder="Type your question, or tap the mic and say it…"></textarea>
+  <div style="margin-top: 12px; display: flex; gap: 10px; align-items: center;">
+    <button class="btn mic-btn" id="btn-mic" title="Ask by voice">🎤</button>
+    <span class="mono" id="mic-state" style="font-size: 12px; color: var(--muted);"></span>
+    <span class="spacer" style="margin-left: auto;"></span>
+    <button class="btn" id="btn-send-ask">Ask the tutor</button>
+    <button class="btn ghost" id="btn-cancel-ask">Never mind, resume</button>
+  </div>
+</div>
+
+<div class="ask-bar" id="ask-bar">
+  <span class="mono" style="color: var(--violet);">💬</span>
+  <span id="ask-bar-q" style="flex: 1;"></span>
+  <span class="mono" id="ask-bar-state" style="font-size: 12px; color: var(--muted);"></span>
+  <button class="btn small ghost" id="btn-resume-bar">Resume lesson</button>
+</div>
+
+<script id="lesson-data" type="application/json">{{ lesson | tojson }}</script>
+<script>
+  const SUBJECT = {{ subject | tojson }};
+  const TOPIC = {{ topic | tojson }};
+  const EXAM_URL = {{ url_for('exam', subject=subject, topic=topic) | tojson }};
+  const INITIAL_STATUS = {{ status | tojson }};
+  const INITIAL_ERROR = {{ error | tojson }};
+  const SERVER_TTS = {{ server_tts | tojson }};
+  const CONCEPT_NAMES = {{ concept_names | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/whiteboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/voice.js') }}"></script>
+<script src="{{ url_for('static', filename='js/lesson.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Accounts · Brightboard{% endblock %}
+{% block content %}
+<div class="hero fade-up">
+  <div class="eyebrow">Brightboard</div>
+  <h1>{{ 'Choose your account' if students else 'Karibu! Create your account' }}</h1>
+  <p>Sign in to keep your progress, or add a new account. Each account keeps its own lessons, exam papers and analytics.</p>
+</div>
+
+{% if error %}<div class="banner">{{ error }}</div>{% endif %}
+
+{% if students and not new %}
+<div class="account-grid fade-up">
+  {% for s in students %}
+  <form method="post" action="{{ url_for('login', sid=s.id) }}" class="account-card">
+    <span class="a-avatar">{{ s.name[:1] | upper }}</span>
+    <div class="a-name">{{ s.name }}</div>
+    <div class="a-meta">{{ s.grade }}</div>
+    <button class="btn small" type="submit">Open →</button>
+  </form>
+  {% endfor %}
+
+  <a class="account-card new" href="{{ url_for('onboarding', new=1) }}">
+    <span class="a-avatar plus">+</span>
+    <div class="a-name">Add new account</div>
+    <div class="a-meta">Start a fresh profile</div>
+    <span class="btn small ghost">Create →</span>
+  </a>
+</div>
+{% else %}
+<form method="post" action="{{ url_for('onboarding') }}" class="glass create-card fade-up">
+  <h2 style="margin-top:0;">New account</h2>
+  <div class="fld">
+    <label for="name">Your name</label>
+    <input type="text" id="name" name="name" class="field" value="{{ name }}" maxlength="60" placeholder="e.g. Amina" style="width:100%;">
+  </div>
+  <div class="fld">
+    <label for="grade">Your form / grade</label>
+    <select id="grade" name="grade" class="field" style="width:100%;">
+      {% for g in ["Form 1", "Form 2", "Form 3", "Form 4"] %}
+      <option value="{{ g }}" {{ 'selected' if grade == g }}>{{ g }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="create-actions">
+    <button class="btn gradient" type="submit">Continue →</button>
+    {% if students %}<a class="btn ghost" href="{{ url_for('onboarding') }}">Back to accounts</a>{% endif %}
+  </div>
+</form>
+{% endif %}
+{% endblock %}

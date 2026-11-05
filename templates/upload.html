@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Upload a paper — Brightboard{% endblock %}
+{% block content %}
+<div class="hero fade-up">
+  <div class="eyebrow">Build your profile</div>
+  <h1>Upload a paper</h1>
+  <p>Drop a PDF or a photo of a marked test, worksheet or past paper. The AI reads it (including scanned pages) — then either folds the gaps it finds into your mastery profile, or walks you through the paper one real question at a time on the whiteboard.</p>
+</div>
+
+<div class="glass fade-up" style="border-radius: 18px; padding: 20px; margin-bottom: 22px;">
+  <label for="subject" style="display:block; margin-bottom:8px; font-size:14px;">Subject this paper belongs to</label>
+  <select id="subject" class="field" style="width:100%; max-width: 320px;">
+    {% for s in subjects %}
+    <option value="{{ s.slug }}" {{ 'selected' if s.slug == 'chemistry' }}>{{ s.icon }} {{ s.name }}</option>
+    {% endfor %}
+  </select>
+
+  <div class="mode-picker">
+    <span class="mode-label">What should the tutor do with it?</span>
+    <label class="mode-chip">
+      <input type="radio" name="mode" value="analyse" checked>
+      <span class="mc-title">Find my gaps</span>
+      <span class="mc-sub">Read the paper, work out the topics and fold what it finds into your mastery profile.</span>
+    </label>
+    <label class="mode-chip">
+      <input type="radio" name="mode" value="walkthrough">
+      <span class="mc-title">Walk me through it</span>
+      <span class="mc-sub">Teach it one real question at a time on the whiteboard — you say when you've got it.</span>
+    </label>
+  </div>
+</div>
+
+<div class="dropzone fade-up" id="dropzone">
+  <div class="dz-icon">📄</div>
+  <div class="dz-title">Drag a PDF or image here, or click to choose</div>
+  <div class="dz-sub">PDF · PNG · JPEG · WebP — up to 15 MB. Scans are read with OCR.</div>
+  <input type="file" id="file" accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none;">
+</div>
+
+<div id="upload-status" style="margin-top: 16px;"></div>
+<div id="upload-result" style="margin-top: 18px;"></div>
+
+{% if walkthroughs %}
+<div class="section-head">
+  <h2>Guided walkthroughs</h2>
+  <span class="tag">{{ walkthroughs | length }} paper{{ '' if walkthroughs | length == 1 else 's' }}</span>
+</div>
+<div class="wt-list fade-up">
+  {% for w in walkthroughs %}
+  <a class="wt-row" href="{{ url_for('walkthrough', wt_id=w.id) }}">
+    <span class="wt-file">{{ w.filename }}</span>
+    <span class="wt-state">{{ subject_name(w.subject) }} ·
+      {% if w.status == 'done' %}all {{ w.total }} questions covered{% else %}question {{ w.idx + 1 }} of {{ w.total }}{% endif %}</span>
+    <span class="chip {{ 'correct' if w.status == 'done' else 'err' }}">{{ 'done' if w.status == 'done' else 'resume →' }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="section-head">
+  <h2>Previously analysed</h2>
+  <span class="tag">{{ documents | length }} document{{ '' if documents | length == 1 else 's' }}</span>
+</div>
+
+{% for d in documents %}
+<div class="doc-card glass fade-up">
+  <div class="d-head">
+    <span class="d-title">{{ d.filename }}</span>
+    <span class="chip {{ 'correct' if d.status == 'done' else 'err' }}">{{ d.status }}</span>
+    <span class="tr-form">{{ subject_name(d.subject) }}</span>
+    {% if d.pages %}<span class="tr-form">{{ d.pages }} pages</span>{% endif %}
+  </div>
+  {% if d.analysis %}
+    {% if d.analysis.summary %}<div class="d-sum">{{ d.analysis.summary }}</div>{% endif %}
+    {% if d.analysis.topics %}
+    <div class="d-topics">
+      {% for t in d.analysis.topics %}
+      <span class="mini-chip {{ 'ok' if t.covered else '' }}">{{ topic_name(d.subject, t.slug) }}{% if t.questions_found %} · {{ t.questions_found }}q{% endif %}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% else %}
+<div class="empty">Nothing analysed yet — upload your first paper above.</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const dz = document.getElementById("dropzone");
+  const input = document.getElementById("file");
+  const status = document.getElementById("upload-status");
+  const result = document.getElementById("upload-result");
+  const subjectSel = document.getElementById("subject");
+
+  dz.addEventListener("click", () => input.click());
+  ["dragenter", "dragover"].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("drag"); }));
+  ["dragleave", "drop"].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("drag"); }));
+  dz.addEventListener("drop", e => {
+    if (e.dataTransfer.files.length) { input.files = e.dataTransfer.files; upload(); }
+  });
+  input.addEventListener("change", () => { if (input.files.length) upload(); });
+
+  async function upload() {
+    const file = input.files[0];
+    if (!file) return;
+    const mode = (document.querySelector('input[name="mode"]:checked') || {}).value || "analyse";
+    const fd = new FormData();
+    fd.append("subject", subjectSel.value);
+    fd.append("file", file);
+    status.innerHTML = mode === "walkthrough"
+      ? '<div class="loading-block"><span class="spinner"></span>Reading every question on your paper… this can take a minute.</div>'
+      : '<div class="loading-block"><span class="spinner"></span>Reading your paper… this can take up to a minute.</div>';
+    result.innerHTML = "";
+    try {
+      const resp = await fetch(mode === "walkthrough" ? "/api/walkthrough" : "/api/upload", { method: "POST", body: fd });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Upload failed");
+      if (mode === "walkthrough") { window.location.href = "/walkthrough/" + data.id; return; }
+      status.innerHTML = "";
+      result.innerHTML = renderAnalysis(data.analysis);
+      input.value = "";
+      setTimeout(() => location.reload(), 1600);
+    } catch (err) {
+      status.innerHTML = '<div class="banner">⚠ ' + err.message + "</div>";
+    }
+  }
+
+  function esc(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+
+  function renderAnalysis(a) {
+    if (!a) return "";
+    let html = '<div class="doc-card glass"><div class="d-head"><span class="d-title">' +
+      esc(a.title || "Analysis complete") + '</span><span class="chip correct">done</span></div>';
+    if (a.summary) html += '<div class="d-sum">' + esc(a.summary) + "</div>";
+    if (a.topics && a.topics.length) {
+      html += '<div class="d-topics">';
+      for (const t of a.topics) {
+        html += '<span class="mini-chip ' + (t.covered ? "ok" : "") + '">' + esc(t.name || t.slug) +
+          (t.questions_found ? " · " + t.questions_found + "q" : "") + "</span>";
+      }
+      html += "</div>";
+    }
+    if (a.findings && a.findings.length) {
+      html += '<div class="d-sum" style="margin-top:10px;">Folded ' + a.findings.length +
+        " graded finding(s) into your profile.</div>";
+    }
+    html += "</div>";
+    return html;
+  }
+})();
+</script>
+{% endblock %}

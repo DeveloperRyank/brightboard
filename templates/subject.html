@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ subject.name }} — Brightboard{% endblock %}
+{% block content %}
+<div class="hero fade-up">
+  <div class="eyebrow"><a href="{{ url_for('index') }}" style="color: var(--cyan);">← All subjects</a></div>
+  <h1>{{ subject.icon }} {{ subject.name }}</h1>
+  <p>{{ topics | length }} topics in the {{ subject.name }} syllabus.</p>
+</div>
+
+{% if not has_data %}
+<div class="gate-note fade-up">
+  This subject isn't wired to a question bank yet, so lessons and the Exam Center are locked.
+  Add real questions at <code>data/{{ subject.slug }}/questions.csv</code> (columns
+  <code>question,topic</code>) and every topic below unlocks automatically.
+</div>
+{% endif %}
+
+{% if recommendation and has_data %}
+<div class="rec-card fade-up">
+  <div class="target">🎯</div>
+  <div class="rec-text">
+    Start with
+    {% if recommendation.concept_name %}
+      <strong>{{ recommendation.concept_name }}</strong> in {{ recommendation.topic_name }}
+    {% else %}
+      <strong>{{ recommendation.topic_name }}</strong>
+    {% endif %}
+    {% if recommendation.score is not none %}
+      — mastery {{ (recommendation.score * 100) | round | int }}%
+    {% endif %}
+  </div>
+  <a class="btn gradient" href="{{ url_for('lesson', subject=subject.slug, topic=recommendation.topic) }}">Study it now</a>
+</div>
+{% endif %}
+
+<div class="section-head" style="--accent: {{ subject.accent }};">
+  <h2>Topics</h2>
+  <span class="tag">Lesson = animated whiteboard · Exam Center = real past-paper questions</span>
+</div>
+
+<div class="topic-list" style="--accent: {{ subject.accent }};">
+  {% for t in topics %}
+  <div class="topic-row fade-up {{ '' if t.ready else 'locked' }}">
+    <div class="tr-main">
+      <div class="tr-name">{{ t.name }}</div>
+      <div class="tr-sub">
+        {% if t.ready %}
+          {{ t.count }} question{{ '' if t.count == 1 else 's' }}
+          {%- if t.answers %} · {{ t.answers }} answered{% endif %}
+          {%- if t.concepts %} · {{ t.concepts }} concept{{ '' if t.concepts == 1 else 's' }} tracked{% endif %}
+          {%- if t.weakest %} · weakest: {{ t.weakest }} ({{ (t.weakest_p * 100) | round | int }}%){% endif %}
+        {% else %}
+          No questions yet — locked
+        {% endif %}
+      </div>
+    </div>
+    {% if t.form %}<span class="tr-form">{{ t.form }}</span>{% endif %}
+    {% if t.score is not none %}
+    <div class="tr-mastery">
+      <div class="bar"><div style="width: {{ (t.score * 100) | round | int }}%; background: {% if t.score < 0.4 %}var(--red){% elif t.score < 0.7 %}var(--amber){% else %}var(--green){% endif %};"></div></div>
+      <div class="tr-sub mono" style="text-align:right; margin-top:4px;">{{ (t.score * 100) | round | int }}%</div>
+    </div>
+    {% endif %}
+    <div class="tr-actions">
+      {% if t.ready %}
+      <a class="btn small" href="{{ url_for('lesson', subject=subject.slug, topic=t.slug) }}">Lesson</a>
+      <a class="btn small ghost" href="{{ url_for('exam', subject=subject.slug, topic=t.slug) }}">Exam Center</a>
+      {% else %}
+      <span class="chip err">Locked</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

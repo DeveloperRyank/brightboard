@@ -1,0 +1,58 @@
+{
+  "electrochemistry": [
+    {
+      "slug": "electrical_conduction_in_substances",
+      "name": "Electrical Conduction in Substances"
+    },
+    {
+      "slug": "electrolysis_of_solutions",
+      "name": "Electrolysis of Solutions"
+    },
+    {
+      "slug": "faradays_laws_and_calculations",
+      "name": "Faraday's Laws and Quantitative Electrolysis"
+    },
+    {
+      "slug": "applications_of_electrolysis",
+      "name": "Applications of Electrolysis"
+    },
+    {
+      "slug": "standard_electrode_potentials",
+      "name": "Standard Electrode Potentials"
+    },
+    {
+      "slug": "electrochemical_cells",
+      "name": "Electrochemical Cells and Notation"
+    },
+    {
+      "slug": "applications_of_electrochemical_cells",
+      "name": "Applications of Potentials and Corrosion"
+    }
+  ],
+  "extraction_of_metals": [
+    {
+      "slug": "ores_and_pretreatment",
+      "name": "Ores and Pre-treatment"
+    },
+    {
+      "slug": "extraction_of_sodium",
+      "name": "Extraction of Sodium (Down's Process)"
+    },
+    {
+      "slug": "extraction_of_aluminium",
+      "name": "Extraction of Aluminium (Hall-Héroult Process)"
+    },
+    {
+      "slug": "extraction_of_copper",
+      "name": "Extraction of Copper"
+    },
+    {
+      "slug": "refining_of_copper",
+      "name": "Purification and Refining of Copper"
+    },
+    {
+      "slug": "uses_and_corrosion_of_metals",
+      "name": "Uses and Corrosion of Metals"
+    }
+  ]
+}

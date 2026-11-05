@@ -1,0 +1,8 @@
+.env
+.secret_key
+__pycache__/
+*.pyc
+*.db
+models/
+data/tts_cache/
+*.log
