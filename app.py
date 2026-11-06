@@ -23,12 +23,18 @@ import profile
 import tutor
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024  # 15 MB upload cap (Gemini inline limit ~20 MB)
+# Uploads travel inline to Gemini, and a deployed function only accepts a 4.5 MB request
+# body, so MAX_UPLOAD_MB caps the form below whichever limit applies.
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB") or 15) * 1024 * 1024
 
 
 def _load_secret_key():
     """Persist a random secret across restarts so signed session cookies (the logged-in
-    account) survive a server reload. Stored in .secret_key, which is git-ignored."""
+    account) survive a server reload. Deployments set SESSION_SECRET; a local run keeps
+    it in .secret_key, which is git-ignored."""
+    key = (os.environ.get("SESSION_SECRET") or "").strip()
+    if key:
+        return key
     path = os.path.join(os.path.dirname(__file__), ".secret_key")
     try:
         with open(path, "r", encoding="utf-8") as fh:
@@ -49,7 +55,7 @@ app.secret_key = _load_secret_key()
 @app.before_request
 def _bind_current_student():
     """Every profile read/write defaults to the logged-in account for this request.
-    Background threads pass an explicit sid instead (see start_generation)."""
+    Jobs that outlive the request capture the sid explicitly instead."""
     profile.set_current(session.get("sid"))
 
 ALLOWED_UPLOAD_MIME = {
@@ -60,13 +66,14 @@ ALLOWED_UPLOAD_MIME = {
     "image/webp": "image/webp",
 }
 
-# Background lesson generation: one in-flight job per subject:topic, page never blocks.
-GEN_LOCK = threading.Lock()
-GEN_STATE = {}  # "subject:topic" -> None | "generating" | "error: ..."
+# Lesson generation is the slow part of the app: one long LLM call per topic. The work
+# runs inside the request that asks for it (see lesson_state), and gen_jobs in the
+# database is what stops the next poll from doing the same lesson twice.
 
 
-def _gkey(subject, topic):
-    return f"{subject}:{topic}"
+def _gkey(subject, topic, sid=None):
+    sid = sid if sid is not None else profile.current_sid()
+    return f"{sid}|{subject}:{topic}"
 
 
 def topic_ready(subject, topic):
@@ -93,58 +100,46 @@ def _prefetch_narration(lesson):
         llm.prefetch_narration([s.get("narration") for s in lesson.get("steps", [])])
 
 
-def start_generation(subject, topic, sid=None):
-    key = _gkey(subject, topic)
-    with GEN_LOCK:
-        if GEN_STATE.get(key) == "generating":
-            return False
-        GEN_STATE[key] = "generating"
-
-    # Capture the account now; the worker runs on another thread where the
-    # request-scoped current student is gone.
+def generate_lesson(subject, topic, sid=None):
+    """Build one lesson and cache it. Raises if the model can't deliver."""
     sid = sid if sid is not None else profile.current_sid()
-
-    def work():
-        try:
-            questions = classifier.questions_for_topic(subject, topic)
-            examples = [q["question"] for q in questions]
-            lesson = tutor.generate_lesson(
-                subject, topic, examples, adapt_context(subject, topic, sid),
-                concept_list=concepts.concepts_for(subject, topic) or None,
-            )
-            profile.save_lesson(subject, topic, lesson,
-                                _lesson_sig(subject, topic, sid), sid=sid)
-            _prefetch_narration(lesson)
-            with GEN_LOCK:
-                GEN_STATE[key] = None
-        except Exception as exc:
-            with GEN_LOCK:
-                GEN_STATE[key] = f"error: {exc}"
-
-    threading.Thread(target=work, daemon=True).start()
-    return True
+    questions = classifier.questions_for_topic(subject, topic)
+    lesson = tutor.generate_lesson(
+        subject, topic, [q["question"] for q in questions],
+        adapt_context(subject, topic, sid),
+        concept_list=concepts.concepts_for(subject, topic) or None,
+    )
+    profile.save_lesson(subject, topic, lesson,
+                        _lesson_sig(subject, topic, sid), sid=sid)
+    _prefetch_narration(lesson)
+    return lesson
 
 
-def lesson_state(subject, topic):
-    """(status, error, cached_lesson). Kicks off background generation when the cache
-    is missing or stale so the page shows a loading screen instead of blocking."""
+def lesson_state(subject, topic, work=False):
+    """(status, error, cached_lesson) for the loading screen.
+
+    work=False (the page render) only queues the job, so the screen appears at once.
+    work=True (the status poll) may spend its request generating, and claiming the job
+    in gen_jobs is what keeps the overlapping polls from each generating the same
+    lesson."""
     cached, cached_sig = profile.load_lesson(subject, topic)
-    sig = _lesson_sig(subject, topic)
-    key = _gkey(subject, topic)
-    with GEN_LOCK:
-        state = GEN_STATE.get(key)
-    if state == "generating":
-        return "generating", None, cached
-    if state and state.startswith("error:"):
-        if cached is not None and cached_sig == sig:
-            with GEN_LOCK:
-                GEN_STATE[key] = None
-            return "ready", None, cached
-        return "error", state[len("error:"):].strip(), cached
-    if cached is not None and cached_sig == sig:
+    if cached is not None and cached_sig == _lesson_sig(subject, topic):
         return "ready", None, cached
-    start_generation(subject, topic)
-    return "generating", None, cached
+    key = _gkey(subject, topic)
+    status, error = profile.generation_state(key)
+    if status == "error":
+        return "error", error, cached
+    profile.queue_generation(key)
+    if not work or not profile.claim_generation(key):
+        return "generating", None, cached
+    try:
+        lesson = generate_lesson(subject, topic)
+    except Exception as exc:
+        message = str(exc).strip()
+        profile.finish_generation(key, error=message)
+        return "error", message, cached
+    profile.finish_generation(key)
+    return "ready", None, lesson
 
 
 def adapt_context(subject, topic, sid=None):
@@ -475,7 +470,7 @@ def lesson(subject, topic):
 
 @app.route("/api/lesson/<subject>/<topic>/status")
 def lesson_status(subject, topic):
-    status, error, _ = lesson_state(subject, topic)
+    status, error, _ = lesson_state(subject, topic, work=True)
     return jsonify({"status": status, "error": error})
 
 
@@ -491,7 +486,8 @@ def lesson_data(subject, topic):
 def regenerate_lesson(subject, topic):
     if not topic_ready(subject, topic):
         return jsonify({"error": "Unknown topic"}), 404
-    start_generation(subject, topic)
+    profile.clear_lesson(subject, topic)
+    profile.queue_generation(_gkey(subject, topic))
     return jsonify({"started": True})
 
 
@@ -746,44 +742,40 @@ def submit_test():
         return jsonify({"error": "No answers to mark"}), 400
 
     job_id = profile.create_grading_job(sid, subject, topic, answers)
-    start_grading(job_id, sid, subject, topic, answers,
-                  valid_keys=_all_valid_keys(current_curriculum()))
     return jsonify({"job_id": job_id})
 
 
-def start_grading(job_id, sid, subject, topic, answers, valid_keys=None):
-    def work():
-        try:
-            verdicts = tutor.grade_answers(
-                subject, topic,
-                [{"question": a["question"], "answer": a["answer"]} for a in answers],
+def run_grading(job_id, sid, subject, topic, answers, valid_keys=None):
+    """Mark the whole set in one LLM call and store the verdicts on the job."""
+    try:
+        verdicts = tutor.grade_answers(
+            subject, topic,
+            [{"question": a["question"], "answer": a["answer"]} for a in answers],
+        )
+        results = []
+        for a, verdict in zip(answers, verdicts):
+            p = profile.record_answer(
+                subject, topic, verdict["correct"], verdict["error_type"],
+                concept=a["concept"], question=a["question"], answer=a["answer"],
+                feedback=verdict["teacher_note"], sid=sid,
             )
-            results = []
-            for a, verdict in zip(answers, verdicts):
-                p = profile.record_answer(
-                    subject, topic, verdict["correct"], verdict["error_type"],
-                    concept=a["concept"], question=a["question"], answer=a["answer"],
-                    feedback=verdict["teacher_note"], sid=sid,
-                )
-                results.append({
-                    **a, **verdict, "p": p,
-                    "concept_name": (concepts.concept_name(subject, topic, a["concept"])
-                                     if a["concept"] else None),
-                })
-            profile.finish_grading_job(job_id, {
-                "subject": subject,
-                "topic": topic,
-                "topic_name": curriculum.topic_name(subject, topic),
-                "mastery": profile.topic_mean_p(subject, topic, sid),
-                "results": results,
-                "concepts": [c for c in _concept_rows(subject, sid) if c["topic"] == topic],
-                "recommendation": _named_rec(
-                    profile.recommend_next(subject, valid_keys=valid_keys, sid=sid)),
+            results.append({
+                **a, **verdict, "p": p,
+                "concept_name": (concepts.concept_name(subject, topic, a["concept"])
+                                 if a["concept"] else None),
             })
-        except Exception as exc:
-            profile.finish_grading_job(job_id, {"error": str(exc)}, status="error")
-
-    threading.Thread(target=work, daemon=True).start()
+        profile.finish_grading_job(job_id, {
+            "subject": subject,
+            "topic": topic,
+            "topic_name": curriculum.topic_name(subject, topic),
+            "mastery": profile.topic_mean_p(subject, topic, sid),
+            "results": results,
+            "concepts": [c for c in _concept_rows(subject, sid) if c["topic"] == topic],
+            "recommendation": _named_rec(
+                profile.recommend_next(subject, valid_keys=valid_keys, sid=sid)),
+        })
+    except Exception as exc:
+        profile.finish_grading_job(job_id, {"error": str(exc)}, status="error")
 
 
 @app.route("/api/results/<int:job_id>")
@@ -791,6 +783,12 @@ def results_data(job_id):
     job = profile.get_grading_job(job_id, session.get("sid"))
     if job is None:
         return jsonify({"error": "Not found"}), 404
+    # Nothing marks the paper on a background thread here, so whichever poll claims the
+    # job first does the marking inside its own request (see profile.claim_grading_job).
+    if job["status"] in ("grading", "running") and profile.claim_grading_job(job_id):
+        run_grading(job_id, job["student_id"], job["subject"], job["topic"], job["payload"],
+                    valid_keys=_all_valid_keys(current_curriculum()))
+        job = profile.get_grading_job(job_id, session.get("sid"))
     return jsonify({"status": job["status"], "result": job["result"],
                     "done": job["status"] in ("done", "error")})
 

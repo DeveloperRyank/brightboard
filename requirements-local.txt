@@ -1,0 +1,7 @@
+# Local extras on top of requirements.txt: the Kokoro-82M narrator. It needs ~330 MB of
+# ONNX model files in models/, which cannot ship inside a serverless function, so these
+# stay out of requirements.txt and the deployed app uses the hosted voices instead.
+#   python -m pip install -r requirements-local.txt
+-r requirements.txt
+kokoro-onnx
+soundfile

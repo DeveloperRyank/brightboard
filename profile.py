@@ -23,12 +23,18 @@ jobs pass an explicit sid.
 """
 
 import json
+import os
 import sqlite3
 import threading
 import time
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent / "profile.db"
+
+# The deployment (Vercel) sets DATABASE_URL and gets Postgres; a local run with no
+# such variable keeps the SQLite file so the app still works offline.
+DATABASE_URL = (os.environ.get("DATABASE_URL", "") or "").strip()
+PG = bool(DATABASE_URL)
 
 # Standard BKT starting values.
 P_INIT = 0.3
@@ -74,183 +80,271 @@ def _split(key):
     return subject, topic
 
 
+class _Sqlite:
+    def __init__(self):
+        self._c = sqlite3.connect(DB_PATH)
+        self._c.row_factory = sqlite3.Row
+
+    def execute(self, sql, params=()):
+        return self._c.execute(sql, params)
+
+    def insert(self, sql, params=()):
+        """Run an INSERT into a table with a surrogate id column, return that id."""
+        return self._c.execute(sql, params).lastrowid
+
+    def script(self, ddl):
+        self._c.executescript(ddl)
+
+    def tables(self):
+        return {r["name"] for r in
+                self._c.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+
+    def columns(self, table):
+        return {r["name"] for r in self._c.execute(f"PRAGMA table_info({table})")}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self._c.commit()
+        else:
+            self._c.rollback()
+        self._c.close()
+        return False
+
+
+class _Postgres:
+    """Same small API as _Sqlite so the queries below stay dialect-agnostic: '?'
+    markers, dict rows, last-insert-id helper, and schema introspection."""
+
+    def __init__(self):
+        import psycopg
+        from psycopg.rows import dict_row
+        # One connection per operation — these instances are short-lived and Neon's
+        # pooler is what keeps the real backend connections warm.
+        self._c = psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=10)
+
+    def execute(self, sql, params=()):
+        return self._c.execute(sql.replace("?", "%s"), params)
+
+    def insert(self, sql, params=()):
+        return self.execute(sql + " RETURNING id", params).fetchone()["id"]
+
+    def script(self, ddl):
+        for stmt in (s.strip() for s in ddl.split(";")):
+            if stmt:
+                self._c.execute(stmt)
+
+    def tables(self):
+        return {r["table_name"] for r in self._c.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = current_schema").fetchall()}
+
+    def columns(self, table):
+        return {r["column_name"] for r in self._c.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = current_schema AND table_name = %s",
+            (table,)).fetchall()}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self._c.commit()
+        else:
+            self._c.rollback()
+        self._c.close()
+        return False
+
+
 def _conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return _Postgres() if PG else _Sqlite()
+
+
+# One schema, two renderings: {IDCOL} and {NUM} expand to the dialect's auto-increment
+# id column and 8-byte float (Postgres REAL is only 4 bytes, which would quietly round
+# off timestamps and BKT probabilities).
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS students (
+    {IDCOL},
+    name TEXT NOT NULL,
+    grade TEXT NOT NULL,
+    struggles TEXT NOT NULL DEFAULT '[]',
+    confidence TEXT,
+    style TEXT,
+    curriculum TEXT NOT NULL DEFAULT 'kcse',
+    created_at {NUM} NOT NULL
+);
+CREATE TABLE IF NOT EXISTS concept_mastery (
+    student_id INTEGER NOT NULL,
+    topic TEXT NOT NULL,
+    concept TEXT NOT NULL,
+    p {NUM} NOT NULL,
+    answers INTEGER NOT NULL DEFAULT 0,
+    updated_at {NUM} NOT NULL,
+    PRIMARY KEY (student_id, topic, concept)
+);
+CREATE TABLE IF NOT EXISTS topic_seed (
+    student_id INTEGER NOT NULL,
+    topic TEXT NOT NULL,
+    score {NUM} NOT NULL,
+    PRIMARY KEY (student_id, topic)
+);
+CREATE TABLE IF NOT EXISTS history (
+    {IDCOL},
+    student_id INTEGER NOT NULL,
+    ts {NUM} NOT NULL,
+    topic TEXT NOT NULL,
+    concept TEXT,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    correct INTEGER NOT NULL,
+    error_type TEXT,
+    feedback TEXT
+);
+CREATE TABLE IF NOT EXISTS error_tally (
+    student_id INTEGER NOT NULL,
+    topic TEXT NOT NULL,
+    concept TEXT NOT NULL,
+    error_type TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (student_id, topic, concept, error_type)
+);
+CREATE TABLE IF NOT EXISTS lessons (
+    student_id INTEGER NOT NULL,
+    topic TEXT NOT NULL,
+    lesson_json TEXT NOT NULL,
+    created_at {NUM} NOT NULL,
+    profile_sig TEXT,
+    PRIMARY KEY (student_id, topic)
+);
+CREATE TABLE IF NOT EXISTS documents (
+    {IDCOL},
+    student_id INTEGER NOT NULL,
+    ts {NUM} NOT NULL,
+    subject TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    pages INTEGER,
+    analysis_json TEXT,
+    status TEXT NOT NULL DEFAULT 'analyzing'
+);
+CREATE TABLE IF NOT EXISTS walkthroughs (
+    {IDCOL},
+    student_id INTEGER NOT NULL,
+    subject TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    questions_json TEXT NOT NULL,
+    idx INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at {NUM} NOT NULL
+);
+CREATE TABLE IF NOT EXISTS grading_jobs (
+    {IDCOL},
+    student_id INTEGER NOT NULL,
+    subject TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'grading',
+    result_json TEXT,
+    created_at {NUM} NOT NULL,
+    finished_at {NUM}
+);
+CREATE TABLE IF NOT EXISTS gen_jobs (
+    key TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    error TEXT,
+    updated_at {NUM} NOT NULL
+);
+"""
+
+_IDCOL = {"sqlite": "id INTEGER PRIMARY KEY AUTOINCREMENT", "pg": "id SERIAL PRIMARY KEY"}
+
+
+def _render(ddl):
+    idcol = _IDCOL["pg" if PG else "sqlite"]
+    num = "DOUBLE PRECISION" if PG else "REAL"
+    return [s.strip().replace("{IDCOL}", idcol).replace("{NUM}", num)
+            for s in ddl.split(";") if s.strip()]
 
 
 def init_db():
     with _conn() as c:
-        c.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS students (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                grade TEXT NOT NULL,
-                struggles TEXT NOT NULL DEFAULT '[]',
-                confidence TEXT,
-                style TEXT,
-                curriculum TEXT NOT NULL DEFAULT 'kcse',
-                created_at REAL NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS concept_mastery (
-                student_id INTEGER NOT NULL,
-                topic TEXT NOT NULL,
-                concept TEXT NOT NULL,
-                p REAL NOT NULL,
-                answers INTEGER NOT NULL DEFAULT 0,
-                updated_at REAL NOT NULL,
-                PRIMARY KEY (student_id, topic, concept)
-            );
-            CREATE TABLE IF NOT EXISTS topic_seed (
-                student_id INTEGER NOT NULL,
-                topic TEXT NOT NULL,
-                score REAL NOT NULL,
-                PRIMARY KEY (student_id, topic)
-            );
-            CREATE TABLE IF NOT EXISTS history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id INTEGER NOT NULL,
-                ts REAL NOT NULL,
-                topic TEXT NOT NULL,
-                concept TEXT,
-                question TEXT NOT NULL,
-                answer TEXT NOT NULL,
-                correct INTEGER NOT NULL,
-                error_type TEXT,
-                feedback TEXT
-            );
-            CREATE TABLE IF NOT EXISTS error_tally (
-                student_id INTEGER NOT NULL,
-                topic TEXT NOT NULL,
-                concept TEXT NOT NULL,
-                error_type TEXT NOT NULL,
-                count INTEGER NOT NULL DEFAULT 0,
-                PRIMARY KEY (student_id, topic, concept, error_type)
-            );
-            CREATE TABLE IF NOT EXISTS lessons (
-                student_id INTEGER NOT NULL,
-                topic TEXT NOT NULL,
-                lesson_json TEXT NOT NULL,
-                created_at REAL NOT NULL,
-                profile_sig TEXT,
-                PRIMARY KEY (student_id, topic)
-            );
-            CREATE TABLE IF NOT EXISTS documents (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id INTEGER NOT NULL,
-                ts REAL NOT NULL,
-                subject TEXT NOT NULL,
-                filename TEXT NOT NULL,
-                pages INTEGER,
-                analysis_json TEXT,
-                status TEXT NOT NULL DEFAULT 'analyzing'
-            );
-            CREATE TABLE IF NOT EXISTS walkthroughs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id INTEGER NOT NULL,
-                subject TEXT NOT NULL,
-                filename TEXT NOT NULL,
-                questions_json TEXT NOT NULL,
-                idx INTEGER NOT NULL DEFAULT 0,
-                status TEXT NOT NULL DEFAULT 'active',
-                created_at REAL NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS grading_jobs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id INTEGER NOT NULL,
-                subject TEXT NOT NULL,
-                topic TEXT NOT NULL,
-                payload_json TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'grading',
-                result_json TEXT,
-                created_at REAL NOT NULL,
-                finished_at REAL
-            );
-            """
-        )
-        cols = [r["name"] for r in c.execute("PRAGMA table_info(students)")]
-        if "curriculum" not in cols:
+        for stmt in _render(_SCHEMA):
+            c.script(stmt)
+        if "curriculum" not in c.columns("students"):
             c.execute("ALTER TABLE students ADD COLUMN curriculum TEXT NOT NULL DEFAULT 'kcse'")
+        if PG:
+            return  # every legacy migration below upgrades an old local SQLite file
         _migrate_multi_student(c)
         _migrate_legacy_keys(c)
         _migrate_concept_schema(c)
 
 
 def _tables(c):
-    return {r["name"] for r in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    return c.tables()
 
 
 def _migrate_multi_student(c):
     """Single-student schema -> per-student rows. Old data all belongs to account 1."""
     tables = _tables(c)
-    if "mastery" in tables:
-        cols = [r["name"] for r in c.execute("PRAGMA table_info(mastery)")]
-        if "student_id" not in cols:
-            c.executescript(
-                """
-                CREATE TABLE mastery_new (
-                    student_id INTEGER NOT NULL, topic TEXT NOT NULL,
-                    score REAL NOT NULL, answers INTEGER NOT NULL DEFAULT 0,
-                    PRIMARY KEY (student_id, topic)
-                );
-                INSERT INTO mastery_new (student_id, topic, score, answers)
-                    SELECT 1, topic, score, answers FROM mastery;
-                DROP TABLE mastery;
-                ALTER TABLE mastery_new RENAME TO mastery;
-                """
-            )
-    if "history" in tables:
-        cols = [r["name"] for r in c.execute("PRAGMA table_info(history)")]
-        if "student_id" not in cols:
-            c.executescript(
-                """
-                CREATE TABLE history_new (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER NOT NULL,
-                    ts REAL NOT NULL, topic TEXT NOT NULL, question TEXT NOT NULL,
-                    answer TEXT NOT NULL, correct INTEGER NOT NULL, error_type TEXT, feedback TEXT
-                );
-                INSERT INTO history_new (student_id, ts, topic, question, answer, correct, error_type, feedback)
-                    SELECT 1, ts, topic, question, answer, correct, error_type, feedback FROM history;
-                DROP TABLE history;
-                ALTER TABLE history_new RENAME TO history;
-                """
-            )
-    if "error_tally" in tables:
-        cols = [r["name"] for r in c.execute("PRAGMA table_info(error_tally)")]
-        if "student_id" not in cols:
-            c.executescript(
-                """
-                CREATE TABLE error_tally_new (
-                    student_id INTEGER NOT NULL, topic TEXT NOT NULL, error_type TEXT NOT NULL,
-                    count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (student_id, topic, error_type)
-                );
-                INSERT INTO error_tally_new (student_id, topic, error_type, count)
-                    SELECT 1, topic, error_type, count FROM error_tally;
-                DROP TABLE error_tally;
-                ALTER TABLE error_tally_new RENAME TO error_tally;
-                """
-            )
-    if "lessons" in tables:
-        cols = [r["name"] for r in c.execute("PRAGMA table_info(lessons)")]
-        if "student_id" not in cols:
-            c.executescript(
-                """
-                CREATE TABLE lessons_new (
-                    student_id INTEGER NOT NULL, topic TEXT NOT NULL, lesson_json TEXT NOT NULL,
-                    created_at REAL NOT NULL, profile_sig TEXT, PRIMARY KEY (student_id, topic)
-                );
-                INSERT INTO lessons_new (student_id, topic, lesson_json, created_at, profile_sig)
-                    SELECT 1, topic, lesson_json, created_at, profile_sig FROM lessons;
-                DROP TABLE lessons;
-                ALTER TABLE lessons_new RENAME TO lessons;
-                """
-            )
-    if "documents" in tables:
-        cols = [r["name"] for r in c.execute("PRAGMA table_info(documents)")]
-        if "student_id" not in cols:
-            c.execute("ALTER TABLE documents ADD COLUMN student_id INTEGER NOT NULL DEFAULT 1")
+    if "mastery" in tables and "student_id" not in c.columns("mastery"):
+        c.script(
+            """
+            CREATE TABLE mastery_new (
+                student_id INTEGER NOT NULL, topic TEXT NOT NULL,
+                score REAL NOT NULL, answers INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (student_id, topic)
+            );
+            INSERT INTO mastery_new (student_id, topic, score, answers)
+                SELECT 1, topic, score, answers FROM mastery;
+            DROP TABLE mastery;
+            ALTER TABLE mastery_new RENAME TO mastery;
+            """
+        )
+    if "history" in tables and "student_id" not in c.columns("history"):
+        c.script(
+            """
+            CREATE TABLE history_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER NOT NULL,
+                ts REAL NOT NULL, topic TEXT NOT NULL, question TEXT NOT NULL,
+                answer TEXT NOT NULL, correct INTEGER NOT NULL, error_type TEXT, feedback TEXT
+            );
+            INSERT INTO history_new (student_id, ts, topic, question, answer, correct, error_type, feedback)
+                SELECT 1, ts, topic, question, answer, correct, error_type, feedback FROM history;
+            DROP TABLE history;
+            ALTER TABLE history_new RENAME TO history;
+            """
+        )
+    if "error_tally" in tables and "student_id" not in c.columns("error_tally"):
+        c.script(
+            """
+            CREATE TABLE error_tally_new (
+                student_id INTEGER NOT NULL, topic TEXT NOT NULL, error_type TEXT NOT NULL,
+                count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (student_id, topic, error_type)
+            );
+            INSERT INTO error_tally_new (student_id, topic, error_type, count)
+                SELECT 1, topic, error_type, count FROM error_tally;
+            DROP TABLE error_tally;
+            ALTER TABLE error_tally_new RENAME TO error_tally;
+            """
+        )
+    if "lessons" in tables and "student_id" not in c.columns("lessons"):
+        c.script(
+            """
+            CREATE TABLE lessons_new (
+                student_id INTEGER NOT NULL, topic TEXT NOT NULL, lesson_json TEXT NOT NULL,
+                created_at REAL NOT NULL, profile_sig TEXT, PRIMARY KEY (student_id, topic)
+            );
+            INSERT INTO lessons_new (student_id, topic, lesson_json, created_at, profile_sig)
+                SELECT 1, topic, lesson_json, created_at, profile_sig FROM lessons;
+            DROP TABLE lessons;
+            ALTER TABLE lessons_new RENAME TO lessons;
+            """
+        )
+    if "documents" in tables and "student_id" not in c.columns("documents"):
+        c.execute("ALTER TABLE documents ADD COLUMN student_id INTEGER NOT NULL DEFAULT 1")
 
     if "student" in tables:
         for row in c.execute("SELECT name, grade, struggles, created_at FROM student").fetchall():
@@ -304,37 +398,33 @@ def _migrate_concept_schema(c):
     only to initialise concepts the student has not answered yet.
     """
     tables = _tables(c)
-    if "history" in tables:
-        cols = [r["name"] for r in c.execute("PRAGMA table_info(history)")]
-        if "concept" not in cols:
-            c.executescript(
-                """
-                CREATE TABLE history_new (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER NOT NULL,
-                    ts REAL NOT NULL, topic TEXT NOT NULL, concept TEXT,
-                    question TEXT NOT NULL, answer TEXT NOT NULL, correct INTEGER NOT NULL,
-                    error_type TEXT, feedback TEXT
-                );
-                INSERT INTO history_new (student_id, ts, topic, concept, question, answer, correct, error_type, feedback)
-                    SELECT student_id, ts, topic, NULL, question, answer, correct, error_type, feedback FROM history;
-                DROP TABLE history;
-                ALTER TABLE history_new RENAME TO history;
-                """
-            )
-    if "error_tally" in tables:
-        cols = [r["name"] for r in c.execute("PRAGMA table_info(error_tally)")]
-        if "concept" not in cols:
-            c.executescript(
-                """
-                CREATE TABLE error_tally_new (
-                    student_id INTEGER NOT NULL, topic TEXT NOT NULL, concept TEXT NOT NULL,
-                    error_type TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0,
-                    PRIMARY KEY (student_id, topic, concept, error_type)
-                );
-                DROP TABLE error_tally;
-                ALTER TABLE error_tally_new RENAME TO error_tally;
-                """
-            )
+    if "history" in tables and "concept" not in c.columns("history"):
+        c.script(
+            """
+            CREATE TABLE history_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER NOT NULL,
+                ts REAL NOT NULL, topic TEXT NOT NULL, concept TEXT,
+                question TEXT NOT NULL, answer TEXT NOT NULL, correct INTEGER NOT NULL,
+                error_type TEXT, feedback TEXT
+            );
+            INSERT INTO history_new (student_id, ts, topic, concept, question, answer, correct, error_type, feedback)
+                SELECT student_id, ts, topic, NULL, question, answer, correct, error_type, feedback FROM history;
+            DROP TABLE history;
+            ALTER TABLE history_new RENAME TO history;
+            """
+        )
+    if "error_tally" in tables and "concept" not in c.columns("error_tally"):
+        c.script(
+            """
+            CREATE TABLE error_tally_new (
+                student_id INTEGER NOT NULL, topic TEXT NOT NULL, concept TEXT NOT NULL,
+                error_type TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (student_id, topic, concept, error_type)
+            );
+            DROP TABLE error_tally;
+            ALTER TABLE error_tally_new RENAME TO error_tally;
+            """
+        )
     if "mastery" in tables:
         c.execute(
             "INSERT OR IGNORE INTO topic_seed (student_id, topic, score) "
@@ -538,12 +628,11 @@ def recommend_next(subject=None, valid_keys=None, sid=None):
 
 def create_student(name, grade, curriculum="kcse"):
     with _conn() as c:
-        cur = c.execute(
+        return c.insert(
             "INSERT INTO students (name, grade, struggles, curriculum, created_at) "
             "VALUES (?, ?, '[]', ?, ?)",
             (name, grade, curriculum, time.time()),
         )
-        return cur.lastrowid
 
 
 def list_students():
@@ -613,17 +702,69 @@ def load_lesson(subject, topic, sid=None):
     return json.loads(row["lesson_json"]), row["profile_sig"]
 
 
+def clear_lesson(subject, topic, sid=None):
+    """Drop the cached lesson so the next poll rebuilds it from scratch."""
+    sid = _sid(sid)
+    if not sid:
+        return
+    with _conn() as c:
+        c.execute("DELETE FROM lessons WHERE student_id = ? AND topic = ?",
+                  (sid, _key(subject, topic)))
+
+
+# ---------------- Lesson generation jobs ----------------
+# A deployed function can't keep a thread alive after it has answered, so the work is
+# claimed by whichever request asks for it and tracked here: pending -> running ->
+# ready | error. The key carries the account, because lessons are per-student.
+
+GEN_STALE_AFTER = 330  # seconds; a 'running' row older than this never finished
+
+
+def queue_generation(key):
+    """Ask for this lesson to be generated unless a run is already in flight."""
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO gen_jobs (key, status, error, updated_at) VALUES (?, 'pending', NULL, ?) "
+            "ON CONFLICT(key) DO UPDATE SET status = 'pending', error = NULL, "
+            "updated_at = excluded.updated_at WHERE gen_jobs.status IN ('ready', 'error')",
+            (key, time.time()),
+        )
+
+
+def claim_generation(key):
+    """True for the one request that gets to do the work."""
+    now = time.time()
+    with _conn() as c:
+        cur = c.execute(
+            "UPDATE gen_jobs SET status = 'running', updated_at = ? "
+            "WHERE key = ? AND (status = 'pending' OR (status = 'running' AND updated_at < ?))",
+            (now, key, now - GEN_STALE_AFTER),
+        )
+        return cur.rowcount == 1
+
+
+def finish_generation(key, error=None):
+    with _conn() as c:
+        c.execute("UPDATE gen_jobs SET status = ?, error = ?, updated_at = ? WHERE key = ?",
+                  ("error" if error else "ready", error, time.time(), key))
+
+
+def generation_state(key):
+    with _conn() as c:
+        row = c.execute("SELECT status, error FROM gen_jobs WHERE key = ?", (key,)).fetchone()
+    return (row["status"], row["error"]) if row else (None, None)
+
+
 # ---------------- Uploaded documents ----------------
 
 def save_document(subject, filename, pages=None, analysis=None, status="done", sid=None):
     sid = _sid(sid)
     with _conn() as c:
-        cur = c.execute(
+        return c.insert(
             "INSERT INTO documents (student_id, ts, subject, filename, pages, analysis_json, status) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (sid, time.time(), subject, filename, pages, json.dumps(analysis) if analysis else None, status),
         )
-        return cur.lastrowid
 
 
 def update_document(doc_id, analysis=None, status=None, pages=None):
@@ -682,12 +823,23 @@ def apply_document_findings(subject, findings, sid=None):
 
 def create_grading_job(sid, subject, topic, payload):
     with _conn() as c:
-        cur = c.execute(
+        return c.insert(
             "INSERT INTO grading_jobs (student_id, subject, topic, payload_json, status, created_at) "
             "VALUES (?, ?, ?, ?, 'grading', ?)",
             (sid, subject, topic, json.dumps(payload), time.time()),
         )
-        return cur.lastrowid
+
+
+def claim_grading_job(job_id):
+    """True for the one request that gets to mark this paper. A 'running' row whose
+    instance was recycled can be taken over once the function deadline has passed."""
+    with _conn() as c:
+        cur = c.execute(
+            "UPDATE grading_jobs SET status = 'running' "
+            "WHERE id = ? AND (status = 'grading' OR (status = 'running' AND created_at < ?))",
+            (job_id, time.time() - GEN_STALE_AFTER),
+        )
+        return cur.rowcount == 1
 
 
 def get_grading_job(job_id, sid=None):
@@ -727,12 +879,11 @@ def list_grading_jobs(sid, limit=20):
 
 def create_walkthrough(sid, subject, filename, questions):
     with _conn() as c:
-        cur = c.execute(
+        return c.insert(
             "INSERT INTO walkthroughs (student_id, subject, filename, questions_json, idx, status, created_at) "
             "VALUES (?, ?, ?, ?, 0, 'active', ?)",
             (sid, subject, filename, json.dumps(questions), time.time()),
         )
-        return cur.lastrowid
 
 
 def get_walkthrough(wt_id, sid=None):

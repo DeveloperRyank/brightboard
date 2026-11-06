@@ -4,5 +4,4 @@ scikit-learn
 requests
 python-dotenv
 edge-tts
-kokoro-onnx
-soundfile
+psycopg[binary]
