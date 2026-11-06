@@ -7,3 +7,7 @@ models/
 data/tts_cache/
 *.log
 .vercel/
+
+# Upload fixtures built by tools/make_big_scan.py: regenerate, never commit.
+tools/*.pdf
+tools/*.jpg

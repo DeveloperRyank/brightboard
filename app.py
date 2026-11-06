@@ -23,8 +23,11 @@ import tutor
 
 app = Flask(__name__)
 # Uploads travel inline to Gemini, and a deployed function only accepts a 4.5 MB request
-# body, so MAX_UPLOAD_MB caps the form below whichever limit applies.
+# body, so MAX_UPLOAD_MB caps the form below whichever limit applies. MAX_SCAN_MB is the
+# larger size the page will take from the student: shrink.js re-encodes anything over
+# MAX_UPLOAD_MB in the browser first, so the form that arrives stays small.
 MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB") or 15)
+MAX_SCAN_MB = int(os.environ.get("MAX_SCAN_MB") or 100)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 
 
@@ -32,9 +35,8 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 def too_large(_):
     """Vercel answers an oversized body with plain text, which the uploader tried to read
     as JSON. The page needs the same shape as every other failure here."""
-    return jsonify({"error": f"That file is over the {MAX_UPLOAD_MB} MB limit for this "
-                             "server. Re-export the scan at a lower resolution, or upload "
-                             "one page at a time."}), 413
+    return jsonify({"error": f"Even compressed, that is over the {MAX_UPLOAD_MB} MB a "
+                             "single request can carry. Try fewer pages at a time."}), 413
 
 
 def _load_secret_key():
@@ -293,6 +295,7 @@ def inject_globals():
         "student": profile.get_student(),
         "config_problems": llm.check_config(),
         "max_upload_mb": MAX_UPLOAD_MB,
+        "max_scan_mb": MAX_SCAN_MB,
         "error_labels": profile.ERROR_LABELS,
         "curricula": curriculum.curricula(),
         "cur": cur,

@@ -33,7 +33,8 @@
 <div class="dropzone fade-up" id="dropzone">
   <div class="dz-icon">📄</div>
   <div class="dz-title">Drag a PDF or image here, or click to choose</div>
-  <div class="dz-sub">PDF · PNG · JPEG · WebP — up to {{ max_upload_mb }} MB. Scans are read with OCR.</div>
+  <div class="dz-sub">PDF · PNG · JPEG · WebP — up to {{ max_scan_mb }} MB. A scan too big to send
+    is compressed here in your browser first, so nothing needs re-exporting.</div>
   <input type="file" id="file" accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none;">
 </div>
 
@@ -87,6 +88,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/shrink.js') }}"></script>
 <script>
 (function () {
   const dz = document.getElementById("dropzone");
@@ -108,24 +110,38 @@
   async function upload() {
     const file = input.files[0];
     if (!file) return;
-    const maxBytes = {{ max_upload_mb }} * 1024 * 1024;
-    if (file.size > maxBytes) {
-      // A deployed server refuses the body before the app ever sees it, so say so here.
-      status.innerHTML = '<div class="banner">⚠ That scan is ' + (file.size / 1048576).toFixed(1) +
-        ' MB and the limit here is {{ max_upload_mb }} MB. Re-export it at a lower ' +
-        'resolution, or upload one page at a time.</div>';
+    if (file.size > {{ max_scan_mb }} * 1024 * 1024) {
+      status.innerHTML = '<div class="banner">⚠ That file is ' + (file.size / 1048576).toFixed(1) +
+        ' MB and this page takes scans up to {{ max_scan_mb }} MB. Split it into fewer pages.</div>';
       result.innerHTML = "";
       input.value = "";
       return;
     }
     const mode = (document.querySelector('input[name="mode"]:checked') || {}).value || "analyse";
+    result.innerHTML = "";
+    let payload, dropped = 0;
+    // A deployed request carries barely a few MB however big the scan is, so anything over the
+    // send limit is re-encoded in the browser before it leaves the page.
+    try {
+      const shrunk = await shrinkScan(file, {{ max_upload_mb }} * 1024 * 1024 - 65536,
+        m => { status.innerHTML = '<div class="loading-block"><span class="spinner"></span>' +
+                                  esc(m) + "</div>"; });
+      payload = shrunk.blob;
+      dropped = shrunk.note || 0;
+    } catch (err) {
+      status.innerHTML = '<div class="banner">⚠ ' + esc(err.message) + "</div>";
+      input.value = "";
+      return;
+    }
     const fd = new FormData();
     fd.append("subject", subjectSel.value);
-    fd.append("file", file);
-    status.innerHTML = mode === "walkthrough"
-      ? '<div class="loading-block"><span class="spinner"></span>Reading every question on your paper… this can take a minute.</div>'
-      : '<div class="loading-block"><span class="spinner"></span>Reading your paper… this can take up to a minute.</div>';
-    result.innerHTML = "";
+    fd.append("file", payload);
+    status.innerHTML = '<div class="loading-block"><span class="spinner"></span>' +
+      (mode === "walkthrough" ? "Reading every question on your paper… this can take a minute."
+                              : "Reading your paper… this can take up to a minute.") +
+      (dropped ? "<br>The last " + dropped +
+        " page(s) were left out to keep the scan small enough to send." : "") +
+      "</div>";
     try {
       const resp = await fetch(mode === "walkthrough" ? "/api/walkthrough" : "/api/upload", { method: "POST", body: fd });
       const data = await readJSON(resp);

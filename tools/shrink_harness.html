@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>shrink.js harness</title></head>
+<body>
+<pre id="log">running</pre>
+<script src="/static/js/shrink.js"></script>
+<script>
+// Checked by hand: python -m http.server 8899 in the project root, fixtures from
+// tools/make_big_scan.py, then open this page and read #log.
+const LIMIT = 4 * 1024 * 1024 - 65536;          // what one deployed request can carry
+const lines = [];
+function say(m) { lines.push(m); document.getElementById("log").textContent = lines.join("\n"); }
+window.__done = false;
+
+async function grab(url, type) {
+  const buf = await (await fetch(url)).arrayBuffer();
+  return new File([buf], url.split("/").pop(), { type });
+}
+
+async function check(file, maxBytes) {
+  const t0 = performance.now();
+  const out = await shrinkScan(file, maxBytes, say);
+  const secs = ((performance.now() - t0) / 1000).toFixed(1);
+  say(`${file.name}: ${(file.size / 1048576).toFixed(1)} MB -> ${(out.blob.size / 1048576).toFixed(2)} MB ` +
+      `(${out.blob.type}, ${secs}s, trimmed ${out.note || 0}) fits=${out.blob.size <= maxBytes}`);
+  return out.blob;
+}
+
+(async () => {
+  try {
+    await ensurePdfLibs();
+    for (const name of ["scan_big.pdf", "scan_4p.pdf"]) {
+      const small = await check(await grab(`/tools/${name}`, "application/pdf"), LIMIT);
+      // The rebuilt paper must still open as a PDF the tutor can page through.
+      const re = await pdfjsLib.getDocument({ data: new Uint8Array(await small.arrayBuffer()) }).promise;
+      say(`  ${name} re-opens as ${re.numPages} page(s), first page ${JSON.stringify(
+        (await re.getPage(1)).getViewport({ scale: 1 })).slice(0, 60)}`);
+    }
+    await check(await grab("/tools/scan_big_photo.jpg", "image/jpeg"), LIMIT);
+    // A small file must pass straight through, byte for byte, with no re-encode.
+    const tiny = await shrinkScan(new File([new Uint8Array(50000)], "x.pdf", { type: "application/pdf" }),
+                                  LIMIT, say);
+    say(`small file passed through unchanged = ${tiny.blob.size === 50000}`);
+    say("ALL OK");
+  } catch (e) {
+    say("FAILED: " + (e && e.message || e));
+  }
+  window.__done = true;
+})();
+</script>
+</body>
+</html>
