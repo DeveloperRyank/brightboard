@@ -712,10 +712,11 @@ def ask():
 
 @app.route("/api/submit_test", methods=["POST"])
 def submit_test():
-    """Hand the whole answered test to a background grader and return a job id.
+    """Record the answered test as a grading job and return its id.
 
-    The student navigates to /results/<job_id> and polls; nothing blocks here, and the
-    whole set is marked in a single LLM call rather than one per answer.
+    The student navigates to /results/<job_id> and polls; the poll whose request claims
+    the job does the marking, and the whole set is marked in a single LLM call rather
+    than one per answer.
     """
     data = request.get_json(force=True)
     subject = data.get("subject", "")
