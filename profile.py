@@ -257,6 +257,14 @@ CREATE TABLE IF NOT EXISTS gen_jobs (
     error TEXT,
     updated_at {NUM} NOT NULL
 );
+CREATE TABLE IF NOT EXISTS walkthrough_steps (
+    walkthrough_id INTEGER NOT NULL,
+    idx INTEGER NOT NULL,
+    attempt INTEGER NOT NULL,
+    lesson_json TEXT NOT NULL,
+    created_at {NUM} NOT NULL,
+    PRIMARY KEY (walkthrough_id, idx, attempt)
+);
 """
 
 _IDCOL = {"sqlite": "id INTEGER PRIMARY KEY AUTOINCREMENT", "pg": "id SERIAL PRIMARY KEY"}
@@ -907,6 +915,29 @@ def update_walkthrough(wt_id, idx=None, status=None):
             c.execute("UPDATE walkthroughs SET idx = ? WHERE id = ?", (idx, wt_id))
         if status is not None:
             c.execute("UPDATE walkthroughs SET status = ? WHERE id = ?", (status, wt_id))
+
+
+def load_walkthrough_step(wt_id, idx, attempt):
+    """The board lesson already built for this question, if anyone has built it."""
+    with _conn() as c:
+        row = c.execute(
+            "SELECT lesson_json FROM walkthrough_steps "
+            "WHERE walkthrough_id = ? AND idx = ? AND attempt = ?",
+            (wt_id, idx, attempt),
+        ).fetchone()
+    return json.loads(row["lesson_json"]) if row else None
+
+
+def save_walkthrough_step(wt_id, idx, attempt, lesson):
+    """Keep a built step. A prefetch and the request that shows the same step can race;
+    whichever lands first wins and the other is discarded, since both hold the same thing."""
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO walkthrough_steps "
+            "(walkthrough_id, idx, attempt, lesson_json, created_at) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT (walkthrough_id, idx, attempt) DO NOTHING",
+            (wt_id, idx, attempt, json.dumps(lesson), time.time()),
+        )
 
 
 def list_walkthroughs(sid, limit=20):

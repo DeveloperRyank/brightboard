@@ -33,7 +33,7 @@
 <div class="dropzone fade-up" id="dropzone">
   <div class="dz-icon">📄</div>
   <div class="dz-title">Drag a PDF or image here, or click to choose</div>
-  <div class="dz-sub">PDF · PNG · JPEG · WebP — up to 15 MB. Scans are read with OCR.</div>
+  <div class="dz-sub">PDF · PNG · JPEG · WebP — up to {{ max_upload_mb }} MB. Scans are read with OCR.</div>
   <input type="file" id="file" accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none;">
 </div>
 
@@ -108,6 +108,16 @@
   async function upload() {
     const file = input.files[0];
     if (!file) return;
+    const maxBytes = {{ max_upload_mb }} * 1024 * 1024;
+    if (file.size > maxBytes) {
+      // A deployed server refuses the body before the app ever sees it, so say so here.
+      status.innerHTML = '<div class="banner">⚠ That scan is ' + (file.size / 1048576).toFixed(1) +
+        ' MB and the limit here is {{ max_upload_mb }} MB. Re-export it at a lower ' +
+        'resolution, or upload one page at a time.</div>';
+      result.innerHTML = "";
+      input.value = "";
+      return;
+    }
     const mode = (document.querySelector('input[name="mode"]:checked') || {}).value || "analyse";
     const fd = new FormData();
     fd.append("subject", subjectSel.value);
@@ -118,7 +128,7 @@
     result.innerHTML = "";
     try {
       const resp = await fetch(mode === "walkthrough" ? "/api/walkthrough" : "/api/upload", { method: "POST", body: fd });
-      const data = await resp.json();
+      const data = await readJSON(resp);
       if (!resp.ok) throw new Error(data.error || "Upload failed");
       if (mode === "walkthrough") { window.location.href = "/walkthrough/" + data.id; return; }
       status.innerHTML = "";

@@ -34,7 +34,7 @@
   async function poll() {
     try {
       const resp = await fetch(`/api/results/${JOB_ID}`);
-      const data = await resp.json();
+      const data = await readJSON(resp);
       if (!resp.ok) throw new Error(data.error || "Couldn't load your results");
       if (data.done) { finish(data.result); return; }
     } catch (err) {

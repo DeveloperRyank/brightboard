@@ -113,11 +113,11 @@ function pollStatus() {
   pollTimer = setInterval(async () => {
     try {
       const resp = await fetch("/api/lesson/" + encodeURIComponent(SUBJECT) + "/" + encodeURIComponent(TOPIC) + "/status");
-      const data = await resp.json();
+      const data = await readJSON(resp);
       if (data.status === "ready") {
         clearInterval(pollTimer);
         const d = await fetch("/api/lesson/" + encodeURIComponent(SUBJECT) + "/" + encodeURIComponent(TOPIC) + "/data");
-        const lessonData = await d.json();
+        const lessonData = await readJSON(d);
         hideLoading();
         initPlayer(lessonData.lesson);
       } else if (data.status === "error") {
@@ -370,7 +370,7 @@ async function sendQuestion() {
         question, concept,
       }),
     });
-    const data = await resp.json();
+    const data = await readJSON(resp);
     if (!resp.ok) throw new Error(data.error || "Request failed");
     document.getElementById("ask-bar-state").textContent = "tutor is answering…";
     // the board now teaches the explanation; the narration strip types + speaks it

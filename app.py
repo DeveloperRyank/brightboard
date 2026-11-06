@@ -10,7 +10,6 @@ Run: python app.py   (needs .env with GEMINI_API_KEY; see .env.example)
 import base64
 import os
 import secrets
-import threading
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
@@ -25,7 +24,17 @@ import tutor
 app = Flask(__name__)
 # Uploads travel inline to Gemini, and a deployed function only accepts a 4.5 MB request
 # body, so MAX_UPLOAD_MB caps the form below whichever limit applies.
-app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB") or 15) * 1024 * 1024
+MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB") or 15)
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
+
+
+@app.errorhandler(413)
+def too_large(_):
+    """Vercel answers an oversized body with plain text, which the uploader tried to read
+    as JSON. The page needs the same shape as every other failure here."""
+    return jsonify({"error": f"That file is over the {MAX_UPLOAD_MB} MB limit for this "
+                             "server. Re-export the scan at a lower resolution, or upload "
+                             "one page at a time."}), 413
 
 
 def _load_secret_key():
@@ -283,6 +292,7 @@ def inject_globals():
     return {
         "student": profile.get_student(),
         "config_problems": llm.check_config(),
+        "max_upload_mb": MAX_UPLOAD_MB,
         "error_labels": profile.ERROR_LABELS,
         "curricula": curriculum.curricula(),
         "cur": cur,
@@ -293,11 +303,6 @@ def inject_globals():
         "concept_label": lambda h: (concepts.concept_name(h.get("subject"), h.get("topic"), h["concept"])
                                     if h.get("concept") else None),
     }
-
-
-@app.errorhandler(413)
-def too_large(e):
-    return jsonify({"error": "File too large (max 15 MB)."}), 413
 
 
 # ---------------- Pages ----------------
@@ -538,6 +543,8 @@ def api_upload():
         return jsonify({"error": "Unknown subject"}), 400
     if llm.PROVIDER != "gemini":
         return jsonify({"error": "Document analysis needs LLM_PROVIDER=gemini."}), 501
+    if session.get("sid") is None:
+        return jsonify({"error": "Not signed in"}), 401
     f = request.files.get("file")
     if not f or not f.filename:
         return jsonify({"error": "No file uploaded"}), 400
@@ -563,10 +570,8 @@ def api_upload():
 # ---------------- Guided paper walkthrough ----------------
 # One real question at a time: teach the concept behind it on the board, then let the
 # student say "got it" (a positive BKT observation) or ask for a different explanation.
-
-WT_CACHE = {}  # (walkthrough_id, index, attempt) -> generated mini-lesson
-WT_LOCK = threading.Lock()
-WT_CACHE_MAX = 40
+# Built steps live in the database, so a step the browser prefetched while the student
+# was still reading the previous one is served without a second model call.
 
 
 @app.route("/api/walkthrough", methods=["POST"])
@@ -618,9 +623,7 @@ def walkthrough_step(wt_id):
     attempt = max(1, min(5, int(data.get("attempt") or 1)))
     if not 0 <= index < len(wt["questions"]):
         return jsonify({"error": "No such question"}), 404
-    cache_key = (wt_id, index, attempt)
-    with WT_LOCK:
-        cached = WT_CACHE.get(cache_key)
+    cached = profile.load_walkthrough_step(wt_id, index, attempt)
     if cached:
         _prefetch_narration(cached)
         return jsonify({"lesson": cached})
@@ -628,10 +631,7 @@ def walkthrough_step(wt_id):
         lesson = tutor.generate_walkthrough_step(wt["subject"], wt["questions"][index], attempt)
     except Exception as exc:
         return jsonify({"error": str(exc)}), 502
-    with WT_LOCK:
-        if len(WT_CACHE) >= WT_CACHE_MAX:
-            WT_CACHE.pop(next(iter(WT_CACHE)), None)
-        WT_CACHE[cache_key] = lesson
+    profile.save_walkthrough_step(wt_id, index, attempt, lesson)
     _prefetch_narration(lesson)
     return jsonify({"lesson": lesson})
 

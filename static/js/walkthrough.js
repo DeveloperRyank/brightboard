@@ -68,13 +68,27 @@ async function loadExplanation() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ index: idx, attempt }),
     });
-    const data = await resp.json();
+    const data = await readJSON(resp);
     if (!resp.ok) throw new Error(data.error || "The tutor couldn't prepare this question");
     hideLoading();
     startExplanation(data.lesson);
+    prefetchNext();
   } catch (err) {
     showError(err.message);
   }
+}
+
+// The student is never waiting on a board they could have had built already: while they
+// read this question, the next one is generated in the background and stored, so "got it"
+// moves to a drawn board instead of a spinner.
+function prefetchNext() {
+  const next = idx + 1;
+  if (next >= questions.length) return;
+  fetch(`/api/walkthrough/${WT_ID}/step`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ index: next, attempt: 1 }),
+  }).catch(() => {});
 }
 
 function startExplanation(lessonData) {
@@ -191,7 +205,7 @@ async function gotIt() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ index: idx, understood: true }),
     });
-    const data = await resp.json();
+    const data = await readJSON(resp);
     if (!resp.ok) throw new Error(data.error || "Couldn't save your progress");
     if (data.done) {
       document.getElementById("wt-fill").style.width = "100%";

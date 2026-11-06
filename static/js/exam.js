@@ -298,7 +298,7 @@ async function submitExam() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subject: SUBJECT, topic: TOPIC, answers: payload }),
     });
-    const data = await resp.json();
+    const data = await readJSON(resp);
     if (!resp.ok) throw new Error(data.error || "Couldn't hand in your paper");
     try { localStorage.removeItem(storageKey()); } catch (e) { /* ignore */ }
     window.location.href = `/results/${data.job_id}`;
