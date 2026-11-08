@@ -18,16 +18,21 @@ When a concept has no row yet its prior is seeded from topic_seed (the student's
 old per-topic mastery, kept purely as a migration prior) or p_init.
 
 Multiple accounts live in `students`; every profile table carries a student_id.
+Each account is gated by an email + password (see "Accounts: sign-in credentials"
+below) — nothing here hands out another student's id.
 The active account is set per request by the Flask app (set_current); background
 jobs pass an explicit sid.
 """
 
 import json
 import os
+import re
 import sqlite3
 import threading
 import time
 from pathlib import Path
+
+from werkzeug.security import check_password_hash, generate_password_hash
 
 DB_PATH = Path(__file__).parent / "profile.db"
 
@@ -175,6 +180,10 @@ CREATE TABLE IF NOT EXISTS students (
     confidence TEXT,
     style TEXT,
     curriculum TEXT NOT NULL DEFAULT 'kcse',
+    email TEXT,
+    password_hash TEXT,
+    failed INTEGER NOT NULL DEFAULT 0,
+    locked_until {NUM} NOT NULL DEFAULT 0,
     created_at {NUM} NOT NULL
 );
 CREATE TABLE IF NOT EXISTS concept_mastery (
@@ -268,12 +277,14 @@ CREATE TABLE IF NOT EXISTS walkthrough_steps (
 """
 
 _IDCOL = {"sqlite": "id INTEGER PRIMARY KEY AUTOINCREMENT", "pg": "id SERIAL PRIMARY KEY"}
+# Postgres REAL is only 4 bytes, which would quietly round off timestamps and BKT
+# probabilities, so the 8-byte type is named once and shared.
+_NUM = "DOUBLE PRECISION" if PG else "REAL"
 
 
 def _render(ddl):
     idcol = _IDCOL["pg" if PG else "sqlite"]
-    num = "DOUBLE PRECISION" if PG else "REAL"
-    return [s.strip().replace("{IDCOL}", idcol).replace("{NUM}", num)
+    return [s.strip().replace("{IDCOL}", idcol).replace("{NUM}", _NUM)
             for s in ddl.split(";") if s.strip()]
 
 
@@ -283,6 +294,13 @@ def init_db():
             c.script(stmt)
         if "curriculum" not in c.columns("students"):
             c.execute("ALTER TABLE students ADD COLUMN curriculum TEXT NOT NULL DEFAULT 'kcse'")
+        for col, ddl in (("email", "TEXT"), ("password_hash", "TEXT"),
+                         ("failed", "INTEGER NOT NULL DEFAULT 0"),
+                         ("locked_until", _NUM + " NOT NULL DEFAULT 0")):
+            if col not in c.columns("students"):
+                c.execute(f"ALTER TABLE students ADD COLUMN {col} {ddl}")
+        c.script("CREATE UNIQUE INDEX IF NOT EXISTS students_email_key "
+                 "ON students (lower(email)) WHERE email IS NOT NULL")
         if PG:
             return  # every legacy migration below upgrades an old local SQLite file
         _migrate_multi_student(c)
@@ -633,22 +651,167 @@ def recommend_next(subject=None, valid_keys=None, sid=None):
 
 
 # ---------------- Accounts ----------------
+#
+# Sign-in is email + password, hashed with scrypt through Werkzeug (no extra
+# dependency, no third-party identity provider). Nothing here returns another
+# account's identity to a caller that is not that account: the old list_students()
+# dumped every name on the sign-in page and /login/<id> accepted a URL as proof,
+# so any visitor could read any student's work. It is gone.
 
-def create_student(name, grade, curriculum="kcse"):
+MIN_PASSWORD = 8            # NIST SP 800-63B floor; no composition rules, no maximum hassle
+MAX_PASSWORD = 128          # scrypt cost scales with the input, so cap it: a 10 MB "password"
+                            # would tie up a serverless request long enough to be free DoS
+MAX_FAILED = 8              # then the account waits out LOCK_SECONDS
+LOCK_SECONDS = 15 * 60
+
+EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+
+# A student row whose email is NULL predates credentials (or was made by a tool) and
+# cannot sign in until attach_account gives it one.
+_DUMMY_HASH = ("scrypt:32768:8:1$6yKFmZbyoDPF1CgU$a159cc75f06ebfe36582a239c69382d8"
+               "70778d8703a57caa69ec07d4fa21393b61f885a2f79653632fc33a568f11e1d1e15"
+               "0815101a214446764381ed7435dcd")
+
+# Long enough to catch the ones people actually reach for, short enough to keep here.
+WEAK_PASSWORDS = frozenset("""
+password passw0rd password1 password123 password1234 123456 1234567 12345678 123456789
+1234567890 qwerty qwerty123 asdfgh letmein abc123 iloveyou monkey dragon sunshine
+princess football welcome login admin guest master superman batman 000000 111111
+a1b2c3 1q2w3e4r zxcvbnm naruto onepiece
+""".split())
+
+
+def normalise_email(email):
+    return (email or "").strip().lower()
+
+
+def valid_email(email):
+    return bool(EMAIL_RE.match(normalise_email(email))) and len(email) <= 254
+
+
+def password_problem(password):
+    """A human reason this password cannot be used, or None if it can."""
+    if len(password) < MIN_PASSWORD:
+        return f"Use at least {MIN_PASSWORD} characters."
+    if len(password) > MAX_PASSWORD:
+        return f"That password is too long ({MAX_PASSWORD} characters maximum)."
+    if password.lower() in WEAK_PASSWORDS:
+        return "That password is too common to protect an account. Add a few more words."
+    return None
+
+
+def _duplicate(exc):
+    text = str(exc).lower()
+    return "unique" in text or "duplicate key" in text
+
+
+def create_account(name, grade, email, password, curriculum="kcse"):
+    """Register a new student. Raises ValueError with a student-facing message."""
+    email = normalise_email(email)
+    if not valid_email(email):
+        raise ValueError("That does not look like an email address.")
+    problem = password_problem(password)
+    if problem:
+        raise ValueError(problem)
+    try:
+        with _conn() as c:
+            return c.insert(
+                "INSERT INTO students (name, grade, struggles, curriculum, email, "
+                "password_hash, created_at) VALUES (?, ?, '[]', ?, ?, ?, ?)",
+                (name, grade, curriculum, email,
+                 generate_password_hash(password, method="scrypt"), time.time()),
+            )
+    except Exception as exc:
+        if _duplicate(exc):        # the unique index is the real guard against a race
+            raise ValueError("An account already uses that email address.") from exc
+        raise
+
+
+def sign_in(email, password):
+    """The sid for correct credentials, else None.
+
+    Every branch costs one scrypt check and answers the same way, so neither timing nor
+    wording tells an attacker whether the address has an account here.
+    """
+    email = normalise_email(email)
     with _conn() as c:
-        return c.insert(
-            "INSERT INTO students (name, grade, struggles, curriculum, created_at) "
-            "VALUES (?, ?, '[]', ?, ?)",
-            (name, grade, curriculum, time.time()),
-        )
+        row = c.execute(
+            "SELECT id, password_hash, failed, locked_until FROM students "
+            "WHERE lower(email) = ?", (email,)).fetchone()
+    if not row:
+        check_password_hash(_DUMMY_HASH, password)
+        return None
+    if (row["locked_until"] or 0) > time.time():
+        check_password_hash(row["password_hash"] or _DUMMY_HASH, password)
+        return None
+    ok = bool(row["password_hash"]) and check_password_hash(row["password_hash"], password)
+    with _conn() as c:
+        if ok:
+            c.execute("UPDATE students SET failed = 0, locked_until = 0 WHERE id = ?",
+                      (row["id"],))
+        else:
+            failed = (row["failed"] or 0) + 1
+            locked = time.time() + LOCK_SECONDS if failed >= MAX_FAILED else 0
+            c.execute("UPDATE students SET failed = ?, locked_until = ? WHERE id = ?",
+                      (failed, locked, row["id"]))
+    return row["id"] if ok else None
 
 
-def list_students():
+def lock_seconds_left(email):
+    with _conn() as c:
+        row = c.execute("SELECT locked_until FROM students WHERE lower(email) = ?",
+                        (normalise_email(email),)).fetchone()
+    return max(0, round((row["locked_until"] or 0) - time.time())) if row else 0
+
+
+def set_password(sid, password):
+    problem = password_problem(password)
+    if problem:
+        raise ValueError(problem)
+    with _conn() as c:
+        c.execute("UPDATE students SET password_hash = ?, failed = 0, locked_until = 0 "
+                  "WHERE id = ?", (generate_password_hash(password, method="scrypt"), sid))
+
+
+def attach_account(sid, email, password):
+    """Give an existing (pre-credentials) account a sign-in, keeping all its data."""
+    email = normalise_email(email)
+    if not valid_email(email):
+        raise ValueError("That does not look like an email address.")
+    problem = password_problem(password)
+    if problem:
+        raise ValueError(problem)
+    with _conn() as c:
+        if not c.execute("SELECT id FROM students WHERE id = ?", (sid,)).fetchone():
+            raise ValueError(f"No account with id {sid}.")
+        try:
+            c.execute("UPDATE students SET email = ?, password_hash = ?, failed = 0, "
+                      "locked_until = 0 WHERE id = ?",
+                      (email, generate_password_hash(password, method="scrypt"), sid))
+        except Exception as exc:
+            if _duplicate(exc):
+                raise ValueError(f"{email} already belongs to another account.") from exc
+            raise
+
+
+def account_email(sid):
+    with _conn() as c:
+        row = c.execute("SELECT email FROM students WHERE id = ?", (sid,)).fetchone()
+    return row["email"] if row else None
+
+
+def accounts_without_email():
+    """Accounts created before sign-in existed — nobody can log in to these yet."""
     with _conn() as c:
         rows = c.execute(
-            "SELECT id, name, grade, created_at FROM students ORDER BY id"
+            "SELECT id, name, grade, curriculum FROM students WHERE email IS NULL ORDER BY id"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def create_student(name, grade, curriculum="kcse"):
+    raise RuntimeError(
+        "create_student made an account nobody could sign in to; use create_account()")
 
 
 def get_student(sid=None):

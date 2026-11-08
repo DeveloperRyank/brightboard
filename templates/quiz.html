@@ -26,6 +26,7 @@
 {% if error %}<div class="banner">{{ error }}</div>{% endif %}
 
 <form method="post" action="{{ url_for('quiz') }}" class="glass quiz-card fade-up">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="q-step">
     <span class="q-legend">1 · Which subject do you want to work on first?</span>
     <select id="subject" name="subject" class="field" style="width:100%;">
@@ -71,7 +72,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
   const TOPIC_MAP = {{ topic_map | tojson }};
   const INIT_SUBJECT = {{ (form.get('subject') or '') | tojson }};
   const INIT_TOPICS = {{ (form.getlist('topics') if form.getlist else []) | tojson }};

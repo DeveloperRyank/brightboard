@@ -74,7 +74,7 @@
 </div>
 
 <script id="questions-data" type="application/json">{{ questions | tojson }}</script>
-<script>
+<script nonce="{{ csp_nonce() }}">
   const WT_ID = {{ wt_id | tojson }};
   const SUBJECT = {{ subject | tojson }};
   const START_INDEX = {{ start_index | tojson }};

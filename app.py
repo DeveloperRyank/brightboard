@@ -1,6 +1,6 @@
 """Brightboard — AI diagnostic tutor.
 
-Flow: onboarding -> pick curriculum/subject -> pick topic -> Lesson | Test | Upload.
+Flow: sign in -> pick curriculum/subject -> pick topic -> Lesson | Test | Upload.
 Chemistry is live on its real past-paper bank; other KCSE subjects are content-gated
 until a question CSV is added at data/<subject>/questions.csv.
 
@@ -10,8 +10,10 @@ Run: python app.py   (needs .env with GEMINI_API_KEY; see .env.example)
 import base64
 import os
 import secrets
+import time
 
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 
 import classifier
@@ -62,12 +64,125 @@ def _load_secret_key():
 
 app.secret_key = _load_secret_key()
 
+# --- Sign-in, sessions and request safety ---
+
+# Vercel ends TLS at its own proxy, so a production request only looks like https through
+# X-Forwarded-Proto. Without this the Secure cookie decision and the client IP are both wrong.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,      # no script can read the session cookie
+    SESSION_COOKIE_SAMESITE="Lax",     # carried on a top-level navigation, not on a forged POST
+    # Local development is plain http://localhost, where a Secure cookie would never come
+    # back; anywhere Vercel runs the app is https-only.
+    SESSION_COOKIE_SECURE=bool(os.environ.get("VERCEL")),
+)
+
+# Endpoints a visitor may reach without an account. Everything else belongs to whoever
+# signed in, and the gate below refuses it otherwise.
+PUBLIC_ENDPOINTS = {"static", "sign_in", "sign_up", "sign_out", "onboarding"}
+
+FORMS = ("Form 1", "Form 2", "Form 3", "Form 4")
+
+_CSP = "; ".join([
+    "default-src 'self'",
+    # 'nonce-…' is filled in per request, so the inline scripts in the templates stay
+    # allowed while anything an attacker manages to inject does not run.
+    "script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+    "style-src 'self' 'unsafe-inline'",      # layout is tuned with inline style attributes
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "connect-src 'self' https://cdnjs.cloudflare.com",
+    "media-src 'self' blob:",                # narration arrives as a blob: Audio
+    "worker-src 'self' blob: https://cdnjs.cloudflare.com",   # the pdf.js worker
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",                # no one can put this page in an iframe and click for you
+])
+
+
+def _csrf_token():
+    """One token per session, checked on every state-changing request. Sent as a hidden
+    form field or the X-CSRF-Token header, which a cross-site form cannot supply."""
+    if "_csrf" not in session:
+        session["_csrf"] = secrets.token_urlsafe(32)
+    return session["_csrf"]
+
+
+app.jinja_env.globals["csrf_token"] = _csrf_token
+
+# Failures are counted per process. A serverless instance forgets them, so this is only
+# the cheap front door — the real control is the lockout the database keeps per account.
+_BUCKETS = {}
+
+
+def _throttle(key, limit, window):
+    now = time.time()
+    hits = [t for t in _BUCKETS.get(key, []) if now - t < window]
+    hits.append(now)
+    _BUCKETS[key] = hits
+    return len(hits) > limit
+
+
+def _wants_json():
+    if request.path.startswith("/api/"):
+        return True
+    best = request.accept_mimetypes.best_match(["application/json", "text/html"])
+    return best == "application/json" and request.content_type == "application/json"
+
+
+def _refuse(message, code):
+    """One failure shape for both audiences: the pages read `error`, the fetches read it too."""
+    if _wants_json():
+        return jsonify({"error": message}), code
+    return render_template("sign_in.html", error=message, email=request.form.get("email", ""),
+                           next=_safe_target(request.args.get("next")) or ""), code
+
+
+app.jinja_env.globals["csp_nonce"] = lambda: g.get("csp_nonce", "")
+
+
+def _safe_target(path):
+    """Only ever a path on this site: //evil.com and http://evil.com are both refused, so a
+    login redirect cannot be pointed at someone else's page."""
+    if not path or not path.startswith("/") or path.startswith("//"):
+        return None
+    return path
+
+
+@app.after_request
+def _security_headers(response):
+    response.headers["Content-Security-Policy"] = _CSP.format(nonce=g.get("csp_nonce", ""))
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"          # belt and braces beside frame-ancestors
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), interest-cohort=()"
+    return response
+
 
 @app.before_request
 def _bind_current_student():
     """Every profile read/write defaults to the logged-in account for this request.
     Jobs that outlive the request capture the sid explicitly instead."""
-    profile.set_current(session.get("sid"))
+    g.csp_nonce = secrets.token_urlsafe(16)     # one per response, matched in the CSP header
+    sid = session.get("sid")
+    profile.set_current(sid)
+
+    if request.method in ("POST", "PATCH", "PUT", "DELETE"):
+        given = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token", "")
+        expected = session.get("_csrf", "")
+        if not expected or not secrets.compare_digest(str(given), str(expected)):
+            return _refuse("Your session expired. Reload the page and try again.", 400)
+
+    if request.endpoint in PUBLIC_ENDPOINTS:
+        return None
+    if sid is None or profile.get_student(sid) is None:
+        session.pop("sid", None)
+        if _wants_json():
+            return _refuse("Please sign in again.", 401)
+        return redirect(url_for("sign_in", next=request.path))
+    return None
 
 ALLOWED_UPLOAD_MIME = {
     "application/pdf": "application/pdf",
@@ -313,7 +428,7 @@ def inject_globals():
 @app.route("/")
 def index():
     if profile.get_student() is None:
-        return redirect(url_for("onboarding"))
+        return redirect(url_for("sign_in"))
     cur = current_curriculum()
     subs = _subject_stats(curriculum.subjects(cur))
     recommendation = _named_rec(profile.recommend_next(valid_keys=_all_valid_keys(cur)))
@@ -324,7 +439,7 @@ def index():
 def set_curriculum():
     sid = session.get("sid")
     if sid is None:
-        return redirect(url_for("onboarding"))
+        return redirect(url_for("sign_in"))
     slug = request.form.get("curriculum", "").strip()
     if curriculum.get_curriculum(slug):
         profile.set_curriculum(sid, slug)
@@ -340,37 +455,81 @@ def _all_valid_keys(cur=None):
     return keys
 
 
-@app.route("/onboarding", methods=["GET", "POST"])
-def onboarding():
-    """Account manager: sign in as an existing student or create a new one."""
-    students = profile.list_students()
-    if request.method == "POST":
-        name = request.form.get("name", "").strip()[:60]
-        grade = request.form.get("grade", "").strip()[:20]
-        if not name or not grade:
-            return render_template("onboarding.html", students=students, new=True,
-                                   error="Please tell us your name and your form/grade.",
-                                   name=name, grade=grade), 400
-        sid = profile.create_student(name, grade)
-        session["sid"] = sid
-        return redirect(url_for("quiz"))
-    return render_template("onboarding.html", students=students,
-                           new=bool(request.args.get("new")) or not students,
-                           error=None, name="", grade="")
-
-
-@app.route("/login/<int:sid>", methods=["POST"])
-def login(sid):
-    if profile.get_student(sid) is None:
-        return redirect(url_for("onboarding"))
+@app.route("/sign-in", methods=["GET", "POST"])
+def sign_in():
+    """Email + password, and nothing else. This used to be a wall of every student's
+    name with an "Open" button — anyone who visited could read anyone's work."""
+    if request.method == "GET":
+        if session.get("sid"):
+            return redirect(url_for("index"))
+        return render_template("sign_in.html", error=None, email="",
+                               next=_safe_target(request.args.get("next")) or "")
+    email = request.form.get("email", "")[:254]
+    # Bounded before it reaches scrypt: hashing an unbounded "password" is free CPU DoS.
+    password = request.form.get("password", "")[:1024]
+    if _throttle(f"in:{request.remote_addr}:{email.lower()}", 30, 600):
+        return _sign_in_error("Too many attempts from here. Wait a few minutes.", 429, email)
+    wait = profile.lock_seconds_left(email)
+    if wait:
+        return _sign_in_error(f"Too many failed attempts. Try again in "
+                              f"{wait // 60 + 1} minute(s).", 429, email)
+    sid = profile.sign_in(email, password)
+    if sid is None:
+        # One wording for every reason, so this page cannot be used to look up who
+        # registered here.
+        return _sign_in_error("Wrong email or password.", 401, email)
+    session.clear()                      # do not carry over a session set up before sign-in
     session["sid"] = sid
-    return redirect(url_for("index"))
+    return redirect(_safe_target(request.form.get("next")) or url_for("index"))
 
 
-@app.route("/logout")
-def logout():
-    session.pop("sid", None)
-    return redirect(url_for("onboarding"))
+def _sign_in_error(message, code, email):
+    return render_template("sign_in.html", error=message, email=email,
+                           next=_safe_target(request.form.get("next")) or ""), code
+
+
+@app.route("/sign-up", methods=["GET", "POST"])
+def sign_up():
+    if request.method == "GET":
+        if session.get("sid"):
+            return redirect(url_for("index"))
+        return render_template("sign_up.html", error=None, name="", grade="Form 1",
+                               email="", grades=FORMS)
+    name = request.form.get("name", "").strip()[:60]
+    grade = request.form.get("grade", "").strip()[:20]
+    email = request.form.get("email", "")[:254]
+    password = request.form.get("password", "")[:1024]
+    if not name:
+        return _sign_up_error("Please tell us your name.", name, grade, email)
+    if grade not in FORMS:
+        return _sign_up_error("Pick your form from the list.", name, grade, email)
+    if _throttle(f"up:{request.remote_addr}", 6, 3600):
+        return _sign_up_error("Too many accounts are being created from this network "
+                              "right now. Try again later.", name, grade, email, 429)
+    try:
+        sid = profile.create_account(name, grade, email, password)
+    except ValueError as exc:
+        return _sign_up_error(str(exc), name, grade, email)
+    session.clear()
+    session["sid"] = sid
+    return redirect(url_for("quiz"))      # a brand-new profile needs the starter quiz
+
+
+def _sign_up_error(message, name, grade, email, code=400):
+    return render_template("sign_up.html", error=message, name=name, grade=grade,
+                           email=email, grades=FORMS), code
+
+
+@app.route("/sign-out")
+def sign_out():
+    session.clear()
+    return redirect(url_for("sign_in"))
+
+
+@app.route("/onboarding")
+def onboarding():
+    """Bookmarked old entry point."""
+    return redirect(url_for("index") if session.get("sid") else url_for("sign_in"))
 
 
 def _quiz_topic_map(cur):
@@ -387,7 +546,7 @@ def quiz():
     sid = session.get("sid")
     student = profile.get_student(sid)
     if student is None:
-        return redirect(url_for("onboarding"))
+        return redirect(url_for("sign_in"))
     cur = student.get("curriculum") or "kcse"
     if not curriculum.get_curriculum(cur):
         cur = "kcse"
@@ -728,7 +887,7 @@ def submit_test():
         return jsonify({"error": "Unknown subject or topic"}), 404
     sid = session.get("sid")
     if sid is None:
-        return redirect(url_for("onboarding"))
+        return redirect(url_for("sign_in"))
 
     valid_concepts = classifier.tagged_concepts(subject, topic)
     answers = []

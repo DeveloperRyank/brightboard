@@ -364,7 +364,7 @@ async function sendQuestion() {
   try {
     const resp = await fetch("/api/ask", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: csrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         subject: SUBJECT, topic: TOPIC, narration: narrationText(),
         question, concept,
@@ -450,7 +450,7 @@ async function regenerate() {
   voiceCancel();
   showLoading();
   try {
-    const resp = await fetch("/api/lesson/" + encodeURIComponent(SUBJECT) + "/" + encodeURIComponent(TOPIC) + "/regenerate", { method: "POST" });
+    const resp = await fetch("/api/lesson/" + encodeURIComponent(SUBJECT) + "/" + encodeURIComponent(TOPIC) + "/regenerate", { method: "POST", headers: csrfHeaders() });
     if (!resp.ok) throw new Error("regeneration failed");
     pollStatus();
   } catch (err) {

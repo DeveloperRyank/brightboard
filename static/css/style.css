@@ -32,8 +32,9 @@ a:hover { text-decoration: underline; }
 nav {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 14px 28px;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--line);
   background: rgba(13, 20, 32, 0.85);
   position: sticky;
@@ -414,8 +415,11 @@ nav .links a.active {
   background: linear-gradient(135deg, var(--cyan), var(--violet));
   box-shadow: 0 6px 18px -6px rgba(125, 211, 252, 0.7);
 }
-nav .links a.who { color: var(--text); border: 1px solid var(--glass-brd); }
-nav .links a.who:hover { border-color: var(--cyan); }
+nav .links .who {
+  color: var(--text); border: 1px solid var(--glass-brd);
+  padding: 6px 12px; border-radius: 8px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 180px;
+}
 nav .links a.logout { color: var(--red); }
 nav .links a.logout:hover { background: rgba(252, 165, 165, 0.12); color: var(--red); }
 
@@ -592,34 +596,13 @@ select.field:focus, input.field:focus { outline: none; border-color: var(--cyan)
   border-color: transparent; box-shadow: 0 6px 18px -6px rgba(125, 211, 252, 0.7);
 }
 
-.account-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px; margin-top: 8px;
-}
-.account-card {
-  background: var(--glass); border: 1px solid var(--glass-brd); border-radius: 16px;
-  padding: 22px 20px; text-align: center; color: var(--text);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: var(--glow);
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  transition: transform 0.16s, border-color 0.2s;
-}
-.account-card:hover { transform: translateY(-3px); border-color: var(--cyan); text-decoration: none; }
-.account-card .a-avatar {
-  width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 26px; font-weight: 700; margin-bottom: 6px;
-  background: linear-gradient(135deg, rgba(125,211,252,0.25), rgba(196,181,253,0.25));
-  border: 1px solid var(--glass-brd); color: var(--text);
-}
-.account-card .a-avatar.plus { font-size: 34px; color: var(--cyan); }
-.account-card .a-name { font-size: 16px; font-weight: 650; }
-.account-card .a-meta { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
-.account-card.new { border-style: dashed; }
-.account-card.new .btn { pointer-events: none; }
-
 .create-card { max-width: 460px; border-radius: 18px; padding: 24px 26px; margin-top: 8px; }
 .fld { margin-bottom: 16px; }
 .fld label { display: block; font-size: 13.5px; color: var(--muted); margin-bottom: 6px; }
-.create-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.fld-hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.create-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.quiet-link { color: var(--muted); font-size: 13.5px; }
+.quiet-link:hover { color: var(--cyan); }
 
 .quiz-card { max-width: 680px; border-radius: 18px; padding: 26px 28px; margin-top: 8px; }
 .q-step { margin-bottom: 26px; }

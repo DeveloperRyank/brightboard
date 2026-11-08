@@ -65,7 +65,7 @@ async function loadExplanation() {
   try {
     const resp = await fetch(`/api/walkthrough/${WT_ID}/step`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: csrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ index: idx, attempt }),
     });
     const data = await readJSON(resp);
@@ -86,7 +86,7 @@ function prefetchNext() {
   if (next >= questions.length) return;
   fetch(`/api/walkthrough/${WT_ID}/step`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: csrfHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ index: next, attempt: 1 }),
   }).catch(() => {});
 }
@@ -202,7 +202,7 @@ async function gotIt() {
   try {
     const resp = await fetch(`/api/walkthrough/${WT_ID}/advance`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: csrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ index: idx, understood: true }),
     });
     const data = await readJSON(resp);

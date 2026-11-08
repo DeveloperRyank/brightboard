@@ -66,7 +66,7 @@ window.Voice = (function () {
     try {
       const resp = await fetch("/api/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ text }),
       });
       if (resp.status === 204) {          // server narrator is still generating this line

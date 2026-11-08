@@ -11,6 +11,7 @@
   <span class="cur-label">Curriculum</span>
   {% for c in curricula %}
   <form method="post" action="{{ url_for('set_curriculum') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="curriculum" value="{{ c.slug }}">
     <button type="submit" class="cur-pill {{ 'sel' if c.slug == cur }}">{{ c.name }}</button>
   </form>

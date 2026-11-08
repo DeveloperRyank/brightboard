@@ -295,7 +295,7 @@ async function submitExam() {
   try {
     const resp = await fetch("/api/submit_test", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: csrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ subject: SUBJECT, topic: TOPIC, answers: payload }),
     });
     const data = await readJSON(resp);

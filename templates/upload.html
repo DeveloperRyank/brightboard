@@ -89,7 +89,7 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/shrink.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   const dz = document.getElementById("dropzone");
   const input = document.getElementById("file");
@@ -143,7 +143,8 @@
         " page(s) were left out to keep the scan small enough to send." : "") +
       "</div>";
     try {
-      const resp = await fetch(mode === "walkthrough" ? "/api/walkthrough" : "/api/upload", { method: "POST", body: fd });
+      const resp = await fetch(mode === "walkthrough" ? "/api/walkthrough" : "/api/upload",
+        { method: "POST", headers: csrfHeaders(), body: fd });
       const data = await readJSON(resp);
       if (!resp.ok) throw new Error(data.error || "Upload failed");
       if (mode === "walkthrough") { window.location.href = "/walkthrough/" + data.id; return; }

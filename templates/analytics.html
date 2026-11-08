@@ -129,7 +129,7 @@
   "error_labels": error_labels,
   "error_types": error_types
 } | tojson }}</script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   if (typeof Chart === "undefined") return;
   const D = JSON.parse(document.getElementById("analytics-data").textContent);

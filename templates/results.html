@@ -20,7 +20,7 @@
 
 <div id="session-breakdown"></div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
   const JOB_ID = {{ job_id | tojson }};
   const JOB_STATUS = {{ status | tojson }};
 </script>

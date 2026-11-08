@@ -86,7 +86,7 @@
 </div>
 
 <script id="lesson-data" type="application/json">{{ lesson | tojson }}</script>
-<script>
+<script nonce="{{ csp_nonce() }}">
   const SUBJECT = {{ subject | tojson }};
   const TOPIC = {{ topic | tojson }};
   const EXAM_URL = {{ url_for('exam', subject=subject, topic=topic) | tojson }};
