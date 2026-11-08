@@ -3,9 +3,11 @@
 // rasterised to images the tutor can read and packed back into a small PDF — before the
 // upload starts. Nothing is sent twice and the original never leaves the browser.
 
-const PDFJS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const JSPDF_SRC = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+// Self-hosted, so a student's browser never has to ask a third party for permission to
+// open a file. Versions pinned in static/vendor/.
+const PDFJS_SRC = "/static/vendor/pdf.min.js";
+const PDFJS_WORKER = "/static/vendor/pdf.worker.min.js";
+const JSPDF_SRC = "/static/vendor/jspdf.umd.min.js";
 
 // Best first: the loop takes the highest pass the budget fits, because a page has to stay
 // readable to a tutor that reads handwriting. The first page of a pass is measured and used

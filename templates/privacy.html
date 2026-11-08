@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% block title %}Privacy Policy · Brightboard{% endblock %}
+{% block content %}
+<div class="doc">
+  <header class="doc-head">
+    <p class="landing-eyebrow">{{ icon("shield") }} Privacy</p>
+    <h1>What Brightboard knows about you</h1>
+    <p class="doc-meta">Last updated 8 November 2026. This page describes only what this app
+      actually does — every line below was written against the code that is running.</p>
+  </header>
+
+  <h2>Who is responsible</h2>
+  <p>Brightboard is built and run by one person. Brightboard is the data controller: it
+    decides what is collected and why. Privacy requests go to
+    <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+
+  <h2>What we collect</h2>
+  <table class="history doc-table">
+    <thead><tr><th>What</th><th>Why we need it</th><th>The lawful basis</th></tr></thead>
+    <tbody>
+      <tr><td>Your name, your form or grade, your email address</td>
+          <td>To make an account, greet you, and reach you if something breaks</td>
+          <td>Your consent, and performing the service you asked for</td></tr>
+      <tr><td>Your password — but only as a scrypt hash</td>
+          <td>To let you sign in. We never store or see the password you typed</td>
+          <td>Performing the service</td></tr>
+      <tr><td>Your date of birth</td>
+          <td>To work out whether you are under 18 and parental consent is needed</td>
+          <td>A legal obligation</td></tr>
+      <tr><td>Your curriculum and study-style choices</td>
+          <td>To show you the right syllabus and the right kind of practice</td>
+          <td>Legitimate interest</td></tr>
+      <tr><td>Answers to the starter quiz, and to every practice question you attempt</td>
+          <td>This is the product: it is what the tutor diagnoses from</td>
+          <td>Your consent, and performing the service</td></tr>
+      <tr><td>Topic scores, per-concept mastery estimates, and the patterns of mistakes we see</td>
+          <td>To pick the one concept worth teaching you next</td>
+          <td>Legitimate interest in providing the service</td></tr>
+      <tr><td>A paper you upload: its filename, how many pages it has, and the tutor's written analysis of it</td>
+          <td>To teach from your real work. The file itself is not kept — it is read, shrunk inside your own browser, analysed, and then discarded</td>
+          <td>Your consent</td></tr>
+      <tr><td>The whiteboard lesson script generated for you</td>
+          <td>So you do not wait for it to be written again</td>
+          <td>Legitimate interest</td></tr>
+    </tbody>
+  </table>
+
+  <p>We do not collect your phone's contacts, photos, location, camera roll or browsing
+    history. There is no advertising identifier and no third-party analytics script:
+    Chart.js, jsPDF and pdf.js are served from Brightboard's own
+    <code>/static</code> folder, so your browser asks no one else when you use the app.
+    The only cookie is the signed-in session cookie, which is strictly necessary and is
+    the reason no consent banner appears on this site.</p>
+
+  <h2>Who we share it with</h2>
+  <p>These are the real processors, and they are all of them:</p>
+  <ul class="doc-list">
+    <li><b>Vercel</b> (hosting) — runs the web app.</li>
+    <li><b>Neon</b> (Postgres database) — stores your profile, scores and lessons.</li>
+    <li><b>Google Gemini</b> — writes lessons, marks your answers, reads uploaded papers,
+      and sometimes produces the spoken narration. Your questions and answers are sent to it.</li>
+    <li><b>OpenRouter</b> — a fallback that relays text to another large-language-model
+      provider when Gemini is unavailable. Same kind of content leaves, different company.</li>
+    <li><b>Microsoft Edge text-to-speech</b> — receives the words to be spoken aloud when
+      the local narrator is not being used.</li>
+  </ul>
+  <p>We do not sell your data, and we do not rent it. We will disclose it only if the law
+    requires it, which has never happened and is not expected.</p>
+
+  <h2>How long we keep it, and how it is protected</h2>
+  <p>Until you ask us not to. Nothing expires on its own; deleting your account removes
+    the rows immediately. Traffic is encrypted with TLS, and the database is encrypted at
+    rest by the host. Passwords are hashed with scrypt and a unique salt per account, and
+    are never written to a log. Sign-in attempts are rate-limited and an account locks
+    briefly after repeated failures. Every page of work is read back only to the account
+    that created it — the check happens on the server, not in the page.</p>
+  <p>Being signed in is not permanent either: the session ends by itself a week after you
+    last signed in, and signing out ends it sooner. Changing your password and deleting
+    your account both ask for the current password first, so a leftover session on a
+    shared phone cannot do either to you.</p>
+
+  <h2>Your rights</h2>
+  <p>Under the Kenya Data Protection Act 2019 you may access your data, have it corrected,
+    have it deleted, and object to us processing it. You also have the right to lodge a
+    complaint with the Office of the Data Protection Commissioner.</p>
+  <ul class="doc-list">
+    <li><b>Access and take it with you:</b> <a href="{{ url_for('account') }}">Account</a>
+      → Download my data. You get every row we hold, as JSON, in your browser.</li>
+    <li><b>Correct it:</b> <a href="{{ url_for('account') }}">Account</a> → your name, form
+      or grade, date of birth, study style and confidence level are editable there, and
+      your password. The curriculum switch sits in the top bar of every page.</li>
+    <li><b>Delete it:</b> <a href="{{ url_for('account') }}">Account</a> → Delete my account
+      and data. One step, no email needed, no persuasion.</li>
+    <li><b>Object, or ask anything:</b> email
+      <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>The Kenya Data Protection Act 2019 treats anyone under 18 as a child, and processing a
+    child's personal data requires a parent's or guardian's consent. Brightboard is used by
+    KCSE candidates who are often 15 to 17, so this matters here. We ask for a date of
+    birth at sign-up and use it to spot accounts that need consent.
+    <b class="todo">TODO before publishing:</b> the parental-consent step itself is not
+    yet built — decide whether under-18 sign-ups require a guardian's email confirmation,
+    and state the age limit you are willing to serve.</p>
+
+  <h2>If this changes</h2>
+  <p>Material changes get a note on this page with a new date. We will not quietly widen
+    what we collect.</p>
+
+  <p class="doc-foot">
+    <span class="todo">TODO</span> items above are the only parts of this page not yet
+    settled by the code. Everything else is a description of what runs today.
+  </p>
+</div>
+{% endblock %}

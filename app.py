@@ -8,6 +8,8 @@ Run: python app.py   (needs .env with GEMINI_API_KEY; see .env.example)
 """
 
 import base64
+import datetime
+import json
 import os
 import secrets
 import time
@@ -76,25 +78,44 @@ app.config.update(
     # Local development is plain http://localhost, where a Secure cookie would never come
     # back; anywhere Vercel runs the app is https-only.
     SESSION_COOKIE_SECURE=bool(os.environ.get("VERCEL")),
+    # Sign-in is not permanent. The cookie carries an expiry the server honours, so a
+    # borrowed or abandoned phone stops opening the account a week after it was last
+    # unlocked instead of whenever it is next touched.
+    PERMANENT_SESSION_LIFETIME=datetime.timedelta(days=7),
 )
 
 # Endpoints a visitor may reach without an account. Everything else belongs to whoever
 # signed in, and the gate below refuses it otherwise.
-PUBLIC_ENDPOINTS = {"static", "sign_in", "sign_up", "sign_out", "onboarding"}
+PUBLIC_ENDPOINTS = {"static", "index", "sign_in", "sign_up", "sign_out", "onboarding",
+                    "privacy", "terms", "favicon"}
 
-FORMS = ("Form 1", "Form 2", "Form 3", "Form 4")
+FORMS = profile.FORMS
+
+# The one address a student can reach a human at, named once so the legal pages and the
+# account page cannot disagree about who to write to.
+SUPPORT_EMAIL = (os.environ.get("SUPPORT_EMAIL") or "kuriaryan51@gmail.com").strip()
+
+# The two profile choices spelled out for a page of plain HTML (the starter quiz builds
+# its own cards in JS and uses the same words).
+STUDY_STYLE_LABELS = {"lessons": "Animated lessons", "tests": "Exam Center papers",
+                      "papers": "Past-paper upload"}
+CONFIDENCE_LABELS = {"just_starting": "Just starting out",
+                     "getting_there": "Getting there",
+                     "pretty_strong": "Pretty strong already"}
 
 _CSP = "; ".join([
     "default-src 'self'",
     # 'nonce-…' is filled in per request, so the inline scripts in the templates stay
     # allowed while anything an attacker manages to inject does not run.
-    "script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+    # Chart.js, pdf.js and jsPDF used to come off public CDNs; they are in
+    # static/vendor/ now, so no script source outside this origin is trusted at all.
+    "script-src 'self' 'nonce-{nonce}'",
     "style-src 'self' 'unsafe-inline'",      # layout is tuned with inline style attributes
     "img-src 'self' data: blob:",
-    "font-src 'self'",
-    "connect-src 'self' https://cdnjs.cloudflare.com",
+    "font-src 'self'",                       # Inter is served from here too
+    "connect-src 'self'",
     "media-src 'self' blob:",                # narration arrives as a blob: Audio
-    "worker-src 'self' blob: https://cdnjs.cloudflare.com",   # the pdf.js worker
+    "worker-src 'self' blob:",               # the pdf.js worker is same-origin now
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -130,6 +151,50 @@ def _wants_json():
         return True
     best = request.accept_mimetypes.best_match(["application/json", "text/html"])
     return best == "application/json" and request.content_type == "application/json"
+
+
+# A provider failure quotes an HTTP body, a model name, sometimes a key prefix — none of
+# it something a 16-year-old can act on, and some of it not theirs to read. The full text
+# goes to the log; the student gets one of these.
+_ERROR_COPY = (
+    ("timeout", "That took longer than the tutor is allowed. Try once more."),
+    ("timed out", "That took longer than the tutor is allowed. Try once more."),
+    ("429", "The tutor has used up its requests for a few minutes. Try again shortly."),
+    ("rate limit", "The tutor has used up its requests for a few minutes. Try again shortly."),
+    ("quota", "The tutor has used up its requests for a few minutes. Try again shortly."),
+    ("insufficient", "The tutor is out of credit with its provider. Tell us and we will fix it: "
+                     + SUPPORT_EMAIL + "."),
+    ("billing", "The tutor is out of credit with its provider. Tell us and we will fix it: "
+                + SUPPORT_EMAIL + "."),
+    ("api key", "The tutor is not set up right now. Tell us and we will fix it: "
+                + SUPPORT_EMAIL + "."),
+    ("unauthoriz", "The tutor was not accepted by its provider. Tell us and we will fix it: "
+                   + SUPPORT_EMAIL + "."),
+    ("403", "The tutor was not accepted by its provider. Tell us and we will fix it: "
+            + SUPPORT_EMAIL + "."),
+    ("blocked", "The tutor would not answer that one. Try rewording it."),
+    ("safety", "The tutor would not answer that one. Try rewording it."),
+    ("could not parse", "The tutor sent back something we could not read. Try once more."),
+    ("expecting value", "The tutor sent back something we could not read. Try once more."),
+    ("no json", "The tutor sent back something we could not read. Try once more."),
+    ("connection", "We could not reach the tutor's service. Try again in a moment."),
+    ("resolve", "We could not reach the tutor's service. Try again in a moment."),
+    ("network", "We could not reach the tutor's service. Try again in a moment."),
+    ("503", "The tutor's service is having a bad moment. Try again in a little while."),
+    ("overloaded", "The tutor's service is having a bad moment. Try again in a little while."),
+)
+
+
+def _student_error(exc):
+    """Student-facing wording for a failure, with the real reason logged instead."""
+    text = str(exc).strip() or exc.__class__.__name__
+    app.logger.warning("%s failed: %s", request.path, text)
+    lowered = text.lower()
+    for needle, friendly in _ERROR_COPY:
+        if needle in lowered:
+            return friendly
+    return "Something went wrong on our side, not yours. Try once more — " \
+           "if it keeps happening, tell us: " + SUPPORT_EMAIL + "."
 
 
 def _refuse(message, code):
@@ -261,7 +326,7 @@ def lesson_state(subject, topic, work=False):
     try:
         lesson = generate_lesson(subject, topic)
     except Exception as exc:
-        message = str(exc).strip()
+        message = _student_error(exc)
         profile.finish_generation(key, error=message)
         return "error", message, cached
     profile.finish_generation(key)
@@ -412,6 +477,7 @@ def inject_globals():
         "max_upload_mb": MAX_UPLOAD_MB,
         "max_scan_mb": MAX_SCAN_MB,
         "error_labels": profile.ERROR_LABELS,
+        "support_email": SUPPORT_EMAIL,
         "curricula": curriculum.curricula(),
         "cur": cur,
         "cur_name": cur_obj.get("name", cur.upper()),
@@ -425,14 +491,33 @@ def inject_globals():
 
 # ---------------- Pages ----------------
 
+def _landing_context(error=None, name="", grade="Form 1", email="", birth_date="", notice=""):
+    """Everything landing.html needs, in one place so /sign-up and a rejected sign-up
+    cannot drift apart."""
+    return {"error": error, "name": name, "grade": grade, "email": email,
+            "birth_date": birth_date, "grades": FORMS, "notice": notice,
+            "dob_max": datetime.date.today().isoformat()}
+
+
 @app.route("/")
 def index():
+    # A first visitor gets the one screen that explains the product and lets them join it —
+    # never an empty grid or a bare login box.
     if profile.get_student() is None:
-        return redirect(url_for("sign_in"))
+        return render_template("landing.html", **_landing_context())
     cur = current_curriculum()
     subs = _subject_stats(curriculum.subjects(cur))
     recommendation = _named_rec(profile.recommend_next(valid_keys=_all_valid_keys(cur)))
     return render_template("index.html", subjects=subs, recommendation=recommendation)
+
+
+@app.route("/favicon.ico")
+def favicon():
+    # Some browsers ask for this path regardless of the <link rel="icon"> in the page,
+    # so answering it keeps a meaningless 404 out of the console (§2.13).
+    resp = app.send_static_file("favicon.svg")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
 
 
 @app.route("/curriculum", methods=["POST"])
@@ -480,6 +565,7 @@ def sign_in():
         return _sign_in_error("Wrong email or password.", 401, email)
     session.clear()                      # do not carry over a session set up before sign-in
     session["sid"] = sid
+    session.permanent = True             # honours PERMANENT_SESSION_LIFETIME
     return redirect(_safe_target(request.form.get("next")) or url_for("index"))
 
 
@@ -493,31 +579,35 @@ def sign_up():
     if request.method == "GET":
         if session.get("sid"):
             return redirect(url_for("index"))
-        return render_template("sign_up.html", error=None, name="", grade="Form 1",
-                               email="", grades=FORMS)
+        # One screen for joining: the hero and the form share it, so /sign-up is the
+        # landing page reached by its other name rather than a second, different page.
+        return render_template("landing.html", **_landing_context())
     name = request.form.get("name", "").strip()[:60]
     grade = request.form.get("grade", "").strip()[:20]
     email = request.form.get("email", "")[:254]
     password = request.form.get("password", "")[:1024]
+    birth_date = request.form.get("birth_date", "").strip()[:10]
     if not name:
-        return _sign_up_error("Please tell us your name.", name, grade, email)
+        return _sign_up_error("Please tell us your name.", name, grade, email, birth_date)
     if grade not in FORMS:
-        return _sign_up_error("Pick your form from the list.", name, grade, email)
+        return _sign_up_error("Pick your form from the list.", name, grade, email, birth_date)
     if _throttle(f"up:{request.remote_addr}", 6, 3600):
         return _sign_up_error("Too many accounts are being created from this network "
-                              "right now. Try again later.", name, grade, email, 429)
+                              "right now. Try again later.", name, grade, email, birth_date, 429)
     try:
-        sid = profile.create_account(name, grade, email, password)
+        sid = profile.create_account(name, grade, email, password, birth_date=birth_date)
     except ValueError as exc:
-        return _sign_up_error(str(exc), name, grade, email)
+        return _sign_up_error(str(exc), name, grade, email, birth_date)
     session.clear()
     session["sid"] = sid
+    session.permanent = True
     return redirect(url_for("quiz"))      # a brand-new profile needs the starter quiz
 
 
-def _sign_up_error(message, name, grade, email, code=400):
-    return render_template("sign_up.html", error=message, name=name, grade=grade,
-                           email=email, grades=FORMS), code
+def _sign_up_error(message, name, grade, email, birth_date="", code=400):
+    return render_template("landing.html",
+                           **_landing_context(error=message, name=name, grade=grade,
+                                              email=email, birth_date=birth_date)), code
 
 
 @app.route("/sign-out")
@@ -530,6 +620,137 @@ def sign_out():
 def onboarding():
     """Bookmarked old entry point."""
     return redirect(url_for("index") if session.get("sid") else url_for("sign_in"))
+
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
+
+# ---------------- Your account: edit, download, delete ----------------
+#
+# KDPA asks for exactly these: the profile is yours to correct, a copy of it is yours
+# to take in one click, and the whole thing is yours to erase. Each of these routes
+# acts on session["sid"] and nothing else — there is no id in the URL to tamper with.
+
+#: what each count on /account is called in the student's own words
+_DATA_LABELS = {
+    "topic_scores": "Topic starting scores",
+    "concept_mastery": "Concept mastery estimates",
+    "mistake_patterns": "Mistake patterns",
+    "answers": "Answers to practice questions",
+    "lessons": "Generated lessons",
+    "papers": "Analysed paper uploads",
+    "walkthroughs": "Guided paper walkthroughs",
+    "walkthrough_steps": "Walkthrough steps",
+    "graded_papers": "Papers marked for you",
+}
+
+# Only these strings can ever appear on the page. A message is named in the URL, never
+# carried in it, so nothing a caller writes becomes text the student reads as ours.
+_ACCOUNT_NOTICES = {
+    "details": "Your details are saved.",
+    "password": "Password changed. Use it next time you sign in.",
+}
+_ACCOUNT_ERRORS = {
+    "wrong-password": "That is not your current password.",
+    "too-many": "Too many attempts from here. Wait a few minutes and try again.",
+}
+
+
+def _account_page(code=200):
+    """Render /account with the one message this visit produced, if any."""
+    sid = session["sid"]
+    counts = profile.data_inventory(sid)
+    held = [{"label": _DATA_LABELS[k], "count": v} for k, v in counts.items() if v]
+    key = request.args.get("saved", "")
+    notice = _ACCOUNT_NOTICES.get(key)
+    key = request.args.get("error", "")
+    error = _ACCOUNT_ERRORS.get(key) or session.pop("_acct_error", None)
+    return render_template("account.html", held=held, notice=notice, error=error,
+                           email=profile.account_email(sid), grades=FORMS,
+                           dob_max=datetime.date.today().isoformat(),
+                           style_labels=STUDY_STYLE_LABELS,
+                           confidence_labels=CONFIDENCE_LABELS), code
+
+
+@app.route("/account")
+def account():
+    return _account_page()
+
+
+@app.route("/account/details", methods=["POST"])
+def account_details():
+    sid = session["sid"]
+    style = request.form.get("style", "").strip()
+    confidence = request.form.get("confidence", "").strip()
+    try:
+        profile.update_profile(
+            sid,
+            name=request.form.get("name", ""),
+            grade=request.form.get("grade", "").strip(),
+            birth_date=request.form.get("birth_date", "").strip(),
+            style=style or None,
+            confidence=confidence or None,
+        )
+    except ValueError as exc:
+        session["_acct_error"] = str(exc)[:200]
+        return redirect(url_for("account", error="message"))
+    return redirect(url_for("account", saved="details"))
+
+
+@app.route("/account/password", methods=["POST"])
+def account_password():
+    sid = session["sid"]
+    current = request.form.get("current_password", "")[:1024]
+    new = request.form.get("new_password", "")[:1024]
+    if _throttle(f"pw:{request.remote_addr}", 5, 900):
+        return redirect(url_for("account", error="too-many"))
+    if not profile.verify_password(sid, current):
+        return redirect(url_for("account", error="wrong-password"))
+    try:
+        profile.set_password(sid, new)
+    except ValueError as exc:
+        session["_acct_error"] = str(exc)[:200]
+        return redirect(url_for("account", error="message"))
+    return redirect(url_for("account", saved="password"))
+
+
+@app.route("/account/export")
+def account_export():
+    """One JSON file with everything held on the account, sent as an attachment.
+
+    No password here: reading your own data through your own signed-in session is not
+    a destructive act, and no copy is stored — the file is assembled per request.
+    """
+    dump = profile.export_account(session["sid"])
+    body = json.dumps(dump, indent=2, default=str).encode("utf-8")
+    stamp = datetime.date.today().isoformat()
+    response = app.response_class(body, mimetype="application/json")
+    response.headers["Content-Disposition"] = f"attachment; filename=brightboard-{stamp}.json"
+    response.headers["Cache-Control"] = "no-store"   # a copy of your data, on a shared machine
+    return response
+
+
+@app.route("/account/delete", methods=["POST"])
+def account_delete():
+    """Erase the account and every row that hangs off it. The password is asked for
+    because a stolen session cookie should not be enough to destroy someone's work."""
+    sid = session["sid"]
+    if _throttle(f"del:{request.remote_addr}", 3, 900):
+        return redirect(url_for("account", error="too-many"))
+    if not profile.verify_password(sid, request.form.get("password", "")[:1024]):
+        return redirect(url_for("account", error="wrong-password"))
+    profile.delete_account(sid)
+    session.clear()
+    return render_template("landing.html", **_landing_context(
+        notice="Your account and everything in it has been deleted. Nothing of yours "
+               "is left on our servers."))
 
 
 def _quiz_topic_map(cur):
@@ -721,8 +942,9 @@ def api_upload():
     try:
         analysis = tutor.analyze_paper(subject, base64.b64encode(blob).decode(), mime, filename)
     except Exception as exc:
-        profile.update_document(doc_id, status=f"error: {exc}"[:300])
-        return jsonify({"error": str(exc)}), 502
+        problem = _student_error(exc)
+        profile.update_document(doc_id, status=("error: " + problem)[:300])
+        return jsonify({"error": problem}), 502
     profile.update_document(doc_id, analysis=analysis, status="done")
     if analysis.get("findings"):
         profile.apply_document_findings(subject, analysis["findings"])
@@ -759,7 +981,7 @@ def create_walkthrough():
     try:
         paper = tutor.extract_questions(subject, base64.b64encode(blob).decode(), mime, filename)
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 502
+        return jsonify({"error": _student_error(exc)}), 502
     wt_id = profile.create_walkthrough(sid, subject, filename, paper["questions"])
     return jsonify({"id": wt_id, "title": paper["title"], "total": len(paper["questions"])})
 
@@ -785,15 +1007,15 @@ def walkthrough_step(wt_id):
     attempt = max(1, min(5, int(data.get("attempt") or 1)))
     if not 0 <= index < len(wt["questions"]):
         return jsonify({"error": "No such question"}), 404
-    cached = profile.load_walkthrough_step(wt_id, index, attempt)
+    cached = profile.load_walkthrough_step(wt_id, index, attempt, session.get("sid"))
     if cached:
         _prefetch_narration(cached)
         return jsonify({"lesson": cached})
     try:
         lesson = tutor.generate_walkthrough_step(wt["subject"], wt["questions"][index], attempt)
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 502
-    profile.save_walkthrough_step(wt_id, index, attempt, lesson)
+        return jsonify({"error": _student_error(exc)}), 502
+    profile.save_walkthrough_step(wt_id, index, attempt, lesson, session.get("sid"))
     _prefetch_narration(lesson)
     return jsonify({"lesson": lesson})
 
@@ -822,7 +1044,7 @@ def walkthrough_advance(wt_id):
         )
     nxt = index + 1
     done = nxt >= len(wt["questions"])
-    profile.update_walkthrough(wt_id, idx=nxt, status="done" if done else "active")
+    profile.update_walkthrough(wt_id, idx=nxt, status="done" if done else "active", sid=sid)
     return jsonify({
         "done": done,
         "next_index": None if done else nxt,
@@ -869,7 +1091,7 @@ def ask():
     try:
         return jsonify(tutor.ask_question(subject, topic, narration, question[:1000], concept))
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 502
+        return jsonify({"error": _student_error(exc)}), 502
 
 
 @app.route("/api/submit_test", methods=["POST"])
@@ -936,9 +1158,10 @@ def run_grading(job_id, sid, subject, topic, answers, valid_keys=None):
             "concepts": [c for c in _concept_rows(subject, sid) if c["topic"] == topic],
             "recommendation": _named_rec(
                 profile.recommend_next(subject, valid_keys=valid_keys, sid=sid)),
-        })
+        }, sid=sid)
     except Exception as exc:
-        profile.finish_grading_job(job_id, {"error": str(exc)}, status="error")
+        profile.finish_grading_job(job_id, {"error": _student_error(exc)}, status="error",
+                                   sid=sid)
 
 
 @app.route("/api/results/<int:job_id>")
@@ -948,7 +1171,8 @@ def results_data(job_id):
         return jsonify({"error": "Not found"}), 404
     # Nothing marks the paper on a background thread here, so whichever poll claims the
     # job first does the marking inside its own request (see profile.claim_grading_job).
-    if job["status"] in ("grading", "running") and profile.claim_grading_job(job_id):
+    if job["status"] in ("grading", "running") and profile.claim_grading_job(
+            job_id, session.get("sid")):
         run_grading(job_id, job["student_id"], job["subject"], job["topic"], job["payload"],
                     valid_keys=_all_valid_keys(current_curriculum()))
         job = profile.get_grading_job(job_id, session.get("sid"))
@@ -973,7 +1197,7 @@ def tts():
     except llm.TtsWarming:
         return "", 204
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 502
+        return jsonify({"error": _student_error(exc)}), 502
 
 
 if __name__ == "__main__":

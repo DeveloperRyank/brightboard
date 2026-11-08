@@ -89,7 +89,7 @@
         : `mastery ${pct(rec.score)}`;
       html += `
       <div class="rec-card rise" style="animation-delay: ${480 + total * 110}ms">
-        <div class="target">🎯</div>
+        <div class="target">${iconSvg("target")}</div>
         <div class="rec-text">Focus next on <strong>${what}</strong> — ${scoreText}</div>
         <a class="btn gradient" href="/lesson/${esc(rec.subject)}/${esc(rec.topic)}">Study it now</a>
       </div>`;

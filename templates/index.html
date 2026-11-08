@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}Brightboard — Subjects{% endblock %}
 {% block content %}
 <div class="hero">
@@ -20,7 +21,7 @@
 
 {% if recommendation %}
 <div class="rec-card">
-  <div class="target">🎯</div>
+  <div class="target">{{ icon("target") }}</div>
   <div class="rec-text">
     {% if recommendation.self_reported %}
       You told us <strong>{{ recommendation.topic_name }}</strong> troubles you — let's start there.
@@ -64,7 +65,7 @@
   <a class="subject-card" href="{{ url_for('subject', subject=s.slug) }}"
      style="--accent: {{ s.accent }};">
     <span class="pill {{ 'live' if ready else 'soon' }}">{{ 'Live' if ready else 'Soon' }}</span>
-    <span class="s-icon">{{ s.icon }}</span>
+    <span class="s-icon">{{ icon(s.icon) }}</span>
     <div class="s-title">{{ s.name }}</div>
     <div class="s-meta">{{ s.topic_count }} topics
       {%- if s.studied %} · {{ s.studied }} studied · {{ (s.avg_score * 100) | round | int }}% avg{% endif %}

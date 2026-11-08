@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}Walkthrough — {{ filename }}{% endblock %}
 {% block content %}
 <div class="wt-head">
@@ -45,11 +46,11 @@
 <div class="narration" id="narration"></div>
 
 <div class="sound-hint" id="sound-hint">
-  🔇 Your browser is blocking sound — the walkthrough is playing silently. Tap anywhere to hear the tutor.
+  {{ icon("mute") }} Your browser is blocking sound — the walkthrough is playing silently. Tap anywhere to hear the tutor.
 </div>
 
 <div class="lesson-controls" id="wt-controls" style="visibility:hidden;">
-  <button class="btn ghost" id="btn-playpause">⏸ Pause</button>
+  <button class="btn ghost" id="btn-playpause">{{ icon("pause") }} Pause</button>
   <label class="mono" style="font-size: 13px; color: var(--muted);">Speed
     <select id="speed" class="mono" style="background: var(--panel); color: var(--cream); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;">
       <option value="slow">slow</option>
@@ -64,13 +65,13 @@
 </div>
 
 <div class="wt-decide" id="decide">
-  <button class="btn gradient" id="btn-got" disabled>✓ Got it — next question</button>
+  <button class="btn gradient" id="btn-got" disabled>{{ icon("check") }} Got it — next question</button>
   <button class="btn ghost" id="btn-diff" disabled>↻ Explain this differently</button>
   <span class="wt-decide-note" id="decide-note">The tutor finishes this explanation, then you decide.</span>
 </div>
 
 <div class="rec-card" id="wt-done" style="display:none; margin-top: 18px;">
-  <div class="target">🎓</div>
+  <div class="target">{{ icon("cap") }}</div>
   <div class="rec-text">That's the whole paper — every question on it has been walked through, and your concept mastery has been updated as you went.</div>
   <a class="btn" href="{{ url_for('analytics') }}">See what changed →</a>
 </div>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}Sign in · Brightboard{% endblock %}
 {% block content %}
 <div class="hero">
@@ -7,7 +8,7 @@
   <p>Your own account — your lessons, your papers, your progress. Nobody else's name appears here.</p>
 </div>
 
-{% if error %}<div class="banner">{{ error }}</div>{% endif %}
+{% if error %}<div class="banner" role="alert">{{ icon("alert") }} {{ error }}</div>{% endif %}
 
 <form method="post" action="{{ url_for('sign_in') }}" class="create-card">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -24,7 +25,7 @@
            maxlength="1024" autocomplete="current-password" required style="width:100%;">
   </div>
   <div class="create-actions">
-    <button class="btn gradient" type="submit">Sign in →</button>
+    <button class="btn gradient" type="submit" data-once>Sign in {{ icon("arrow") }}</button>
     <a class="quiet-link" href="{{ url_for('sign_up') }}">Create an account</a>
   </div>
 </form>

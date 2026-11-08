@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% block title %}Terms · Brightboard{% endblock %}
+{% block content %}
+<div class="doc">
+  <header class="doc-head">
+    <p class="landing-eyebrow">{{ icon("file") }} Terms</p>
+    <h1>The deal, in plain words</h1>
+    <p class="doc-meta">Last updated 8 November 2026. These terms match how the app
+      behaves; where they ask something of you, the reason is in the sentence next to it.</p>
+  </header>
+
+  <h2>What this is</h2>
+  <p>Brightboard is a study tutor. It marks practice questions from past-paper banks, names
+    the concept you appear to be struggling with, and teaches that concept on an animated
+    whiteboard with spoken explanation. It is not a school, not an examination body, and
+    not a replacement for a teacher.</p>
+
+  <h2>Your account</h2>
+  <ul class="doc-list">
+    <li>Keep your password to yourself. If someone else signs in as you, that is on you,
+      so tell us at once if you think it happened.</li>
+    <li>One account per person. Work spread across several accounts teaches the tutor
+      nothing about you.</li>
+    <li>Give us your real form and date of birth — the syllabus and any consent requirement
+      both depend on them.</li>
+    <li>You can close and delete everything yourself, from the
+      <a href="{{ url_for('account') }}">Account</a> page, at any time.</li>
+  </ul>
+
+  <h2>Do not</h2>
+  <ul class="doc-list">
+    <li>Upload papers you have no right to. If a document belongs to a school or an
+      examination body, make sure you may study from it.</li>
+    <li>Use it to get answers during a live examination.</li>
+    <li>Try to break, probe, overload or impersonate the service, or harvest other
+      students' data.</li>
+    <li>Resell access or put it behind your own paywall without asking first.</li>
+  </ul>
+
+  <h2>Marking is machine-assisted, and can be wrong</h2>
+  <p>Answers are marked by a language model. It is good at the objective questions in the
+    bank and genuinely shaky on long, handwritten, judgement-based work — where a marker
+    wants method marks, wording, a diagram label or a unit. Treat every diagnosis as a
+    strong suggestion, not a verdict, and never read a Brightboard score as a predicted
+    KCSE or SAT result.</p>
+
+  <h2>No warranty, and the limit of our responsibility</h2>
+  <p>The app is provided as it is, without warranty of any kind, to the fullest extent the
+    law allows. If it fails you, your remedy is to stop using it and delete your account.
+    We are not liable for lost examination results, lost coursework, lost data or lost
+    time, and our total liability for anything is limited to the amount you paid us —
+    which today is nothing. That limitation does not extend to anything the law says it
+    cannot, including our own negligence or a breach of data-protection duties.</p>
+
+  <h2>Changes, and which law applies</h2>
+  <p>If the app changes in a way these terms disagree with, we will tell you here before it
+    affects you; carrying on means you accept them. Kenyan law governs, and the Kenya Data
+    Protection Act 2019 governs your data — see the
+    <a href="{{ url_for('privacy') }}">Privacy Policy</a>.</p>
+
+  <p class="doc-foot">
+    Questions, complaints or anything you think we got wrong:
+    <a href="mailto:{{ support_email }}">{{ support_email }}</a>.
+    <span class="todo">TODO before publishing:</span> confirm whether you will trade as a
+    registered business under a different name, and add your business registration and a
+    governing forum if you do.
+  </p>
+</div>
+{% endblock %}

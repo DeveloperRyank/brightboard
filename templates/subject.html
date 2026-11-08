@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}{{ subject.name }} — Brightboard{% endblock %}
 {% block content %}
 <div class="hero">
   <div class="eyebrow"><a href="{{ url_for('index') }}" style="color: var(--coral);">← All subjects</a></div>
-  <h1>{{ subject.icon }} {{ subject.name }}</h1>
+  <h1>{{ icon(subject.icon) }} {{ subject.name }}</h1>
   <p>{{ topics | length }} topics in the {{ subject.name }} syllabus.</p>
 </div>
 
@@ -17,7 +18,7 @@
 
 {% if recommendation and has_data %}
 <div class="rec-card">
-  <div class="target">🎯</div>
+  <div class="target">{{ icon("target") }}</div>
   <div class="rec-text">
     Start with
     {% if recommendation.concept_name %}

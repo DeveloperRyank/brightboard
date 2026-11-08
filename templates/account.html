@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% block title %}Your account · Brightboard{% endblock %}
+{% block content %}
+<div class="acct">
+  <div class="acct-head">
+    <h1>Your account</h1>
+    <p class="sub">Correct what is wrong about you, take everything with you, or remove
+      the whole thing. All three happen here, and only for the account you are in.</p>
+  </div>
+
+  {% if notice %}<div class="banner good" role="status">{{ icon("check") }} {{ notice }}</div>{% endif %}
+  {% if error %}<div class="banner" role="alert">{{ icon("alert") }} {{ error }}</div>{% endif %}
+
+  <section class="card">
+    <h2>{{ icon("pencil") }} Your details</h2>
+    <form method="post" action="{{ url_for('account_details') }}" class="acct-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="su-grid">
+        <div class="fld">
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" class="field" value="{{ student.name }}"
+                 maxlength="60" autocomplete="name" required>
+        </div>
+        <div class="fld">
+          <label for="grade">Your form / grade</label>
+          <select id="grade" name="grade" class="field" required>
+            {% for g in grades %}
+            <option value="{{ g }}" {{ 'selected' if student.grade == g }}>{{ g }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld">
+          <label for="birth_date">Date of birth</label>
+          <input type="date" id="birth_date" name="birth_date" class="field"
+                 value="{{ student.birth_date or '' }}" autocomplete="bday"
+                 min="1905-01-01" max="{{ dob_max }}" required>
+          <p class="fld-hint">Kept to check the account is old enough. It is not shown to anyone.</p>
+        </div>
+        <div class="fld">
+          <label for="style">How you learn best</label>
+          <select id="style" name="style" class="field">
+            <option value="">Not set</option>
+            {% for key, label in style_labels.items() %}
+            <option value="{{ key }}" {{ 'selected' if student.style == key }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld">
+          <label for="confidence">How confident you feel</label>
+          <select id="confidence" name="confidence" class="field">
+            <option value="">Not set</option>
+            {% for key, label in confidence_labels.items() %}
+            <option value="{{ key }}" {{ 'selected' if student.confidence == key }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld">
+          <label>Email</label>
+          <p class="acct-static" id="email">{{ email or 'No email on this account — you cannot sign in with it yet.' }}</p>
+          <p class="fld-hint">The address is the key to the account, so it cannot be edited
+            from here. <a href="mailto:{{ support_email }}?subject=Brightboard%20email%20change">Ask us</a>
+            and we will move your account for you.</p>
+        </div>
+      </div>
+      <button class="btn gradient" type="submit" data-once>Save changes</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{{ icon("shield") }} Change your password</h2>
+    <p class="acct-note">Your current password proves it is you — a saved session on a
+      shared phone is not enough to change it.</p>
+    <form method="post" action="{{ url_for('account_password') }}" class="acct-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="su-grid">
+        <div class="fld">
+          <label for="current_password">Current password</label>
+          <input type="password" id="current_password" name="current_password" class="field"
+                 maxlength="1024" autocomplete="current-password" required style="width:100%">
+        </div>
+        <div class="fld">
+          <label for="new_password">New password</label>
+          <input type="password" id="new_password" name="new_password" class="field"
+                 minlength="8" maxlength="128" autocomplete="new-password" required
+                 style="width:100%">
+          <p class="fld-hint">At least 8 characters, and not one of the common ones.</p>
+        </div>
+      </div>
+      <button class="btn" type="submit" data-once>Change password</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{{ icon("download") }} Download my data</h2>
+    <p class="acct-note">Everything we hold on you, as one readable JSON file: your
+      details, every answer you have given, the mastery we inferred from them, the
+      lessons we wrote for you and what we found in the papers you uploaded. Passwords
+      are never in it — we only keep an irreversible scramble, and there is no reason to
+      hand even that back.</p>
+    <ul class="acct-held">
+      {% for item in held %}
+      <li><span>{{ item.label }}</span><b>{{ item.count }}</b></li>
+      {% else %}
+      <li><span>Nothing yet</span><b>0</b></li>
+      {% endfor %}
+    </ul>
+    <a class="btn" href="{{ url_for('account_export') }}">{{ icon("download") }} Download
+      (JSON)</a>
+  </section>
+
+  <section class="card danger">
+    <h2>{{ icon("trash") }} Delete my account and data</h2>
+    <p class="acct-note">This removes your profile, every answer, every generated lesson,
+      every uploaded paper's analysis and all progress, right away and permanently. It
+      cannot be undone from this page — if you might want the work later,
+      <a href="{{ url_for('account_export') }}">download it first</a>.</p>
+    <form method="post" action="{{ url_for('account_delete') }}" class="acct-form"
+          data-confirm="Deleting is permanent. Type your current password to confirm.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="fld">
+        <label for="delete_password">Confirm with your password</label>
+        <input type="password" id="delete_password" name="password" class="field"
+               maxlength="1024" autocomplete="current-password" required style="width:100%">
+      </div>
+      <button class="btn warn" type="submit" data-once>{{ icon("trash") }} Delete everything</button>
+    </form>
+  </section>
+
+  <p class="acct-foot">
+    Questions about any of this: <a href="mailto:{{ support_email }}">{{ support_email }}</a>.
+    The full picture is in the <a href="{{ url_for('privacy') }}">Privacy Policy</a>.
+  </p>
+</div>
+{% endblock %}

@@ -30,6 +30,7 @@ import re
 import sqlite3
 import threading
 import time
+import datetime
 from pathlib import Path
 
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -182,6 +183,7 @@ CREATE TABLE IF NOT EXISTS students (
     curriculum TEXT NOT NULL DEFAULT 'kcse',
     email TEXT,
     password_hash TEXT,
+    birth_date TEXT,
     failed INTEGER NOT NULL DEFAULT 0,
     locked_until {NUM} NOT NULL DEFAULT 0,
     created_at {NUM} NOT NULL
@@ -295,6 +297,7 @@ def init_db():
         if "curriculum" not in c.columns("students"):
             c.execute("ALTER TABLE students ADD COLUMN curriculum TEXT NOT NULL DEFAULT 'kcse'")
         for col, ddl in (("email", "TEXT"), ("password_hash", "TEXT"),
+                         ("birth_date", "TEXT"),
                          ("failed", "INTEGER NOT NULL DEFAULT 0"),
                          ("locked_until", _NUM + " NOT NULL DEFAULT 0")):
             if col not in c.columns("students"):
@@ -663,6 +666,19 @@ MAX_PASSWORD = 128          # scrypt cost scales with the input, so cap it: a 10
                             # would tie up a serverless request long enough to be free DoS
 MAX_FAILED = 8              # then the account waits out LOCK_SECONDS
 LOCK_SECONDS = 15 * 60
+MIN_AGE = 13                # below this we do not take an account at all
+FORMS = ("Form 1", "Form 2", "Form 3", "Form 4")   # the KCSE year a student is in
+
+# One place decides how a password is stored. scrypt through Werkzeug: memory-hard, a
+# unique 16-byte salt inside every hash, constant-time comparison, and no third party
+# holding identities. Nothing about a password is ever logged, and nothing is reversible.
+# Raise these numbers later and accounts upgrade themselves silently on the next
+# successful sign-in — no migration script, no forced resets, no plaintext anywhere.
+SCRYPT_N = 2 ** 15
+SCRYPT_R = 8
+SCRYPT_P = 1
+SCRYPT_SALT = 16
+_SCRYPT_METHOD = f"scrypt:{SCRYPT_N}:{SCRYPT_R}:{SCRYPT_P}"
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
@@ -700,12 +716,58 @@ def password_problem(password):
     return None
 
 
+def hash_password(password):
+    # Werkzeug reads the scrypt costs from the method name itself ("scrypt:N:r:p"),
+    # not from separate arguments, so SCRYPT_* are encoded there once.
+    return generate_password_hash(password, method=_SCRYPT_METHOD,
+                                  salt_length=SCRYPT_SALT)
+
+
+def needs_rehash(stored):
+    """True when a row was hashed under older parameters than SCRYPT_* now asks for."""
+    return not str(stored or "").startswith(_SCRYPT_METHOD + "$")
+
+
+def age_from(birth_date, today=None):
+    """Whole years on the ISO date, or None if there is no usable date."""
+    if not birth_date:
+        return None
+    try:
+        y, m, d = (int(x) for x in str(birth_date)[:10].split("-"))
+        born = datetime.date(y, m, d)
+    except (ValueError, TypeError):
+        return None
+    today = today or datetime.date.today()
+    return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+
+def birth_date_problem(value):
+    """A student-facing reason to reject a date of birth, or None. Blank is allowed:
+    the field is asked for, not forced, until the consent flow is settled."""
+    if not value:
+        return None
+    age = age_from(value)
+    if age is None:
+        return "That date of birth does not look right. Use the format 2010-04-17."
+    if age < 0:
+        return "That date is in the future."
+    if age > 120:
+        return "That date of birth is too far back to be right."
+    return None
+
+
+def is_child(birth_date):
+    """Under the Kenya Data Protection Act 2019 a child is anyone below 18."""
+    age = age_from(birth_date)
+    return age is not None and age < 18
+
+
 def _duplicate(exc):
     text = str(exc).lower()
     return "unique" in text or "duplicate key" in text
 
 
-def create_account(name, grade, email, password, curriculum="kcse"):
+def create_account(name, grade, email, password, curriculum="kcse", birth_date=None):
     """Register a new student. Raises ValueError with a student-facing message."""
     email = normalise_email(email)
     if not valid_email(email):
@@ -713,13 +775,19 @@ def create_account(name, grade, email, password, curriculum="kcse"):
     problem = password_problem(password)
     if problem:
         raise ValueError(problem)
+    problem = birth_date_problem(birth_date)
+    if problem:
+        raise ValueError(problem)
+    if birth_date and age_from(birth_date) < MIN_AGE:
+        raise ValueError("This course is written for Form 1 and above, so we cannot make "
+                         "an account for someone that young yet.")
     try:
         with _conn() as c:
             return c.insert(
                 "INSERT INTO students (name, grade, struggles, curriculum, email, "
-                "password_hash, created_at) VALUES (?, ?, '[]', ?, ?, ?, ?)",
-                (name, grade, curriculum, email,
-                 generate_password_hash(password, method="scrypt"), time.time()),
+                "password_hash, birth_date, created_at) VALUES (?, ?, '[]', ?, ?, ?, ?, ?)",
+                (name, grade, curriculum, email, hash_password(password),
+                 birth_date or None, time.time()),
             )
     except Exception as exc:
         if _duplicate(exc):        # the unique index is the real guard against a race
@@ -749,6 +817,12 @@ def sign_in(email, password):
         if ok:
             c.execute("UPDATE students SET failed = 0, locked_until = 0 WHERE id = ?",
                       (row["id"],))
+            # The only moment the plaintext exists is right here, and this is the only
+            # place it is ever used: a row hashed under old parameters is rewritten under
+            # the current ones while we still hold the password.
+            if needs_rehash(row["password_hash"]):
+                c.execute("UPDATE students SET password_hash = ? WHERE id = ?",
+                          (hash_password(password), row["id"]))
         else:
             failed = (row["failed"] or 0) + 1
             locked = time.time() + LOCK_SECONDS if failed >= MAX_FAILED else 0
@@ -764,13 +838,24 @@ def lock_seconds_left(email):
     return max(0, round((row["locked_until"] or 0) - time.time())) if row else 0
 
 
+def verify_password(sid, password):
+    """Proof the person asking already knows the account, for the two actions a stolen
+    cookie alone should not be able to take: changing the password and deleting."""
+    with _conn() as c:
+        row = c.execute("SELECT password_hash FROM students WHERE id = ?", (sid,)).fetchone()
+    if not row or not row["password_hash"]:
+        check_password_hash(_DUMMY_HASH, password)   # same cost as a real attempt
+        return False
+    return bool(check_password_hash(row["password_hash"], password))
+
+
 def set_password(sid, password):
     problem = password_problem(password)
     if problem:
         raise ValueError(problem)
     with _conn() as c:
         c.execute("UPDATE students SET password_hash = ?, failed = 0, locked_until = 0 "
-                  "WHERE id = ?", (generate_password_hash(password, method="scrypt"), sid))
+                  "WHERE id = ?", (hash_password(password), sid))
 
 
 def attach_account(sid, email, password):
@@ -787,7 +872,7 @@ def attach_account(sid, email, password):
         try:
             c.execute("UPDATE students SET email = ?, password_hash = ?, failed = 0, "
                       "locked_until = 0 WHERE id = ?",
-                      (email, generate_password_hash(password, method="scrypt"), sid))
+                      (email, hash_password(password), sid))
         except Exception as exc:
             if _duplicate(exc):
                 raise ValueError(f"{email} already belongs to another account.") from exc
@@ -820,7 +905,8 @@ def get_student(sid=None):
         return None
     with _conn() as c:
         row = c.execute(
-            "SELECT id, name, grade, struggles, confidence, style, curriculum FROM students WHERE id = ?",
+            "SELECT id, name, grade, struggles, confidence, style, curriculum, birth_date, "
+            "email, created_at FROM students WHERE id = ?",
             (sid,),
         ).fetchone()
     if not row:
@@ -938,14 +1024,29 @@ def save_document(subject, filename, pages=None, analysis=None, status="done", s
         )
 
 
-def update_document(doc_id, analysis=None, status=None, pages=None):
+def update_document(doc_id, analysis=None, status=None, pages=None, sid=None):
+    """Change one upload's record — and only the caller's own upload.
+
+    Returns how many rows changed, so a caller can tell that the id it was handed
+    belongs to somebody else instead of quietly believing the write happened."""
+    sid = _sid(sid)
+    sets, values = [], []
+    if analysis is not None:
+        sets.append("analysis_json = ?")
+        values.append(json.dumps(analysis))
+    if status is not None:
+        sets.append("status = ?")
+        values.append(status)
+    if pages is not None:
+        sets.append("pages = ?")
+        values.append(pages)
+    if not sets:
+        return 0
+    values += [doc_id, sid]
     with _conn() as c:
-        if analysis is not None:
-            c.execute("UPDATE documents SET analysis_json = ? WHERE id = ?", (json.dumps(analysis), doc_id))
-        if status is not None:
-            c.execute("UPDATE documents SET status = ? WHERE id = ?", (status, doc_id))
-        if pages is not None:
-            c.execute("UPDATE documents SET pages = ? WHERE id = ?", (pages, doc_id))
+        return c.execute(
+            f"UPDATE documents SET {', '.join(sets)} WHERE id = ? AND student_id = ?",
+            tuple(values)).rowcount
 
 
 def get_documents(subject=None, limit=50, sid=None):
@@ -1001,39 +1102,48 @@ def create_grading_job(sid, subject, topic, payload):
         )
 
 
-def claim_grading_job(job_id):
+def claim_grading_job(job_id, sid=None):
     """True for the one request that gets to mark this paper. A 'running' row whose
-    instance was recycled can be taken over once the function deadline has passed."""
+    instance was recycled can be taken over once the function deadline has passed.
+    Scoped to the owner: guessing another student's job id must not buy free work
+    from this account's provider keys, or write into their result."""
+    sid = _sid(sid)
     with _conn() as c:
         cur = c.execute(
             "UPDATE grading_jobs SET status = 'running' "
-            "WHERE id = ? AND (status = 'grading' OR (status = 'running' AND created_at < ?))",
-            (job_id, time.time() - GEN_STALE_AFTER),
+            "WHERE id = ? AND student_id = ? AND (status = 'grading' OR "
+            "(status = 'running' AND created_at < ?))",
+            (job_id, sid, time.time() - GEN_STALE_AFTER),
         )
         return cur.rowcount == 1
 
 
 def get_grading_job(job_id, sid=None):
+    """One job, and only when it belongs to the account asking (or is being read by
+    the background worker that owns it through sid)."""
+    sid = _sid(sid)
+    if not sid:
+        return None
     with _conn() as c:
         row = c.execute(
             "SELECT id, student_id, subject, topic, payload_json, status, result_json, created_at, finished_at "
-            "FROM grading_jobs WHERE id = ?", (job_id,),
+            "FROM grading_jobs WHERE id = ? AND student_id = ?", (job_id, sid),
         ).fetchone()
     if not row:
         return None
     d = dict(row)
-    if sid is not None and d["student_id"] != sid:
-        return None
     d["payload"] = json.loads(d.pop("payload_json"))
     d["result"] = json.loads(d["result_json"]) if d.get("result_json") else None
     return d
 
 
-def finish_grading_job(job_id, result, status="done"):
+def finish_grading_job(job_id, result, status="done", sid=None):
+    sid = _sid(sid)
     with _conn() as c:
         c.execute(
-            "UPDATE grading_jobs SET status = ?, result_json = ?, finished_at = ? WHERE id = ?",
-            (status, json.dumps(result), time.time(), job_id),
+            "UPDATE grading_jobs SET status = ?, result_json = ?, finished_at = ? "
+            "WHERE id = ? AND student_id = ?",
+            (status, json.dumps(result), time.time(), job_id, sid),
         )
 
 
@@ -1058,49 +1168,72 @@ def create_walkthrough(sid, subject, filename, questions):
 
 
 def get_walkthrough(wt_id, sid=None):
+    """One walkthrough, only for its owner. The id arrives from the URL, so this is the
+    whole of the protection on a student's questions and answers."""
+    sid = _sid(sid)
+    if not sid:
+        return None
     with _conn() as c:
         row = c.execute(
             "SELECT id, student_id, subject, filename, questions_json, idx, status, created_at "
-            "FROM walkthroughs WHERE id = ?", (wt_id,),
+            "FROM walkthroughs WHERE id = ? AND student_id = ?", (wt_id, sid),
         ).fetchone()
     if not row:
         return None
     d = dict(row)
-    if sid is not None and d["student_id"] != sid:
-        return None
     d["questions"] = json.loads(d.pop("questions_json"))
     return d
 
 
-def update_walkthrough(wt_id, idx=None, status=None):
+def update_walkthrough(wt_id, idx=None, status=None, sid=None):
+    """Move the marker on, but never on someone else's paper."""
+    sid = _sid(sid)
+    sets, values = [], []
+    if idx is not None:
+        sets.append("idx = ?")
+        values.append(idx)
+    if status is not None:
+        sets.append("status = ?")
+        values.append(status)
+    if not sets:
+        return 0
+    values += [wt_id, sid]
     with _conn() as c:
-        if idx is not None:
-            c.execute("UPDATE walkthroughs SET idx = ? WHERE id = ?", (idx, wt_id))
-        if status is not None:
-            c.execute("UPDATE walkthroughs SET status = ? WHERE id = ?", (status, wt_id))
+        return c.execute(
+            f"UPDATE walkthroughs SET {', '.join(sets)} WHERE id = ? AND student_id = ?",
+            tuple(values)).rowcount
 
 
-def load_walkthrough_step(wt_id, idx, attempt):
-    """The board lesson already built for this question, if anyone has built it."""
+def load_walkthrough_step(wt_id, idx, attempt, sid=None):
+    """The board lesson already built for this question, if this student has built it."""
+    sid = _sid(sid)
+    if not sid:
+        return None
     with _conn() as c:
         row = c.execute(
-            "SELECT lesson_json FROM walkthrough_steps "
-            "WHERE walkthrough_id = ? AND idx = ? AND attempt = ?",
-            (wt_id, idx, attempt),
+            "SELECT s.lesson_json FROM walkthrough_steps s "
+            "JOIN walkthroughs w ON w.id = s.walkthrough_id "
+            "WHERE s.walkthrough_id = ? AND s.idx = ? AND s.attempt = ? "
+            "AND w.student_id = ?",
+            (wt_id, idx, attempt, sid),
         ).fetchone()
     return json.loads(row["lesson_json"]) if row else None
 
 
-def save_walkthrough_step(wt_id, idx, attempt, lesson):
+def save_walkthrough_step(wt_id, idx, attempt, lesson, sid=None):
     """Keep a built step. A prefetch and the request that shows the same step can race;
-    whichever lands first wins and the other is discarded, since both hold the same thing."""
+    whichever lands first wins and the other is discarded, since both hold the same thing.
+
+    The row is made from the walkthroughs table itself, so a step can only ever be
+    attached to a paper the caller owns."""
+    sid = _sid(sid)
     with _conn() as c:
-        c.execute(
+        return c.execute(
             "INSERT INTO walkthrough_steps "
-            "(walkthrough_id, idx, attempt, lesson_json, created_at) VALUES (?, ?, ?, ?, ?) "
+            "(walkthrough_id, idx, attempt, lesson_json, created_at) "
+            "SELECT id, ?, ?, ?, ? FROM walkthroughs WHERE id = ? AND student_id = ? "
             "ON CONFLICT (walkthrough_id, idx, attempt) DO NOTHING",
-            (wt_id, idx, attempt, json.dumps(lesson), time.time()),
-        )
+            (idx, attempt, json.dumps(lesson), time.time(), wt_id, sid)).rowcount
 
 
 def list_walkthroughs(sid, limit=20):
@@ -1118,6 +1251,179 @@ def list_walkthroughs(sid, limit=20):
             row["total"] = 0
         out.append(row)
     return out
+
+
+# ---------------- Your data: read it, change it, take it away ----------------
+#
+# KDPA gives a student the right to a copy of what we hold and the right to have it
+# removed. Both start here, and both are scoped to one student id — nothing in this
+# section can reach another account.
+
+# (section name, table, columns, column to sort by). Every one of these tables
+# carries student_id. Sorting is by a real column because Postgres has no rowid.
+_OWNED_SECTIONS = (
+    ("topic_scores", "topic_seed", ("topic", "score"), "topic"),
+    ("concept_mastery", "concept_mastery",
+     ("topic", "concept", "p", "answers", "updated_at"), "topic"),
+    ("mistake_patterns", "error_tally", ("topic", "concept", "error_type", "count"), "topic"),
+    ("answers", "history", ("ts", "topic", "concept", "question", "answer", "correct",
+                            "error_type", "feedback"), "ts"),
+    ("lessons", "lessons", ("topic", "created_at", "lesson_json"), "topic"),
+    ("papers", "documents", ("ts", "subject", "filename", "pages", "status", "analysis_json"),
+     "ts"),
+    ("walkthroughs", "walkthroughs", ("subject", "filename", "idx", "status", "created_at",
+                                      "questions_json"), "id"),
+    ("graded_papers", "grading_jobs", ("subject", "topic", "status", "created_at",
+                                       "finished_at", "payload_json", "result_json"), "id"),
+)
+
+# Tables holding a JSON string; the "_json" suffix is dropped once parsed.
+_OWNED_DELETE = ("topic_seed", "concept_mastery", "error_tally", "history", "lessons",
+                 "documents", "grading_jobs", "walkthroughs")
+
+
+def _decoded(row):
+    """Swap any *_json column for the parsed object, keeping the row readable if parsing
+    fails — a corrupt cell should not cost the student the rest of their export."""
+    out = dict(row)
+    for key in [k for k in out if str(k).endswith("_json")]:
+        raw = out.pop(key)
+        try:
+            out[key[:-5]] = json.loads(raw) if raw else None
+        except (ValueError, TypeError):
+            out[key[:-5]] = raw
+    return out
+
+
+def export_account(sid):
+    """Everything we hold for one student, as plain JSON-serialisable data.
+
+    Deliberately absent: password_hash (a one-way scramble, but no reason to hand it
+    round), the lockout counters, and any uploaded file — the paper itself is never
+    stored, only the analysis we produced from it.
+    """
+    sid = _sid(sid)
+    if not sid:
+        raise ValueError("No account signed in.")
+    with _conn() as c:
+        row = c.execute(
+            "SELECT id, name, grade, curriculum, email, birth_date, struggles, confidence, "
+            "style, created_at FROM students WHERE id = ?", (sid,)).fetchone()
+        if not row:
+            raise ValueError("No account with that id.")
+        account = _decoded(row)
+        account["struggles"] = json.loads(account["struggles"] or "[]")
+        sections = {"account": [account]}
+
+        for name, table, cols, order in _OWNED_SECTIONS:
+            rows = c.execute(
+                f"SELECT {', '.join(cols)} FROM {table} WHERE student_id = ? "
+                f"ORDER BY {order}", (sid,)).fetchall()
+            sections[name] = [_decoded(r) for r in rows]
+
+        steps = c.execute(
+            "SELECT walkthrough_id, idx, attempt, created_at, lesson_json FROM walkthrough_steps "
+            "WHERE walkthrough_id IN (SELECT id FROM walkthroughs WHERE student_id = ?) "
+            "ORDER BY walkthrough_id, idx, attempt", (sid,)).fetchall()
+        sections["walkthrough_steps"] = [_decoded(s) for s in steps]
+    return {
+        "exported_at": time.time(),
+        "format_version": 1,
+        "note": "Generated by Brightboard for the account named below. Uploaded files are "
+                "not included: they are deleted once analysed.",
+        "data": sections,
+    }
+
+
+def delete_account(sid):
+    """Erase one account and everything hanging off it. Returns how many rows went.
+
+    Order matters: the steps table has no student_id of its own, so it goes while its
+    parent walkthroughs can still be named.
+    """
+    sid = _sid(sid)
+    if not sid:
+        raise ValueError("No account signed in.")
+    counts = {}
+    with _conn() as c:
+        if not c.execute("SELECT id FROM students WHERE id = ?", (sid,)).fetchone():
+            raise ValueError("No account with that id.")
+        wt_ids = [r["id"] for r in c.execute(
+            "SELECT id FROM walkthroughs WHERE student_id = ?", (sid,)).fetchall()]
+        if wt_ids:
+            # Deleted first: this table has no student_id, so its only honest scope is
+            # the walkthroughs that belong to this account.
+            counts["walkthrough_steps"] = c.execute(
+                "DELETE FROM walkthrough_steps WHERE walkthrough_id IN ("
+                + ",".join("?" * len(wt_ids)) + ")", tuple(wt_ids)).rowcount
+        for table in _OWNED_DELETE:
+            counts[table] = c.execute(
+                f"DELETE FROM {table} WHERE student_id = ?", (sid,)).rowcount
+        counts["students"] = c.execute("DELETE FROM students WHERE id = ?", (sid,)).rowcount
+    return counts
+
+
+def data_inventory(sid):
+    """How many rows of each kind the account holds — the numbers shown on /account
+    before anyone downloads or deletes anything. Counts only, no content."""
+    sid = _sid(sid)
+    if not sid:
+        raise ValueError("No account signed in.")
+    out = {}
+    with _conn() as c:
+        for name, table, _cols, _order in _OWNED_SECTIONS:
+            row = c.execute(f"SELECT COUNT(*) AS n FROM {table} WHERE student_id = ?",
+                            (sid,)).fetchone()
+            out[name] = row["n"]
+        row = c.execute(
+            "SELECT COUNT(*) AS n FROM walkthrough_steps WHERE walkthrough_id IN "
+            "(SELECT id FROM walkthroughs WHERE student_id = ?)", (sid,)).fetchone()
+        out["walkthrough_steps"] = row["n"]
+    return out
+
+
+def update_profile(sid, name=None, grade=None, birth_date=None, curriculum=None,
+                   style=None, confidence=None):
+    """Change the profile fields a student controls, validating before any write."""
+    sid = _sid(sid)
+    if not sid:
+        raise ValueError("No account signed in.")
+    if name is not None:
+        name = name.strip()
+        if not name:
+            raise ValueError("Your name cannot be empty.")
+        if len(name) > 60:
+            raise ValueError("That name is too long.")
+    if grade is not None and grade not in FORMS:
+        raise ValueError("Choose one of: " + ", ".join(FORMS) + ".")
+    if birth_date is not None:
+        birth_date = (birth_date or "").strip() or None
+        problem = birth_date_problem(birth_date)
+        if problem:
+            raise ValueError(problem)
+        if birth_date and (age_from(birth_date) or 0) < MIN_AGE:
+            raise ValueError("Accounts start at age " + str(MIN_AGE) + ".")
+    if style is not None and style not in STUDY_STYLES:
+        raise ValueError("Choose a study style from the list.")
+    if confidence is not None and confidence not in CONFIDENCE_LEVELS:
+        raise ValueError("Choose a confidence level from the list.")
+    if curriculum is not None:
+        from curriculum import curricula
+        if curriculum not in {c["slug"] for c in curricula()}:
+            raise ValueError("That curriculum does not exist.")
+
+    writes, values = [], []
+    for col, val in (("name", name), ("grade", grade), ("birth_date", birth_date),
+                     ("curriculum", curriculum), ("style", style),
+                     ("confidence", confidence)):
+        if val is not None:
+            writes.append(col + " = ?")
+            values.append(val)
+    if not writes:
+        return
+    values.append(sid)
+    with _conn() as c:
+        c.execute(f"UPDATE students SET {', '.join(writes)} WHERE id = ?", tuple(values))
 
 
 init_db()

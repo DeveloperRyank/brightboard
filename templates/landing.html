@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% block title %}Brightboard — find the concept behind the lost marks{% endblock %}
+{% block content %}
+<section class="landing">
+  <p class="landing-eyebrow">{{ icon("board") }} Brightboard · {{ cur_name }}</p>
+
+  <h1 class="landing-hero">
+    <span class="lh-quiet">You already know</span>
+    <span class="lh-loud">where you {{ icon("target", "lh-ico") }}lost marks.</span>
+  </h1>
+
+  <p class="lh-sub">Mark a real past paper and Brightboard names the one concept behind the loss,
+    then teaches exactly that on a whiteboard — drawn and spoken, at your pace.</p>
+
+  {% if notice %}<div class="banner good" role="status">{{ icon("check") }} {{ notice }}</div>{% endif %}
+  {% if error %}<div class="banner" role="alert">{{ icon("alert") }} {{ error }}</div>{% endif %}
+
+  <form method="post" action="{{ url_for('sign_up') }}" class="signup-card" id="signup">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="su-head">
+      <h2>Create your account</h2>
+      <p>An email and a password. Only you ever see the work inside it.</p>
+    </div>
+
+    <div class="su-grid">
+      <div class="fld">
+        <label for="name">Your name</label>
+        <input type="text" id="name" name="name" class="field" value="{{ name }}"
+               maxlength="60" autocomplete="name" placeholder="e.g. Amina" required>
+      </div>
+      <div class="fld">
+        <label for="grade">Your form / grade</label>
+        <select id="grade" name="grade" class="field" required>
+          {% for g in grades %}
+          <option value="{{ g }}" {{ 'selected' if grade == g }}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="fld">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" class="field" value="{{ email }}"
+               maxlength="254" autocomplete="username" spellcheck="false"
+               inputmode="email" required>
+      </div>
+      <div class="fld">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" class="field"
+               minlength="8" maxlength="128" autocomplete="new-password" required>
+        <p class="fld-hint">At least 8 characters. A short phrase you can remember works best.</p>
+      </div>
+      <div class="fld">
+        <label for="birth_date">Date of birth</label>
+        <input type="date" id="birth_date" name="birth_date" class="field" value="{{ birth_date }}"
+               autocomplete="bday" min="1905-01-01" max="{{ dob_max }}" required>
+        <p class="fld-hint">Used only to check the account is old enough. Never shown to anyone else.</p>
+      </div>
+    </div>
+
+    <button class="btn pill wide" type="submit" data-once>
+      Create account {{ icon("arrow") }}
+    </button>
+    <p class="su-terms">
+      By creating an account you agree to the
+      <a href="{{ url_for('terms') }}">Terms</a> and
+      <a href="{{ url_for('privacy') }}">Privacy Policy</a>.
+    </p>
+    <p class="su-alt">
+      Already have an account?
+      <a href="{{ url_for('sign_in') }}">Sign in</a>
+    </p>
+  </form>
+
+  <ul class="landing-facts">
+    <li>{{ icon("file") }} <span><b>Real papers.</b> Questions come from the actual past-paper bank, never invented ones.</span></li>
+    <li>{{ icon("bulb") }} <span><b>One gap at a time.</b> It teaches the concept you lost, not the whole chapter.</span></li>
+    <li>{{ icon("shield") }} <span><b>Yours alone.</b> Every page of work is read back only to the account that made it.</span></li>
+  </ul>
+</section>
+{% endblock %}

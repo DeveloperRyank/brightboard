@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}Upload a paper — Brightboard{% endblock %}
 {% block content %}
 <div class="hero">
@@ -11,7 +12,7 @@
   <label for="subject" style="display:block; margin-bottom:8px; font-size:14px;">Subject this paper belongs to</label>
   <select id="subject" class="field" style="width:100%; max-width: 320px;">
     {% for s in subjects %}
-    <option value="{{ s.slug }}" {{ 'selected' if s.slug == 'chemistry' }}>{{ s.icon }} {{ s.name }}</option>
+    <option value="{{ s.slug }}" {{ 'selected' if s.slug == 'chemistry' }}>{{ s.name }}</option>
     {% endfor %}
   </select>
 
@@ -31,7 +32,7 @@
 </div>
 
 <div class="dropzone" id="dropzone">
-  <div class="dz-icon">📄</div>
+  <div class="dz-icon">{{ icon("file") }}</div>
   <div class="dz-title">Drag a PDF or image here, or click to choose</div>
   <div class="dz-sub">PDF · PNG · JPEG · WebP — up to {{ max_scan_mb }} MB. A scan too big to send
     is compressed here in your browser first, so nothing needs re-exporting.</div>
@@ -111,7 +112,7 @@
     const file = input.files[0];
     if (!file) return;
     if (file.size > {{ max_scan_mb }} * 1024 * 1024) {
-      status.innerHTML = '<div class="banner">⚠ That file is ' + (file.size / 1048576).toFixed(1) +
+      status.innerHTML = '<div class="banner">' + iconSvg("alert") + ' That file is ' + (file.size / 1048576).toFixed(1) +
         ' MB and this page takes scans up to {{ max_scan_mb }} MB. Split it into fewer pages.</div>';
       result.innerHTML = "";
       input.value = "";
@@ -129,7 +130,8 @@
       payload = shrunk.blob;
       dropped = shrunk.note || 0;
     } catch (err) {
-      status.innerHTML = '<div class="banner">⚠ ' + esc(err.message) + "</div>";
+      status.innerHTML = '<div class="banner">' + iconSvg("alert") + " " +
+                         esc(err.message) + "</div>";
       input.value = "";
       return;
     }
@@ -141,7 +143,15 @@
                               : "Reading your paper… this can take up to a minute.") +
       (dropped ? "<br>The last " + dropped +
         " page(s) were left out to keep the scan small enough to send." : "") +
-      "</div>";
+      +"</div>";
+    // 2.7: the card that is about to arrive holds its place, so the page does not
+    // jump and the wait reads as work in progress rather than a dead end.
+    result.innerHTML = '<div class="doc-card">' +
+      '<div class="d-head"><span class="skeleton line short"></span></div>' +
+      '<div class="skeleton line"></div><div class="skeleton line mid"></div>' +
+      '<div class="d-topics"><span class="skeleton tag" style="width:5rem;"></span>' +
+      '<span class="skeleton tag" style="width:6.5rem;"></span>' +
+      '<span class="skeleton tag" style="width:4rem;"></span></div></div>';
     try {
       const resp = await fetch(mode === "walkthrough" ? "/api/walkthrough" : "/api/upload",
         { method: "POST", headers: csrfHeaders(), body: fd });
@@ -153,7 +163,9 @@
       input.value = "";
       setTimeout(() => location.reload(), 1600);
     } catch (err) {
-      status.innerHTML = '<div class="banner">⚠ ' + err.message + "</div>";
+      status.innerHTML = '<div class="banner">' + iconSvg("alert") + " " +
+                         esc(err.message) + "</div>";
+      result.innerHTML = "";
     }
   }
 
@@ -170,13 +182,13 @@
         html += '<span class="mini-chip ' + (t.covered ? "ok" : "") + '">' + esc(t.name || t.slug) +
           (t.questions_found ? " · " + t.questions_found + "q" : "") + "</span>";
       }
-      html += "</div>";
+      html += +"</div>";
     }
     if (a.findings && a.findings.length) {
       html += '<div class="d-sum" style="margin-top:10px;">Folded ' + a.findings.length +
         " graded finding(s) into your profile.</div>";
     }
-    html += "</div>";
+    html += +"</div>";
     return html;
   }
 })();

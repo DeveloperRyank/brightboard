@@ -297,7 +297,8 @@ function togglePlay() {
 }
 
 function paintPlayButton() {
-  document.getElementById("btn-playpause").textContent = playing ? "⏸ Pause" : "▶ Play";
+  document.getElementById("btn-playpause").innerHTML =
+    iconSvg(playing ? "pause" : "play") + (playing ? " Pause" : " Play");
 }
 
 // ---------- loading / error overlays ----------

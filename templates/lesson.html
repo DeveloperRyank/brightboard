@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}Lesson — {{ name }}{% endblock %}
 {% block content %}
 <div class="lesson-head">
@@ -42,11 +43,11 @@
 <div class="narration" id="narration"></div>
 
 <div class="sound-hint" id="sound-hint">
-  🔇 Your browser is blocking sound — the lesson is playing silently. Tap anywhere to hear the tutor.
+  {{ icon("mute") }} Your browser is blocking sound — the lesson is playing silently. Tap anywhere to hear the tutor.
 </div>
 
 <div class="lesson-controls" id="lesson-controls" style="visibility: hidden;">
-  <button class="btn ghost" id="btn-playpause">⏸ Pause</button>
+  <button class="btn ghost" id="btn-playpause">{{ icon("pause") }} Pause</button>
   <label class="mono" style="font-size: 13px; color: var(--muted);">Speed
     <select id="speed" class="mono" style="background: var(--panel); color: var(--cream); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;">
       <option value="slow">slow</option>
@@ -56,13 +57,13 @@
   </label>
   <button class="btn ghost" id="btn-prev">← Previous</button>
   <button class="btn" id="btn-next">Next →</button>
-  <button class="btn warn" id="btn-ask">✋ Stop and ask a question</button>
+  <button class="btn warn" id="btn-ask">{{ icon("hand") }} Stop and ask a question</button>
   <span class="spacer"></span>
   <button class="btn ghost small" id="btn-regenerate">↻ Redraw lesson</button>
 </div>
 
 <div class="rec-card" id="lesson-done" style="display: none; margin-top: 18px;">
-  <div class="target">🎓</div>
+  <div class="target">{{ icon("cap") }}</div>
   <div class="rec-text">Lesson complete. Ready to prove it on real {{ subject_name(subject) }} questions?</div>
   <a class="btn" id="done-exam" href="{{ url_for('exam', subject=subject, topic=topic) }}">Prove it in the Exam Center →</a>
 </div>
@@ -72,7 +73,7 @@
   <div class="paused-note">Board, text and voice are frozen. You paused on: <em id="paused-step"></em></div>
   <textarea id="ask-input" rows="3" placeholder="Type your question, or tap the mic and say it…"></textarea>
   <div style="margin-top: 12px; display: flex; gap: 10px; align-items: center;">
-    <button class="btn mic-btn" id="btn-mic" title="Ask by voice">🎤</button>
+    <button class="btn mic-btn" id="btn-mic" title="Ask by voice">{{ icon("mic") }}</button>
     <span class="mono" id="mic-state" style="font-size: 12px; color: var(--muted);"></span>
     <span class="spacer" style="margin-left: auto;"></span>
     <button class="btn" id="btn-send-ask">Ask the tutor</button>
@@ -81,7 +82,7 @@
 </div>
 
 <div class="ask-bar" id="ask-bar">
-  <span class="mono" style="color: var(--muted);">💬</span>
+  <span class="mono" style="color: var(--muted);">{{ icon("message") }}</span>
   <span id="ask-bar-q" style="flex: 1;"></span>
   <span class="mono" id="ask-bar-state" style="font-size: 12px; color: var(--muted);"></span>
   <button class="btn small ghost" id="btn-resume-bar">Resume lesson</button>
@@ -96,6 +97,7 @@
   const INITIAL_ERROR = {{ error | tojson }};
   const SERVER_TTS = {{ server_tts | tojson }};
   const CONCEPT_NAMES = {{ concept_names | tojson }};
+  const CACHE_SCOPE = {{ (student.id if student else 0) | tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/whiteboard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/voice.js') }}"></script>

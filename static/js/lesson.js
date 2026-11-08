@@ -36,6 +36,10 @@ let canvas, narrationEl;
 let pollTimer = null;
 let msgTimer = null;
 
+// The board this tab has already seen for this topic, in this account.
+const LESSON_CACHE = "lesson." + CACHE_SCOPE + "." + SUBJECT + "." + TOPIC;
+let fromCache = null;      // painted from that cache, waiting for the real answer
+
 document.addEventListener("DOMContentLoaded", () => {
   canvas = document.getElementById("board");
   narrationEl = document.getElementById("narration");
@@ -74,11 +78,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const embedded = JSON.parse(document.getElementById("lesson-data").textContent || "null");
   if (INITIAL_STATUS === "ready" && embedded) {
+    cacheWrite(LESSON_CACHE, embedded);
     initPlayer(embedded);
   } else if (INITIAL_STATUS === "error") {
-    showError(INITIAL_ERROR);
+    // A board from the last visit beats an error box over a blank canvas: the student
+    // can still work, and the reason the refresh failed is said out loud.
+    const remembered = cacheRead(LESSON_CACHE);
+    if (remembered) {
+      initPlayer(remembered);
+      noteInNarration("A newer version of this lesson could not be drawn — " +
+        "this is the one from your last visit.");
+    } else {
+      showError(INITIAL_ERROR);
+    }
   } else {
-    showLoading();
+    // 2.5: a lesson that is still being rebuilt should not leave the student staring at
+    // a chalkboard animation of nothing. The last board for this topic is painted at
+    // once and the fresh one replaces it when it lands.
+    const remembered = cacheRead(LESSON_CACHE);
+    if (remembered) {
+      fromCache = remembered;
+      initPlayer(remembered);
+    } else {
+      showLoading();
+    }
     pollStatus();
   }
 });
@@ -134,14 +157,34 @@ function pollStatus() {
         // board. Leave the poll running instead.
         if (!lessonData.lesson) return;
         clearInterval(pollTimer);
+        cacheWrite(LESSON_CACHE, lessonData.lesson);
+        // 2.5: if a cached board is already playing, the fresh one only takes over
+        // while the student is still on the first line. Yanking a lesson halfway
+        // through is worse than letting them finish the version they started.
+        if (fromCache) {
+          const untouched = step === 0 && charPos < 2 && !asking && mode === "lesson";
+          fromCache = null;
+          if (untouched && JSON.stringify(lessonData.lesson) !== JSON.stringify(lesson)) {
+            initPlayer(lessonData.lesson);
+          }
+          return;
+        }
         hideLoading();
         initPlayer(lessonData.lesson);
       } else if (data.status === "error") {
         clearInterval(pollTimer);
-        showError(data.error);
+        // A cached board on screen is better than an error overlay with nothing behind
+        // it; the message goes in the narration strip instead.
+        if (fromCache) { fromCache = null; noteInNarration("The new version of this lesson could not be drawn, so this is the last one."); }
+        else showError(data.error);
       }
     } catch (e) { /* server restarting; keep polling */ }
   }, 2500);
+}
+
+function noteInNarration(text) {
+  const el = document.getElementById("narration");
+  if (el) el.textContent = text;
 }
 
 function initPlayer(lessonData) {
@@ -302,7 +345,8 @@ function togglePlay() {
 }
 
 function paintPlayButton() {
-  document.getElementById("btn-playpause").textContent = playing ? "⏸ Pause" : "▶ Play";
+  document.getElementById("btn-playpause").innerHTML =
+    iconSvg(playing ? "pause" : "play") + (playing ? " Pause" : " Play");
 }
 
 function onNext() {
@@ -463,7 +507,7 @@ function toggleMic() {
   };
   rec.start();
   document.getElementById("btn-mic").classList.add("listening");
-  document.getElementById("mic-state").textContent = "listening… tap 🎤 to stop";
+  document.getElementById("mic-state").textContent = "listening… tap the microphone again to stop";
 }
 
 function stopMic() {
@@ -477,6 +521,10 @@ async function regenerate() {
   btn.disabled = true;
   playing = false;
   voiceCancel();
+  // The student has just rejected this board: it must not come back as the cached
+  // copy on the next visit, and it must not be swapped in underneath the redraw.
+  fromCache = null;
+  cacheErase(LESSON_CACHE);
   showLoading();
   try {
     const resp = await fetch("/api/lesson/" + encodeURIComponent(SUBJECT) + "/" + encodeURIComponent(TOPIC) + "/regenerate", { method: "POST", headers: csrfHeaders() });

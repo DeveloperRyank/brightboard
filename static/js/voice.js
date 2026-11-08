@@ -62,7 +62,57 @@ window.Voice = (function () {
     }, 1500);
   }
 
+  // ---------- 2.5: a line already paid for is never fetched twice ----------
+  // Scrubbing back, replaying a step and the auto-advance all ask for the same clips.
+  // A dozen covers one lesson; the oldest is dropped when a newer one arrives.
+  const CLIPS_KEPT = 12;
+  const clips = new Map();          // narration text -> object URL
+
+  function clipFor(text) {
+    const url = clips.get(text);
+    if (!url) return null;
+    clips.delete(text);             // re-insert last so the map stays oldest-first
+    clips.set(text, url);
+    return url;
+  }
+
+  function rememberClip(text, url) {
+    clips.set(text, url);
+    while (clips.size > CLIPS_KEPT) {
+      const oldest = clips.keys().next().value;
+      URL.revokeObjectURL(clips.get(oldest));
+      clips.delete(oldest);
+    }
+  }
+
+  function playClip(url, text, tk, onEnd) {
+    stopAudio();
+    audioEl = new Audio(url);
+    audioEl.playbackRate = rate;
+    const finish = () => { if (tk === token && !done) { done = true; audioEl = null; if (onEnd) onEnd(); } };
+    audioEl.onended = finish;
+    audioEl.onerror = () => { if (tk === token) { audioEl = null; browserSpeak(text, tk, onEnd); } };
+    // A backgrounded or throttled tab can swallow the ended event; guard on the real
+    // clip length so narration can never freeze the lesson.
+    audioEl.onloadedmetadata = () => {
+      const secs = isFinite(audioEl.duration) && audioEl.duration > 0 ? audioEl.duration : 45;
+      setTimeout(finish, (secs * 1000) / rate + 5000);
+    };
+    const p = audioEl.play();
+    if (p && p.then) {
+      p.then(() => { if (tk === token) blocked = false; })
+       .catch((e) => {
+          if (tk !== token) return;
+          if (e && e.name === "NotAllowedError") blocked = true;
+          audioEl = null;
+          browserSpeak(text, tk, onEnd);
+        });
+    }
+  }
+
   async function serverSpeak(text, tk, onEnd) {
+    const remembered = clipFor(text);
+    if (remembered) { playClip(remembered, text, tk, onEnd); return; }
     try {
       const resp = await fetch("/api/tts", {
         method: "POST",
@@ -76,28 +126,9 @@ window.Voice = (function () {
       if (!resp.ok) throw new Error("tts " + resp.status);
       const blob = await resp.blob();
       if (tk !== token) return;                       // superseded while fetching
-      stopAudio();
-      audioEl = new Audio(URL.createObjectURL(blob));
-      audioEl.playbackRate = rate;
-      const finish = () => { if (tk === token && !done) { done = true; audioEl = null; if (onEnd) onEnd(); } };
-      audioEl.onended = finish;
-      audioEl.onerror = () => { if (tk === token) { audioEl = null; browserSpeak(text, tk, onEnd); } };
-      // A backgrounded or throttled tab can swallow the ended event; guard on the real
-      // clip length so narration can never freeze the lesson.
-      audioEl.onloadedmetadata = () => {
-        const secs = isFinite(audioEl.duration) && audioEl.duration > 0 ? audioEl.duration : 45;
-        setTimeout(finish, (secs * 1000) / rate + 5000);
-      };
-      const p = audioEl.play();
-      if (p && p.then) {
-        p.then(() => { if (tk === token) blocked = false; })
-         .catch((e) => {
-            if (tk !== token) return;
-            if (e && e.name === "NotAllowedError") blocked = true;
-            audioEl = null;
-            browserSpeak(text, tk, onEnd);
-          });
-      }
+      const url = URL.createObjectURL(blob);
+      rememberClip(text, url);
+      playClip(url, text, tk, onEnd);
     } catch (e) {
       if (tk !== token) return;
       serverDownUntil = Date.now() + 60000;            // don't pay the round-trip every step
