@@ -12,8 +12,10 @@
 
 const BOARD_W = 1000;
 const BOARD_H = 620;
-const HIGHLIGHT_COLOR = "#fbbf24";
-const CHALK = "#eef2f7";
+const BOARD_BG = "#0A1730";
+const HIGHLIGHT_COLOR = "#FF6B57";
+const CHALK = "#F4EBDD";
+const CHALK_DIM = "#BFB09C";    // secondary ink on the board, the cream muted down
 const DRAW_SPEED = 430; // board units of stroke length per second
 // The board is drawn in 1000x620 units and scaled to fit, and CSS never lets it
 // narrower than 700px (it scrolls sideways instead), so the scale stays above 0.7.
@@ -67,7 +69,7 @@ const GLYPHS = {
     { pts: [[55, 8], [55, 78]] },
     { pts: [[45, 8], [55, 8]] },
     { pts: arcPts(50, 84, 8, 0, rad(360)) },
-    { pts: [[50, 80], [50, 38]], color: "#fca5a5", width: 4 },
+    { pts: [[50, 80], [50, 38]], color: "#FF6B57", width: 4 },
     { pts: [[55, 24], [62, 24]] },
     { pts: [[55, 40], [62, 40]] },
     { pts: [[55, 56], [62, 56]] },
@@ -84,7 +86,7 @@ const GLYPHS = {
     { pts: [[45, 80], [45, 42]] },
     { pts: [[55, 80], [55, 42]] },
     { pts: [[43, 62], [57, 62]] },
-    { pts: [[50, 40], [43, 28], [50, 8], [57, 28], [50, 40]], color: "#fde68a" },
+    { pts: [[50, 40], [43, 28], [50, 8], [57, 28], [50, 40]], color: "#D9A648" },
   ],
   funnel: [
     { pts: [[16, 10], [50, 52], [84, 10]] },
@@ -102,7 +104,7 @@ const GLYPHS = {
     { pts: [[50, 6], [68, 6]] },
   ],
   atom: [
-    { pts: arcPts(50, 50, 7, 0, rad(360)), color: "#fde68a" },
+    { pts: arcPts(50, 50, 7, 0, rad(360)), color: "#D9A648" },
     { pts: ellipsePts(50, 50, 40, 14, 0) },
     { pts: ellipsePts(50, 50, 40, 14, rad(60)) },
     { pts: ellipsePts(50, 50, 40, 14, rad(120)) },
@@ -118,9 +120,9 @@ const GLYPHS = {
   bulb: [
     { pts: arcPts(50, 38, 20, 0, rad(360)) },
     { pts: [[42, 56], [42, 70], [58, 70], [58, 56]] },
-    { pts: [[20, 20], [12, 12]], color: "#fde68a" },
-    { pts: [[80, 20], [88, 12]], color: "#fde68a" },
-    { pts: [[50, 12], [50, 2]], color: "#fde68a" },
+    { pts: [[20, 20], [12, 12]], color: "#D9A648" },
+    { pts: [[80, 20], [88, 12]], color: "#D9A648" },
+    { pts: [[50, 12], [50, 2]], color: "#D9A648" },
   ],
   burette: [
     { pts: [[44, 6], [44, 78]] },
@@ -138,7 +140,7 @@ const GLYPHS = {
     { pts: [[44, 8], [44, 34]] },
     { pts: [[56, 8], [56, 34]] },
     { pts: [[44, 34], [20, 86], [80, 86], [56, 34]] },
-    { pts: [[31, 66], [69, 66]], color: "#7dd3fc", width: 2 },
+    { pts: [[31, 66], [69, 66]], color: "#F4EBDD", width: 2 },
   ],
   speech_bubble: [
     { pts: [[20, 15], [80, 15], [85, 20], [85, 55], [80, 60], [45, 60], [28, 80], [32, 60], [20, 60], [15, 55], [15, 20], [20, 15]] },
@@ -200,12 +202,12 @@ const TEMPLATES = {
       { p: [[430, 300], [410, 428]], width: 3 },
       { p: [[430, 300], [450, 428]], width: 3 },
       { p: [[410, 428], [450, 428]], width: 2 },
-      { arc: { cx: 430, cy: 300, r: 20 }, color: "#fde68a", width: 3 },
+      { arc: { cx: 430, cy: 300, r: 20 }, color: "#D9A648", width: 3 },
       { arc: { cx: 430, cy: 190, r: 18 }, width: 3 },
       { arc: { cx: 330, cy: 375, r: 18 }, width: 3 },
       { arc: { cx: 530, cy: 375, r: 18 }, width: 3 },
       { arc: { cx: 430, cy: 445, r: 18 }, width: 3 },
-      { text: "C", x: 423, y: 300, size: 20, color: "#fde68a" },
+      { text: "C", x: 423, y: 300, size: 20, color: "#D9A648" },
       { text: "H", x: 423, y: 190, size: 18 },
       { text: "H", x: 323, y: 375, size: 18 },
       { text: "H", x: 523, y: 375, size: 18 },
@@ -218,15 +220,15 @@ const TEMPLATES = {
     ops: [
       { p: [[450, 300], [368, 368]], width: 3 },
       { p: [[450, 300], [532, 368]], width: 3 },
-      { p: [[436, 272], [428, 254]], width: 2, color: "#c4b5fd" },
-      { p: [[464, 272], [472, 254]], width: 2, color: "#c4b5fd" },
-      { arc: { cx: 450, cy: 300, r: 22 }, color: "#fca5a5", width: 3 },
+      { p: [[436, 272], [428, 254]], width: 2, color: "#D9A648" },
+      { p: [[464, 272], [472, 254]], width: 2, color: "#D9A648" },
+      { arc: { cx: 450, cy: 300, r: 22 }, color: "#FF6B57", width: 3 },
       { arc: { cx: 360, cy: 378, r: 18 }, width: 3 },
       { arc: { cx: 540, cy: 378, r: 18 }, width: 3 },
-      { text: "O", x: 442, y: 300, size: 20, color: "#fca5a5" },
+      { text: "O", x: 442, y: 300, size: 20, color: "#FF6B57" },
       { text: "H", x: 352, y: 378, size: 18 },
       { text: "H", x: 532, y: 378, size: 18 },
-      { slot: "angle", x: 420, y: 348, size: 15, color: "#c4b5fd", def: "104.5\u00b0" },
+      { slot: "angle", x: 420, y: 348, size: 15, color: "#D9A648", def: "104.5\u00b0" },
       { slot: "name", x: 660, y: 300, size: 18, def: "Water, H\u2082O" },
       { slot: "geometry", x: 660, y: 335, size: 15, def: "Bent / V-shaped" },
     ],
@@ -241,29 +243,29 @@ const TEMPLATES = {
       { p: [[880, 520], [863, 527]], width: 3 },
       { text: "Energy", x: 96, y: 88, size: 15 },
       { text: "Reaction coordinate", x: 620, y: 548, size: 15 },
-      { slot: "ea", x: 508, y: 225, size: 16, color: "#fde68a", def: "E\u2090" },
+      { slot: "ea", x: 508, y: 225, size: 16, color: "#D9A648", def: "E\u2090" },
       { slot: "ts", x: 420, y: 122, size: 15, def: "Transition state" },
     ],
     variants: {
       exo: [
-        { p: [[200, 300], [320, 300], [380, 272], [440, 205], [500, 152], [560, 205], [640, 330], [720, 410], [820, 410]], color: "#7dd3fc", width: 4 },
-        { p: [[500, 300], [500, 152]], color: "#fde68a", width: 2 },
-        { p: [[760, 300], [760, 410]], color: "#86efac", width: 2 },
-        { p: [[760, 410], [753, 396]], color: "#86efac", width: 2 },
-        { p: [[760, 410], [767, 396]], color: "#86efac", width: 2 },
+        { p: [[200, 300], [320, 300], [380, 272], [440, 205], [500, 152], [560, 205], [640, 330], [720, 410], [820, 410]], color: "#F4EBDD", width: 4 },
+        { p: [[500, 300], [500, 152]], color: "#D9A648", width: 2 },
+        { p: [[760, 300], [760, 410]], color: "#74A98D", width: 2 },
+        { p: [[760, 410], [753, 396]], color: "#74A98D", width: 2 },
+        { p: [[760, 410], [767, 396]], color: "#74A98D", width: 2 },
         { slot: "reactants", x: 175, y: 285, size: 15, def: "Reactants" },
         { slot: "products", x: 745, y: 432, size: 15, def: "Products" },
-        { slot: "dh", x: 772, y: 350, size: 16, color: "#86efac", def: "\u0394H (exothermic)" },
+        { slot: "dh", x: 772, y: 350, size: 16, color: "#74A98D", def: "\u0394H (exothermic)" },
       ],
       endo: [
-        { p: [[200, 410], [320, 410], [380, 360], [440, 250], [500, 152], [560, 230], [640, 285], [720, 300], [820, 300]], color: "#7dd3fc", width: 4 },
-        { p: [[500, 410], [500, 152]], color: "#fde68a", width: 2 },
-        { p: [[760, 410], [760, 300]], color: "#86efac", width: 2 },
-        { p: [[760, 300], [753, 314]], color: "#86efac", width: 2 },
-        { p: [[760, 300], [767, 314]], color: "#86efac", width: 2 },
+        { p: [[200, 410], [320, 410], [380, 360], [440, 250], [500, 152], [560, 230], [640, 285], [720, 300], [820, 300]], color: "#F4EBDD", width: 4 },
+        { p: [[500, 410], [500, 152]], color: "#D9A648", width: 2 },
+        { p: [[760, 410], [760, 300]], color: "#74A98D", width: 2 },
+        { p: [[760, 300], [753, 314]], color: "#74A98D", width: 2 },
+        { p: [[760, 300], [767, 314]], color: "#74A98D", width: 2 },
         { slot: "reactants", x: 175, y: 432, size: 15, def: "Reactants" },
         { slot: "products", x: 745, y: 285, size: 15, def: "Products" },
-        { slot: "dh", x: 772, y: 350, size: 16, color: "#86efac", def: "\u0394H (endothermic)" },
+        { slot: "dh", x: 772, y: 350, size: 16, color: "#74A98D", def: "\u0394H (endothermic)" },
       ],
     },
   },
@@ -288,8 +290,8 @@ const TEMPLATES = {
       { slot: "title", x: 400, y: 60, size: 17, def: "" },
     ],
     variants: {
-      line: [{ p: [[180, 470], [820, 150]], color: "#7dd3fc", width: 4 }],
-      curve: [{ p: [[180, 480], [340, 340], [500, 255], [680, 205], [840, 185]], color: "#7dd3fc", width: 4 }],
+      line: [{ p: [[180, 470], [820, 150]], color: "#F4EBDD", width: 4 }],
+      curve: [{ p: [[180, 480], [340, 340], [500, 255], [680, 205], [840, 185]], color: "#F4EBDD", width: 4 }],
       empty: [],
     },
   },
@@ -427,7 +429,7 @@ function pushStroke(items, pts, color, width, tRef) {
 }
 
 function pushLabel(items, text, x, y, size, color, tRef) {
-  items.push({ kind: "label", a: { text, x, y, size: size || 17, color: color || "#cbd5e1" }, start: tRef.t, dur: 0.28 });
+  items.push({ kind: "label", a: { text, x, y, size: size || 17, color: color || CHALK_DIM }, start: tRef.t, dur: 0.28 });
   tRef.t += 0.24;
 }
 
@@ -562,7 +564,7 @@ function drawHighlight(ctx, item, p) {
 }
 
 function drawGrid(ctx) {
-  ctx.strokeStyle = "rgba(38, 52, 79, 0.28)";
+  ctx.strokeStyle = "rgba(244, 235, 221, 0.05)";
   ctx.lineWidth = 1;
   for (let x = 0; x <= BOARD_W; x += 50) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, BOARD_H); ctx.stroke();
@@ -570,14 +572,6 @@ function drawGrid(ctx) {
   for (let y = 0; y <= BOARD_H; y += 50) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(BOARD_W, y); ctx.stroke();
   }
-}
-
-function drawVignette(ctx) {
-  const g = ctx.createRadialGradient(BOARD_W / 2, BOARD_H / 2, BOARD_H * 0.25, BOARD_W / 2, BOARD_H / 2, BOARD_W * 0.72);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, "rgba(0,0,0,0.45)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, BOARD_W, BOARD_H);
 }
 
 // Render the timeline at time t (seconds): chalk strokes drawn pen-style up to t,
@@ -596,10 +590,9 @@ function drawFrame(timeline, t) {
   const ctx = _ctx;
   if (!ctx) return;
   ctx.clearRect(0, 0, BOARD_W, BOARD_H);
-  ctx.fillStyle = "#0a101c";
+  ctx.fillStyle = BOARD_BG;
   ctx.fillRect(0, 0, BOARD_W, BOARD_H);
   drawGrid(ctx);
-  drawVignette(ctx);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   for (const item of timeline.items) {
@@ -607,19 +600,14 @@ function drawFrame(timeline, t) {
     const p = Math.min(1, (t - item.start) / item.dur);
     if (item.kind === "stroke") {
       const budget = p * strokeLen(item.pts);
-      ctx.save();
-      ctx.shadowColor = item.color;
-      ctx.shadowBlur = 6;
       ctx.strokeStyle = item.color;
       ctx.lineWidth = chalkWidth(item.width);
+      ctx.setLineDash(item.dash || []);
       partialStroke(ctx, item.pts, budget);
-      ctx.restore();
       if (p > 0 && p < 1) {
         const tip = pointAtBudget(item.pts, budget);
         ctx.save();
-        ctx.shadowColor = "#ffffff";
-        ctx.shadowBlur = 14;
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = CHALK;
         ctx.beginPath(); ctx.arc(tip[0], tip[1], Math.max(3.2, 1.5 / _scale), 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }

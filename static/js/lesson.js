@@ -341,11 +341,11 @@ function buildExplanationActions(answer, points, conceptLabel) {
   const title = conceptLabel ? `Tutor explains · ${conceptLabel}` : "Tutor explains";
   return [
     { type: "draw", glyph: "bulb", x: 830, y: 40, size: 140 },
-    { type: "label", text: title.slice(0, 46), x: 70, y: 76, color: "#fde68a", size: 26 },
-    { type: "draw", shape: "line", x1: 70, y1: 100, x2: 470, y2: 100, color: "#fde68a" },
+    { type: "label", text: title.slice(0, 46), x: 70, y: 76, color: "#F4EBDD", size: 26 },
+    { type: "draw", shape: "line", x1: 70, y1: 100, x2: 470, y2: 100, color: "#FF6B57" },
     ...notes.slice(0, 5).map((note, i) => ({
       type: "label", text: "• " + String(note).slice(0, 52),
-      x: 84, y: 168 + i * 62, color: "#e2e8f0", size: 22,
+      x: 84, y: 168 + i * 62, color: "#F4EBDD", size: 22,
     })),
   ];
 }
@@ -382,8 +382,8 @@ async function sendQuestion() {
 
   qaBaseActions = [
     { type: "draw", glyph: "bulb", x: 430, y: 200, size: 180 },
-    { type: "label", text: "Thinking about your question…", x: 300, y: 420, color: "#c4b5fd", size: 22 },
-    ...(conceptLabel ? [{ type: "label", text: conceptLabel, x: 300, y: 470, color: "#7dd3fc", size: 20 }] : []),
+    { type: "label", text: "Thinking about your question…", x: 300, y: 420, color: "#BFB09C", size: 22 },
+    ...(conceptLabel ? [{ type: "label", text: conceptLabel, x: 300, y: 470, color: "#FF6B57", size: 20 }] : []),
   ];
   qaTimeline = buildTimeline({ actions: qaBaseActions });
   qaT = 0;

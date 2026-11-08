@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Brightboard — Subjects{% endblock %}
 {% block content %}
-<div class="hero fade-up">
+<div class="hero">
   <div class="eyebrow">{{ cur_name }} · {{ cur_country }}</div>
   <h1>What do you want to master today{{ ', ' + student.name if student else '' }}?</h1>
   <p>Pick a subject, then choose a whiteboard lesson, answer real past-paper questions in the Exam Center, or upload a paper for the AI to analyse and fold into your profile.</p>
 </div>
 
-<div class="cur-switch fade-up">
+<div class="cur-switch">
   <span class="cur-label">Curriculum</span>
   {% for c in curricula %}
   <form method="post" action="{{ url_for('set_curriculum') }}">
@@ -19,7 +19,7 @@
 </div>
 
 {% if recommendation %}
-<div class="rec-card fade-up">
+<div class="rec-card">
   <div class="target">🎯</div>
   <div class="rec-text">
     {% if recommendation.self_reported %}
@@ -61,10 +61,9 @@
 <div class="subject-grid">
   {% for s in subjects %}
   {% set ready = s.live and s.has_data %}
-  <a class="subject-card fade-up" href="{{ url_for('subject', subject=s.slug) }}"
+  <a class="subject-card" href="{{ url_for('subject', subject=s.slug) }}"
      style="--accent: {{ s.accent }};">
     <span class="pill {{ 'live' if ready else 'soon' }}">{{ 'Live' if ready else 'Soon' }}</span>
-    <span class="s-glow"></span>
     <span class="s-icon">{{ s.icon }}</span>
     <div class="s-title">{{ s.name }}</div>
     <div class="s-meta">{{ s.topic_count }} topics

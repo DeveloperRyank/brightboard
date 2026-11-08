@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Upload a paper — Brightboard{% endblock %}
 {% block content %}
-<div class="hero fade-up">
+<div class="hero">
   <div class="eyebrow">Build your profile</div>
   <h1>Upload a paper</h1>
   <p>Drop a PDF or a photo of a marked test, worksheet or past paper. The AI reads it (including scanned pages) — then either folds the gaps it finds into your mastery profile, or walks you through the paper one real question at a time on the whiteboard.</p>
 </div>
 
-<div class="glass fade-up" style="border-radius: 18px; padding: 20px; margin-bottom: 22px;">
+<div class="" style="border-radius: 18px; padding: 20px; margin-bottom: 22px;">
   <label for="subject" style="display:block; margin-bottom:8px; font-size:14px;">Subject this paper belongs to</label>
   <select id="subject" class="field" style="width:100%; max-width: 320px;">
     {% for s in subjects %}
@@ -30,7 +30,7 @@
   </div>
 </div>
 
-<div class="dropzone fade-up" id="dropzone">
+<div class="dropzone" id="dropzone">
   <div class="dz-icon">📄</div>
   <div class="dz-title">Drag a PDF or image here, or click to choose</div>
   <div class="dz-sub">PDF · PNG · JPEG · WebP — up to {{ max_scan_mb }} MB. A scan too big to send
@@ -46,7 +46,7 @@
   <h2>Guided walkthroughs</h2>
   <span class="tag">{{ walkthroughs | length }} paper{{ '' if walkthroughs | length == 1 else 's' }}</span>
 </div>
-<div class="wt-list fade-up">
+<div class="wt-list">
   {% for w in walkthroughs %}
   <a class="wt-row" href="{{ url_for('walkthrough', wt_id=w.id) }}">
     <span class="wt-file">{{ w.filename }}</span>
@@ -64,7 +64,7 @@
 </div>
 
 {% for d in documents %}
-<div class="doc-card glass fade-up">
+<div class="doc-card">
   <div class="d-head">
     <span class="d-title">{{ d.filename }}</span>
     <span class="chip {{ 'correct' if d.status == 'done' else 'err' }}">{{ d.status }}</span>
@@ -161,7 +161,7 @@
 
   function renderAnalysis(a) {
     if (!a) return "";
-    let html = '<div class="doc-card glass"><div class="d-head"><span class="d-title">' +
+    let html = '<div class="doc-card"><div class="d-head"><span class="d-title">' +
       esc(a.title || "Analysis complete") + '</span><span class="chip correct">done</span></div>';
     if (a.summary) html += '<div class="d-sum">' + esc(a.summary) + "</div>";
     if (a.topics && a.topics.length) {

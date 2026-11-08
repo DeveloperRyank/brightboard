@@ -259,26 +259,26 @@ SUBJECTS = [
         "slug": "chemistry",
         "name": "Chemistry",
         "icon": "⚗️",
-        "accent": "#7dd3fc",
+        "accent": "#FF6B57",
         "live": True,  # has a real question bank wired up
         "topics": _topics_from_pairs(CHEMISTRY_TOPICS),
     },
-    {"slug": "mathematics", "name": "Mathematics", "icon": "📐", "accent": "#86efac", "live": False, "topics": MATHEMATICS_TOPICS},
-    {"slug": "physics", "name": "Physics", "icon": "🧲", "accent": "#fca5a5", "live": False, "topics": PHYSICS_TOPICS},
-    {"slug": "biology", "name": "Biology", "icon": "🧬", "accent": "#fde68a", "live": False, "topics": BIOLOGY_TOPICS},
-    {"slug": "english", "name": "English Language", "icon": "📖", "accent": "#c4b5fd", "live": False, "topics": ENGLISH_TOPICS},
-    {"slug": "kiswahili", "name": "Kiswahili", "icon": "🗣️", "accent": "#f9a8d4", "live": False, "topics": KISWAHILI_TOPICS},
-    {"slug": "history", "name": "History and Government", "icon": "🏛️", "accent": "#fdba74", "live": False, "topics": HISTORY_TOPICS},
-    {"slug": "geography", "name": "Geography", "icon": "🌍", "accent": "#5eead4", "live": False, "topics": GEOGRAPHY_TOPICS},
-    {"slug": "cre", "name": "Christian Religious Education", "icon": "✝️", "accent": "#e2e8f0", "live": False, "topics": CRE_TOPICS},
-    {"slug": "business", "name": "Business Studies", "icon": "💼", "accent": "#fcd34d", "live": False, "topics": BUSINESS_TOPICS},
-    {"slug": "agriculture", "name": "Agriculture", "icon": "🌾", "accent": "#bef264", "live": False, "topics": AGRICULTURE_TOPICS},
-    {"slug": "computer", "name": "Computer Studies", "icon": "💻", "accent": "#93c5fd", "live": False, "topics": COMPUTER_TOPICS},
+    {"slug": "mathematics", "name": "Mathematics", "icon": "📐", "accent": "#74A98D", "live": False, "topics": MATHEMATICS_TOPICS},
+    {"slug": "physics", "name": "Physics", "icon": "🧲", "accent": "#D9A648", "live": False, "topics": PHYSICS_TOPICS},
+    {"slug": "biology", "name": "Biology", "icon": "🧬", "accent": "#BFB09C", "live": False, "topics": BIOLOGY_TOPICS},
+    {"slug": "english", "name": "English Language", "icon": "📖", "accent": "#E2492F", "live": False, "topics": ENGLISH_TOPICS},
+    {"slug": "kiswahili", "name": "Kiswahili", "icon": "🗣️", "accent": "#F4EBDD", "live": False, "topics": KISWAHILI_TOPICS},
+    {"slug": "history", "name": "History and Government", "icon": "🏛️", "accent": "#D9A648", "live": False, "topics": HISTORY_TOPICS},
+    {"slug": "geography", "name": "Geography", "icon": "🌍", "accent": "#74A98D", "live": False, "topics": GEOGRAPHY_TOPICS},
+    {"slug": "cre", "name": "Christian Religious Education", "icon": "✝️", "accent": "#BFB09C", "live": False, "topics": CRE_TOPICS},
+    {"slug": "business", "name": "Business Studies", "icon": "💼", "accent": "#E2492F", "live": False, "topics": BUSINESS_TOPICS},
+    {"slug": "agriculture", "name": "Agriculture", "icon": "🌾", "accent": "#74A98D", "live": False, "topics": AGRICULTURE_TOPICS},
+    {"slug": "computer", "name": "Computer Studies", "icon": "💻", "accent": "#BFB09C", "live": False, "topics": COMPUTER_TOPICS},
 ]
 
 SAT_SUBJECTS = [
-    {"slug": "sat_math", "name": "SAT Math", "icon": "📐", "accent": "#86efac", "live": False, "topics": SAT_MATH_TOPICS},
-    {"slug": "sat_rw", "name": "SAT Reading & Writing", "icon": "📖", "accent": "#c4b5fd", "live": False, "topics": SAT_RW_TOPICS},
+    {"slug": "sat_math", "name": "SAT Math", "icon": "📐", "accent": "#74A98D", "live": False, "topics": SAT_MATH_TOPICS},
+    {"slug": "sat_rw", "name": "SAT Reading & Writing", "icon": "📖", "accent": "#E2492F", "live": False, "topics": SAT_RW_TOPICS},
 ]
 
 

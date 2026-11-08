@@ -17,7 +17,7 @@
   "papers": "Upload papers and let the AI find your gaps"
 } %}
 
-<div class="hero fade-up">
+<div class="hero">
   <div class="eyebrow">Starter quiz · {{ student.name }}</div>
   <h1>Let's find where to start</h1>
   <p>A few quick questions so your tutor knows what to teach first and how you like to learn. There are no right answers.</p>
@@ -25,7 +25,7 @@
 
 {% if error %}<div class="banner">{{ error }}</div>{% endif %}
 
-<form method="post" action="{{ url_for('quiz') }}" class="glass quiz-card fade-up">
+<form method="post" action="{{ url_for('quiz') }}" class="quiz-card">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="q-step">
     <span class="q-legend">1 · Which subject do you want to work on first?</span>

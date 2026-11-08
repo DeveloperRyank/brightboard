@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Create an account · Brightboard{% endblock %}
 {% block content %}
-<div class="hero fade-up">
+<div class="hero">
   <div class="eyebrow">Brightboard</div>
   <h1>Create your account</h1>
   <p>An email and a password are all it takes. Only you will ever see the work inside it.</p>
@@ -9,7 +9,7 @@
 
 {% if error %}<div class="banner">{{ error }}</div>{% endif %}
 
-<form method="post" action="{{ url_for('sign_up') }}" class="glass create-card fade-up">
+<form method="post" action="{{ url_for('sign_up') }}" class="create-card">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="fld">
     <label for="name">Your name</label>

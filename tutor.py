@@ -44,7 +44,13 @@ rejected, so use templates wherever possible and keep freeform shapes few, small
   {"type":"draw","shape":"circle","cx":N,"cy":N,"r":N,"color":"#hex"}
   {"type":"label","text":"short text","x":N,"y":N,"color":"#hex","size":14-28}
   {"type":"highlight","shape":"circle","cx":N,"cy":N,"r":N}
-Colors: #7dd3fc (cyan), #86efac (green), #fca5a5 (red), #fde68a (yellow), #e2e8f0 (white). Highlights amber.
+Colors — the board is deep navy, so ink is warm. Use ONLY these:
+  #F4EBDD chalk (default: any label or stroke that is just the thing itself)
+  #FF6B57 coral (the one thing to look at: the answer, the peak, the product)
+  #74A98D green (a favourable result: alkali, correct, energy given out)
+  #D9A648 ochre (a caution or keyword: acid-side note, activation energy, "KNEC wants")
+  #BFB09C dim chalk (captions and secondary notes)
+Highlights are coral. Never invent a hex, and never use colour as decoration — it must mean something.
 Labels SHORT (a few words), placed next to the part they name, never on top of a drawing.
 """
 

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Walkthrough — {{ filename }}{% endblock %}
 {% block content %}
-<div class="wt-head fade-up">
-  <div class="eyebrow"><a href="{{ url_for('upload') }}" style="color: var(--cyan);">← Uploads</a></div>
+<div class="wt-head">
+  <div class="eyebrow"><a href="{{ url_for('upload') }}" style="color: var(--coral);">← Uploads</a></div>
   <h1>Guided walkthrough</h1>
   <div class="wt-src mono">{{ filename }}</div>
   <div class="wt-progress">
@@ -12,7 +12,7 @@
   </div>
 </div>
 
-<div class="wt-qcard glass fade-up" id="q-card">
+<div class="wt-qcard" id="q-card">
   <div class="wt-q-meta">
     <span class="q-tag mono" id="q-number"></span>
     <span class="q-tag" id="q-marks"></span>
@@ -51,7 +51,7 @@
 <div class="lesson-controls" id="wt-controls" style="visibility:hidden;">
   <button class="btn ghost" id="btn-playpause">⏸ Pause</button>
   <label class="mono" style="font-size: 13px; color: var(--muted);">Speed
-    <select id="speed" class="mono" style="background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;">
+    <select id="speed" class="mono" style="background: var(--panel); color: var(--cream); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;">
       <option value="slow">slow</option>
       <option value="normal" selected>normal</option>
       <option value="fast">fast</option>

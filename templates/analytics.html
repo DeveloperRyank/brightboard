@@ -5,23 +5,23 @@
 {% set total_answers = mastery | sum(attribute='answers') %}
 {% set avg = (mastery | sum(attribute='score') / studied) if studied else none %}
 
-<div class="hero fade-up">
+<div class="hero">
   <div class="eyebrow">Your complete analysis</div>
   <h1>My progress</h1>
   <p>Everything the tutor has learned about you — tracked concept by concept, from lessons, the Exam Center and the papers you uploaded.</p>
 </div>
 
 <div class="tile-grid">
-  <div class="tile fade-up"><div class="t-label">Topics studied</div><div class="t-value">{{ studied }}</div></div>
-  <div class="tile fade-up"><div class="t-label">Concepts tracked</div><div class="t-value">{{ concepts | length }}</div></div>
-  <div class="tile fade-up"><div class="t-label">Questions answered</div><div class="t-value">{{ total_answers }}</div></div>
-  <div class="tile fade-up"><div class="t-label">Avg mastery</div>
+  <div class="tile"><div class="t-label">Topics studied</div><div class="t-value">{{ studied }}</div></div>
+  <div class="tile"><div class="t-label">Concepts tracked</div><div class="t-value">{{ concepts | length }}</div></div>
+  <div class="tile"><div class="t-label">Questions answered</div><div class="t-value">{{ total_answers }}</div></div>
+  <div class="tile"><div class="t-label">Avg mastery</div>
     <div class="t-value">{% if avg is not none %}{{ (avg * 100) | round | int }}<small>%</small>{% else %}—{% endif %}</div></div>
-  <div class="tile fade-up"><div class="t-label">Papers analysed</div><div class="t-value">{{ documents | length }}</div></div>
+  <div class="tile"><div class="t-label">Papers analysed</div><div class="t-value">{{ documents | length }}</div></div>
 </div>
 
 {% if recommendation %}
-<div class="rec-card fade-up">
+<div class="rec-card">
   <div class="target">🎯</div>
   <div class="rec-text">
     Next focus:
@@ -39,7 +39,7 @@
 
 {% if jobs %}
 <div class="section-head"><h2>Marking jobs</h2><span class="tag">Papers you handed in</span></div>
-<div class="job-list fade-up">
+<div class="job-list">
   {% for j in jobs %}
   <a class="job-row" href="{{ url_for('results', job_id=j.id) }}">
     <span class="job-name">{{ topic_name(j.subject, j.topic) }}</span>
@@ -55,27 +55,27 @@
 <div class="empty">No data yet — do a lesson, answer a paper in the Exam Center, or upload a paper, and your analytics will build here.</div>
 {% else %}
 <div class="chart-grid">
-  <div class="chart-card fade-up">
+  <div class="chart-card">
     <h3>Weakest concepts</h3>
     <p class="c-sub">Bayesian mastery per concept — lowest first.</p>
     <div class="chart-box"><canvas id="chart-concepts"></canvas></div>
   </div>
-  <div class="chart-card fade-up">
+  <div class="chart-card">
     <h3>Mastery by topic</h3>
     <p class="c-sub">Average of the concepts inside each topic.</p>
     <div class="chart-box"><canvas id="chart-topics"></canvas></div>
   </div>
-  <div class="chart-card fade-up">
+  <div class="chart-card">
     <h3>Mistake patterns</h3>
     <p class="c-sub">Why answers go wrong, across every concept.</p>
     <div class="chart-box"><canvas id="chart-errors"></canvas></div>
   </div>
-  <div class="chart-card fade-up">
+  <div class="chart-card">
     <h3>Mastery by subject</h3>
     <p class="c-sub">Average score per subject you've studied.</p>
     <div class="chart-box"><canvas id="chart-subjects"></canvas></div>
   </div>
-  <div class="chart-card fade-up">
+  <div class="chart-card">
     <h3>Recent accuracy</h3>
     <p class="c-sub">Cumulative correct rate over your last {{ history | length }} answers.</p>
     <div class="chart-box"><canvas id="chart-history"></canvas></div>
@@ -86,13 +86,13 @@
   <h2>Concept mastery</h2>
   <span class="tag">Every concept the tutor is tracking for you</span>
 </div>
-<div class="concept-rows glass" style="padding: 18px; border-radius: 16px;">
+<div class="concept-rows" style="padding: 18px; border-radius: 16px;">
   {% for c in concepts %}
-  <div class="concept-row fade-up">
+  <div class="concept-row">
     <div class="c-name">{{ c.name }}
       <small>{{ c.subject_name }} · {{ c.topic_name }} · {{ c.answers }} answer{{ '' if c.answers == 1 else 's' }}{% if c.error_type %} · {{ c.error_type_label }}{% endif %}</small>
     </div>
-    <div class="bar c-bar"><div style="width: {{ (c.p * 100) | round | int }}%; background: {% if c.p < 0.4 %}var(--red){% elif c.p < 0.7 %}var(--amber){% else %}var(--green){% endif %};"></div></div>
+    <div class="bar c-bar"><div style="width: {{ (c.p * 100) | round | int }}%; background: {% if c.p < 0.4 %}var(--brick){% elif c.p < 0.7 %}var(--ochre){% else %}var(--sage){% endif %};"></div></div>
     <div class="c-p mono">{{ (c.p * 100) | round | int }}%</div>
   </div>
   {% endfor %}
@@ -135,11 +135,11 @@
 (function () {
   if (typeof Chart === "undefined") return;
   const D = JSON.parse(document.getElementById("analytics-data").textContent);
-  Chart.defaults.color = "#93a3bc";
-  Chart.defaults.borderColor = "rgba(255,255,255,0.06)";
+  Chart.defaults.color = "#BFB09C";
+  Chart.defaults.borderColor = "rgba(244,235,221,0.10)";
   Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
-  const grid = { color: "rgba(255,255,255,0.05)" };
-  const colour = (p) => (p < 0.4 ? "#fca5a5" : p < 0.7 ? "#fde68a" : "#86efac");
+  const grid = { color: "rgba(244,235,221,0.07)" };
+  const colour = (p) => (p < 0.4 ? "#C4483C" : p < 0.7 ? "#D9A648" : "#74A98D");
 
   if (D.concepts.length) {
     const rows = D.concepts.slice(0, 14);
@@ -190,8 +190,8 @@
       data: {
         labels: errKeys.map(k => D.error_labels[k] || k),
         datasets: [{ data: errKeys.map(k => errTotals[k]),
-          backgroundColor: ["#fca5a5", "#fde68a", "#c4b5fd", "#93a3bc", "#7dd3fc"],
-          borderColor: "#0d1420", borderWidth: 2 }],
+          backgroundColor: ["#FF6B57", "#D9A648", "#74A98D", "#BFB09C", "#26406B"],
+          borderColor: "#0E1F3D", borderWidth: 1 }],
       },
       options: { responsive: true, maintainAspectRatio: false, cutout: "62%",
         plugins: { legend: { position: "bottom" } } },
@@ -208,7 +208,7 @@
       data: {
         labels: subj.map(s => s.name),
         datasets: [{ label: "Avg mastery %", data: subj.map(s => Math.round((s.avg_score || 0) * 100)),
-          backgroundColor: subj.map(s => s.accent || "#7dd3fc"), borderRadius: 6 }],
+          backgroundColor: subj.map(s => s.accent || "#FF6B57"), borderRadius: 6 }],
       },
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
@@ -223,8 +223,8 @@
     new Chart(document.getElementById("chart-history"), {
       type: "line",
       data: { labels: cum.map((_, i) => i + 1),
-        datasets: [{ label: "Cumulative accuracy %", data: cum, borderColor: "#7dd3fc",
-          backgroundColor: "rgba(125,211,252,0.15)", fill: true, tension: 0.3, pointRadius: 0 }] },
+        datasets: [{ label: "Cumulative accuracy %", data: cum, borderColor: "#FF6B57",
+          backgroundColor: "rgba(255,107,87,0.14)", fill: true, tension: 0.3, pointRadius: 0 }] },
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: { y: { min: 0, max: 100, grid }, x: { grid: { display: false } } } },

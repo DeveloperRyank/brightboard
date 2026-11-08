@@ -8,13 +8,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <div class="aurora a1"></div>
-  <div class="aurora a2"></div>
-  <div class="aurora a3"></div>
-  <canvas id="particles"></canvas>
-
   <nav>
-    <a class="brand mono" href="{{ url_for('index') }}" style="color: var(--text);">BRIGHT<span>·</span>BOARD</a>
+    <a class="brand mono" href="{{ url_for('index') }}" style="color: var(--cream);">BRIGHT<span>·</span>BOARD</a>
     <div class="links">
       {% if student %}
         <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">Subjects</a>
@@ -42,7 +37,6 @@
   </main>
 
   <script src="{{ url_for('static', filename='js/api.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

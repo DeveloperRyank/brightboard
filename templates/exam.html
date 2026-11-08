@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Exam Center — {{ name }}{% endblock %}
 {% block content %}
-<div class="exam-top fade-up">
-  <div class="eyebrow"><a href="{{ url_for('subject', subject=subject) }}" style="color: var(--cyan);">← {{ subject_name(subject) }} topics</a></div>
+<div class="exam-top">
+  <div class="eyebrow"><a href="{{ url_for('subject', subject=subject) }}" style="color: var(--coral);">← {{ subject_name(subject) }} topics</a></div>
   <div class="exam-title-row">
     <h1>Exam Center</h1>
     <div class="exam-clock mono" id="exam-clock" title="Time on this paper">00:00</div>
@@ -11,7 +11,7 @@
 </div>
 
 <div class="exam-shell">
-  <aside class="exam-rail glass">
+  <aside class="exam-rail">
     <div class="rail-head">
       <span class="mono">Question paper</span>
       <span class="mono" id="rail-count">0 / {{ questions | length }}</span>
@@ -24,7 +24,7 @@
   </aside>
 
   <section class="exam-stage">
-    <article class="q-card glass" id="q-card">
+    <article class="q-card" id="q-card">
       <header class="q-head">
         <span class="q-num mono" id="q-num">Question 1</span>
         <span class="q-type" id="q-type"></span>

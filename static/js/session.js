@@ -19,7 +19,7 @@
     // Mastery only exists once answers are tagged to a concept, so don't show a bare dash.
     const masteryText = s.mastery === null || s.mastery === undefined
       ? "" : ` · topic mastery now <strong>${pct(s.mastery)}</strong>`;
-    const ringColor = ratio < 0.4 ? "var(--red)" : ratio < 0.7 ? "var(--amber)" : "var(--green)";
+    const ringColor = ratio < 0.4 ? "var(--brick)" : ratio < 0.7 ? "var(--ochre)" : "var(--sage)";
     const C = 2 * Math.PI * 52;
 
     let html = `
@@ -46,7 +46,7 @@
       html += `<h3 class="sess-h">Concept mastery</h3><div class="concept-rows">`;
       s.concepts.forEach((c, i) => {
         const w = Math.round((c.p || 0) * 100);
-        const col = c.p < 0.4 ? "var(--red)" : c.p < 0.7 ? "var(--amber)" : "var(--green)";
+        const col = c.p < 0.4 ? "var(--brick)" : c.p < 0.7 ? "var(--ochre)" : "var(--sage)";
         html += `
         <div class="concept-row rise" style="animation-delay: ${200 + i * 90}ms">
           <div class="c-name">${esc(c.name || pretty(c.concept))}

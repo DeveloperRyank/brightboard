@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Your results — {{ name }}{% endblock %}
 {% block content %}
-<div class="hero fade-up">
-  <div class="eyebrow"><a href="{{ url_for('subject', subject=subject) }}" style="color: var(--cyan);">← {{ subject_name(subject) }} topics</a></div>
+<div class="hero">
+  <div class="eyebrow"><a href="{{ url_for('subject', subject=subject) }}" style="color: var(--coral);">← {{ subject_name(subject) }} topics</a></div>
   <h1>{{ name }} — results</h1>
 </div>
 
-<div id="marking" class="marking-panel glass">
+<div id="marking" class="marking-panel">
   <div class="marking-board">
     <span class="chalk-line l1"></span>
     <span class="chalk-line l2"></span>
