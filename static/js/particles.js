@@ -8,8 +8,14 @@
   const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function resize() {
-    w = canvas.width = window.innerWidth;
-    h = canvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    w = window.innerWidth;
+    h = window.innerHeight;
+    // Without the pixel-ratio scale the dots render at 1x and blur on phones and
+    // retina screens; the drawing code below still works in CSS pixels.
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const n = Math.min(90, Math.floor((w * h) / 16000));
     dots = Array.from({ length: n }, () => ({
       x: Math.random() * w,

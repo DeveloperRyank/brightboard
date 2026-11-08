@@ -55,7 +55,19 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("ask-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
   });
-  window.addEventListener("resize", () => { initBoard(canvas); redrawCurrent(); });
+  let boardW = canvas.clientWidth;
+  // The board box is fluid, so re-chalk the current frame whenever its real width
+  // changes (rotation, split view, a different monitor's pixel ratio). The width
+  // check stops the mobile URL bar sliding in and out from redrawing every frame.
+  const onBoardResize = () => {
+    if (Math.abs(canvas.clientWidth - boardW) < 2) return;
+    boardW = canvas.clientWidth;
+    initBoard(canvas);
+    redrawCurrent();
+  };
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(onBoardResize).observe(canvas);
+  window.addEventListener("resize", onBoardResize);
+  window.addEventListener("orientationchange", () => setTimeout(onBoardResize, 250));
   window.addEventListener("beforeunload", voiceCancel);
 
   requestAnimationFrame(loop);

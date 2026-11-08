@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   {% if student %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
   <title>{% block title %}Brightboard{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -17,15 +17,19 @@
     <a class="brand mono" href="{{ url_for('index') }}" style="color: var(--text);">BRIGHT<span>·</span>BOARD</a>
     <div class="links">
       {% if student %}
-        <span class="who" title="Signed in">{{ student.name }}</span>
         <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">Subjects</a>
         <a href="{{ url_for('upload') }}" class="{{ 'active' if request.endpoint == 'upload' }}">Upload</a>
         <a href="{{ url_for('analytics') }}" class="{{ 'active' if request.endpoint == 'analytics' }}">Analytics</a>
-        <a href="{{ url_for('sign_out') }}" class="logout" title="Sign out">Sign out</a>
       {% else %}
         <a href="{{ url_for('sign_up') }}">Create account</a>
       {% endif %}
     </div>
+    {% if student %}
+      <div class="links account">
+        <span class="who" title="Signed in">{{ student.name }}</span>
+        <a href="{{ url_for('sign_out') }}" class="logout" title="Sign out">Sign out</a>
+      </div>
+    {% endif %}
   </nav>
 
   <main>

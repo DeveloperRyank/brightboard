@@ -15,6 +15,10 @@ const BOARD_H = 620;
 const HIGHLIGHT_COLOR = "#fbbf24";
 const CHALK = "#eef2f7";
 const DRAW_SPEED = 430; // board units of stroke length per second
+// The board is drawn in 1000x620 units and scaled to fit, and CSS never lets it
+// narrower than 700px (it scrolls sideways instead), so the scale stays above 0.7.
+// Chalk thinner than this would fade to nothing at that scale.
+const MIN_CHALK_CSS_PX = 1.15;
 
 function rad(deg) { return (deg * Math.PI) / 180; }
 
@@ -363,6 +367,8 @@ function renderableBox(a) {
   return !(b.x2 < 0 || b.y2 < 0 || b.x1 > BOARD_W || b.y1 > BOARD_H);
 }
 
+let _scale = 1; // CSS pixels per board unit, set by setupBoard
+
 function setupBoard(canvas) {
   const dpr = window.devicePixelRatio || 1;
   const cssWidth = canvas.clientWidth || canvas.parentElement.clientWidth - 20;
@@ -372,8 +378,15 @@ function setupBoard(canvas) {
   // The box is sized by CSS (aspect-ratio on canvas#board), never from here: writing
   // style.height after the first paint is what made everything below the board jump.
   const ctx = canvas.getContext("2d");
-  ctx.setTransform((cssWidth / BOARD_W) * dpr, 0, 0, (cssHeight / BOARD_H) * dpr, 0, 0);
+  _scale = cssWidth / BOARD_W;
+  ctx.setTransform(_scale * dpr, 0, 0, (cssHeight / BOARD_H) * dpr, 0, 0);
   return ctx;
+}
+
+// A stroke width in board units, floored so it is never less than MIN_CHALK_CSS_PX
+// of real screen. Units, not pixels — the ctx transform does the scaling.
+function chalkWidth(w) {
+  return Math.max(w || 2, MIN_CHALK_CSS_PX / (_scale || 1));
 }
 
 function strokeLen(pts) {
@@ -538,7 +551,7 @@ function drawHighlight(ctx, item, p) {
   ctx.save();
   ctx.globalAlpha = p;
   ctx.strokeStyle = HIGHLIGHT_COLOR;
-  ctx.lineWidth = 4;
+  ctx.lineWidth = chalkWidth(4);
   ctx.setLineDash([10, 7]);
   if (a.shape === "circle") {
     ctx.beginPath(); ctx.arc(a.cx, a.cy, a.r, 0, Math.PI * 2); ctx.stroke();
@@ -598,7 +611,7 @@ function drawFrame(timeline, t) {
       ctx.shadowColor = item.color;
       ctx.shadowBlur = 6;
       ctx.strokeStyle = item.color;
-      ctx.lineWidth = item.width;
+      ctx.lineWidth = chalkWidth(item.width);
       partialStroke(ctx, item.pts, budget);
       ctx.restore();
       if (p > 0 && p < 1) {
@@ -607,7 +620,7 @@ function drawFrame(timeline, t) {
         ctx.shadowColor = "#ffffff";
         ctx.shadowBlur = 14;
         ctx.fillStyle = "#ffffff";
-        ctx.beginPath(); ctx.arc(tip[0], tip[1], 3.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(tip[0], tip[1], Math.max(3.2, 1.5 / _scale), 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }
     } else if (item.kind === "label") {

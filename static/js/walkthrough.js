@@ -40,7 +40,19 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-got").addEventListener("click", gotIt);
   document.getElementById("btn-diff").addEventListener("click", explainDifferently);
   document.getElementById("btn-retry").addEventListener("click", loadExplanation);
-  window.addEventListener("resize", () => { initBoard(canvas); if (timeline) drawFrame(timeline, boardT); });
+  let boardW = canvas.clientWidth;
+  // The board box is fluid, so re-chalk the current frame whenever its real width
+  // changes (rotation, split view, a different monitor's pixel ratio). The width
+  // check stops the mobile URL bar sliding in and out from redrawing every frame.
+  const onBoardResize = () => {
+    if (Math.abs(canvas.clientWidth - boardW) < 2) return;
+    boardW = canvas.clientWidth;
+    initBoard(canvas);
+    if (timeline) drawFrame(timeline, boardT);
+  };
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(onBoardResize).observe(canvas);
+  window.addEventListener("resize", onBoardResize);
+  window.addEventListener("orientationchange", () => setTimeout(onBoardResize, 250));
   window.addEventListener("beforeunload", () => Voice.cancel());
 
   requestAnimationFrame(loop);
