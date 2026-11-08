@@ -1,0 +1,176 @@
+topic,question,suggested_concept,confidence,approved
+electrochemistry,State the conditions required for the products of electrolysis of aqueous copper(II) sulphate to be oxygen and copper,electrolysis_of_solutions,high,yes
+electrochemistry,State the conditions required for the products of electrolysis of aqueous copper(II) sulphate to be copper at both electrodes,electrolysis_of_solutions,high,yes
+electrochemistry,Write the half equation for the reaction that took place during electrolysis of an electrolyte containing A3+ ions,faradays_laws_and_calculations,high,yes
+electrochemistry,"Determine the relative atomic mass of a metal deposited during electrolysis given the current, time and mass, using Faraday's constant",faradays_laws_and_calculations,high,yes
+electrochemistry,State what the symbol // represents in a cell representation diagram,electrochemical_cells,high,yes
+electrochemistry,Write an equation for the reaction that occurs in an electrochemical cell given its cell representation,electrochemical_cells,high,yes
+electrochemistry,Calculate the standard electrode potential of a half-cell given the standard cell e.m.f. and the other half-cell electrode potential,standard_electrode_potentials,high,yes
+electrochemistry,State how the e.m.f. of a cell can be used to predict whether a reaction is feasible,standard_electrode_potentials,high,yes
+electrochemistry,Explain why corrosion of aluminium is protective while corrosion of iron is destructive,applications_of_electrochemical_cells,high,yes
+electrochemistry,What is an electrode,electrical_conduction_in_substances,high,yes
+electrochemistry,State what particles are responsible for electrical conductivity in solid magnesium metal,electrical_conduction_in_substances,high,yes
+electrochemistry,State what particles are responsible for electrical conductivity in molten magnesium chloride,electrical_conduction_in_substances,high,yes
+electrochemistry,"Given a cell representation with a standard e.m.f. and the e.m.f. of the half-cell that gained electrons, calculate the e.m.f. of the half-cell that lost electrons",standard_electrode_potentials,high,yes
+electrochemistry,Give one application of electrolysis,applications_of_electrolysis,high,yes
+electrochemistry,"Given standard reduction potentials for five half-cells, identify the weakest reducing agent with a reason",standard_electrode_potentials,high,yes
+electrochemistry,Identify which half-cell in a table of standard reduction potentials is likely to be hydrogen,standard_electrode_potentials,high,yes
+electrochemistry,Draw an electrochemical cell formed when two given half-cells are combined,electrochemical_cells,high,yes
+electrochemistry,Calculate the e.m.f. of an electrochemical cell formed from two given half-cells,standard_electrode_potentials,high,yes
+electrochemistry,"Given the electrolysis of dilute sulphuric acid, name the gases produced at each electrode",electrolysis_of_solutions,high,yes
+electrochemistry,Write the equation for the reaction that produces a given gas during electrolysis of dilute sulphuric acid,electrolysis_of_solutions,high,yes
+electrochemistry,Explain the difference in the volumes of gases produced at the electrodes during electrolysis of dilute sulphuric acid,electrolysis_of_solutions,high,yes
+electrochemistry,"Given the current and time passed during electrolysis, calculate the volume of gas produced at the anode using Faraday's constant",faradays_laws_and_calculations,high,yes
+extraction_of_metals,Identify gas C produced during the roasting of copper pyrites in the extraction of copper,extraction_of_copper,high,yes
+extraction_of_metals,Write an equation for the reaction that takes place in chamber 1 during the extraction of copper from copper pyrites,extraction_of_copper,high,yes
+extraction_of_metals,Identify substance B added during the extraction of copper from copper pyrites,extraction_of_copper,high,yes
+extraction_of_metals,Give the formula of the main compound found in the slag formed during copper extraction,extraction_of_copper,high,yes
+extraction_of_metals,Write equations for the two reactions that take place in chamber 3 during copper extraction,extraction_of_copper,high,yes
+extraction_of_metals,Describe the process used to purify impure copper obtained from extraction,refining_of_copper,high,yes
+extraction_of_metals,Explain why copper coins turn green when left exposed to air for a long time,uses_and_corrosion_of_metals,high,yes
+extraction_of_metals,"Identify the anode and cathode in the Down's cell used for extraction of sodium, giving a reason for each",extraction_of_sodium,high,yes
+extraction_of_metals,State the purpose of the steel gauze diaphragm in the Down's cell,extraction_of_sodium,high,yes
+extraction_of_metals,"Given the melting and boiling points of sodium and sodium chloride, state how the operating temperature of the Down's cell is achieved",extraction_of_sodium,high,yes
+extraction_of_metals,State the advantage of operating the Down's cell at a lower temperature than the melting point of sodium chloride,extraction_of_sodium,high,yes
+extraction_of_metals,State the physical state in which sodium is obtained from the Down's cell and give a reason,extraction_of_sodium,high,yes
+extraction_of_metals,Calculate the mass of sodium produced starting with a given mass of sodium chloride,extraction_of_sodium,high,yes
+extraction_of_metals,Explain how a sample of solid sodium should be stored in the laboratory,extraction_of_sodium,high,yes
+extraction_of_metals,State one industrial use of sodium,extraction_of_sodium,high,yes
+extraction_of_metals,Explain why cryolite is added to aluminium oxide during aluminium extraction,extraction_of_aluminium,high,yes
+extraction_of_metals,Explain why the graphite anode is replaced from time to time during aluminium extraction,extraction_of_aluminium,high,yes
+extraction_of_metals,Give one environmental effect associated with the extraction of aluminium,extraction_of_aluminium,high,yes
+extraction_of_metals,State one use of zinc metal,uses_and_corrosion_of_metals,high,yes
+organic_chemistry,Name the organic compound with the structural formula CH3(CH2)5CH3,introduction_to_hydrocarbons,high,yes
+organic_chemistry,Name the organic compound with the structural formula CH3(CH2)3C triple bond CH,introduction_to_hydrocarbons,high,yes
+organic_chemistry,Draw and name all the possible isomers of the organic compound C4H8,isomerism,high,yes
+organic_chemistry,"During soap preparation a fatty acid is hydrolyzed by sodium hydroxide, name this process",soaps_and_detergents,high,yes
+organic_chemistry,Describe the cleaning action of soap,soaps_and_detergents,high,yes
+organic_chemistry,Briefly explain how rubber is vulcanized,polymers_and_rubber,high,yes
+organic_chemistry,State two properties of vulcanized rubber,polymers_and_rubber,high,yes
+organic_chemistry,"Given the structure of a synthetic polymer, draw and name the structures of its two monomers",polymers_and_rubber,high,yes
+organic_chemistry,Give one use of a given synthetic polymer,polymers_and_rubber,high,yes
+organic_chemistry,"Given a reaction scheme showing organic compounds, name the product formed",organic_reaction_schemes,high,yes
+organic_chemistry,State the reagent and condition used for a given step in an organic reaction scheme,organic_reaction_schemes,high,yes
+organic_chemistry,Name a substance formed in an organic reaction scheme,organic_reaction_schemes,high,yes
+organic_chemistry,State one use of a substance formed in an organic reaction scheme,organic_reaction_schemes,medium,
+organic_chemistry,Name and draw the structure of the two monomers of a given polymer,polymers_and_rubber,high,yes
+organic_chemistry,Give one environmental effect of using a given polymer,polymers_and_rubber,high,yes
+organic_chemistry,Write an equation for the combustion of a given organic compound,reactions_and_distinguishing_tests,high,yes
+organic_chemistry,Write an equation for a given step in an organic reaction scheme,organic_reaction_schemes,high,yes
+organic_chemistry,Describe how two given organic compounds can be distinguished chemically,reactions_and_distinguishing_tests,high,yes
+periodicity,Explain why the atomic radius of the elements decreases from magnesium to chlorine across a period,atomic_and_ionic_radii_trends,high,yes
+periodicity,Explain why the ionisation energy of the elements increases from magnesium to chlorine across a period,ionization_energy_and_reactivity_trends,high,yes
+periodicity,Explain in terms of structure and bonding why the melting point of aluminium is higher than that of magnesium,structure_bonding_and_melting_points,high,yes
+periodicity,Explain in terms of structure and bonding why the melting point of phosphorus is higher than that of chlorine,structure_bonding_and_melting_points,high,yes
+periodicity,"Give the formula of the oxides of magnesium, aluminium, silicon and phosphorus and state their acid-base character",period_3_oxides_and_chlorides,high,yes
+periodicity,"Name the type of bond present in sulphur dichloride, S2Cl2",chemical_bonding_and_compound_formation,high,yes
+periodicity,Determine the oxidation number of sulphur in the chloride S2Cl2,oxidation_states_and_chemical_formulas,high,yes
+periodicity,"Given the atomic numbers of four elements, name the type of bond formed between two of them",chemical_bonding_and_compound_formation,high,yes
+periodicity,"Given the atomic numbers of four elements, select the element representing the strongest reducing agent and give a reason",ionization_energy_and_reactivity_trends,high,yes
+periodicity,State the name given to the regularly repeating arrangement of particles in a crystalline solid,structure_bonding_and_melting_points,medium,
+periodicity,Explain the difference in melting points of chlorine and bromine given both are held by weak forces of attraction,structure_bonding_and_melting_points,high,yes
+periodicity,"Given a periodic table grid of unlabeled elements, give the type of bond formed when two of them react and give a reason",chemical_bonding_and_compound_formation,high,yes
+periodicity,Explain the difference in atomic and ionic radii of a given element,atomic_and_ionic_radii_trends,high,yes
+periodicity,Explain how the atomic radii of two given elements compare,atomic_and_ionic_radii_trends,high,yes
+periodicity,"Using melting and boiling point data for period 3 elements, choose two substances that are gases at room temperature and give a reason",structure_bonding_and_melting_points,high,yes
+periodicity,Explain why a given period 3 element has two melting point values listed,structure_bonding_and_melting_points,medium,
+periodicity,State and explain the observation made when a period 3 element is dissolved in water and blue litmus paper is added to the solution,period_3_oxides_and_chlorides,high,yes
+industrial_processes,"What is the name of the industrial process used to manufacture sodium carbonate from limestone, ammonia and brine",solvay_process,high,yes
+industrial_processes,Name the three main raw materials used in the Solvay process,raw_materials,high,yes
+industrial_processes,"Identify the substances labelled S, F and Z in a Solvay process flow chart",solvay_process,high,yes
+industrial_processes,Write the overall equation taking place in the carbonating tower of the Solvay process,equations,high,yes
+industrial_processes,Give a reason why a Solvay process plant is usually located near a river,plant_location,medium,
+industrial_processes,Write the formulae of two substances that are recycled in the Solvay process,recycling,high,yes
+industrial_processes,"Write the equation for the reaction taking place in the ammonia recovery chamber of the Solvay process, between calcium hydroxide and ammonium chloride",equations,high,yes
+industrial_processes,"Given a flow chart of industrial processes producing two nitrogenous fertilizers, name a labelled process",fertilizer_production,high,yes
+industrial_processes,Identify a gas in a flow chart of nitrogenous fertilizer production,fertilizer_production,high,yes
+industrial_processes,Identify a substance in a flow chart of nitrogenous fertilizer production,fertilizer_production,high,yes
+industrial_processes,Write a chemical equation for a labelled process in a nitrogenous fertilizer flow chart,equations,high,yes
+industrial_processes,State two optimum conditions in the catalytic chamber of an industrial process,process_conditions,high,yes
+industrial_processes,Explain why a gas is dissolved in concentrated sulphuric(VI) acid in the dilution chamber of an industrial process,process_conditions,high,yes
+industrial_processes,State one use of sulphuric(VI) acid,industrial_applications,high,yes
+thermochemistry,State what is meant by the standard enthalpy of formation of a compound,definition_standard_enthalpy,high,yes
+thermochemistry,Write the thermochemical equation for the formation of carbon dioxide gas,thermochemical_equations,high,yes
+thermochemistry,Write the thermochemical equation for the formation of water,thermochemical_equations,high,yes
+thermochemistry,Use an energy level diagram and enthalpy of formation data to determine the value of a given enthalpy change,energy_level_diagrams,high,yes
+thermochemistry,Calculate the enthalpy change for a reaction using Hess's law and given enthalpy of formation values,hesss_law,high,yes
+thermochemistry,Calculate the heat change produced when a sample of butane is burned and used to heat a known mass of water,heat_of_combustion,high,yes
+thermochemistry,Calculate the mass of butane burned given the heat of combustion of butane and the heat produced,heat_of_combustion,high,yes
+thermochemistry,"Given the temperature rise recorded for three acid-base neutralization pairs, identify which pair showed the highest temperature rise and explain why",heat_of_neutralization,medium,
+thermochemistry,Define heat of neutralization,heat_of_neutralization,high,yes
+thermochemistry,"Given temperature and mass data from a neutralization experiment, calculate the amount of heat produced",heat_of_neutralization,high,yes
+thermochemistry,Calculate the molar heat of neutralization for a given acid-base reaction from experimental data,heat_of_neutralization,high,yes
+thermochemistry,Explain why the molar heat of neutralization of sodium hydroxide and ethanoic acid would be less than that of a strong acid and strong base,heat_of_neutralization,high,yes
+thermochemistry,Write the thermochemical equation for the neutralization of sodium hydroxide and dilute hydrochloric acid,thermochemical_equations,high,yes
+thermochemistry,Draw an energy level diagram for a given neutralization reaction,energy_level_diagrams,high,yes
+halogens,"Describe how a sample of chlorine gas can be prepared from solid sodium chloride, solid manganese(IV) oxide and concentrated sulphuric acid",preparation_of_chlorine,high,yes
+halogens,Give the name of the compound formed when chlorine gas reacts with iron,reaction_with_metals,high,yes
+halogens,State the reagent and conditions necessary for chlorine gas to form sodium chlorate,reaction_with_alkali,high,yes
+halogens,Give the formulae of the two compounds formed when chlorine gas reacts with phosphorus,reaction_with_non_metals,high,yes
+halogens,Write an equation for the reaction between chlorine gas and aqueous hydrogen sulphide,reaction_with_hydrogen_sulphide,high,yes
+halogens,State the observation made when chlorine gas is bubbled into aqueous potassium iodide,reaction_with_halides,high,yes
+halogens,State the observation made when moist red litmus paper is placed in a gas jar of chlorine gas,reaction_with_litmus,high,yes
+halogens,Write an ionic equation for the reaction between aqueous lead(II) nitrate and aqueous potassium chloride,reaction_with_halides,high,yes
+halogens,State the reason why chlorine is used in water treatment,water_treatment,high,yes
+halogens,Write a chemical equation for the formation of a solid product when dry chlorine gas reacts with iron filings,reaction_with_metals,high,yes
+halogens,Explain why chlorinated water still has the smell of chlorine after treatment,water_treatment,medium,
+halogens,State and explain how the lingering smell of chlorine can be removed from treated water,removal_of_chlorine,high,yes
+redox_reactions,State the observation made in a combustion tube when dry hydrogen gas is passed over heated copper(II) oxide,hydrogen_reducing_agent,high,yes
+redox_reactions,Write the equation for the reaction between hydrogen gas and copper(II) oxide in a heated combustion tube,copper_oxide_reduction,high,yes
+redox_reactions,What property of hydrogen gas is demonstrated when it reduces copper(II) oxide to copper metal,hydrogen_reducing_agent,high,yes
+redox_reactions,"Apart from hydrogen gas, name two other gases that can be used to reduce copper(II) oxide",copper_oxide_reduction,medium,
+redox_reactions,State and explain the observation made when hydrogen gas is passed over heated copper(II) oxide,hydrogen_reducing_agent,high,yes
+redox_reactions,Write a balanced equation for the formation of the resulting solution when hydrogen reduces copper(II) oxide,copper_oxide_reduction,medium,
+redox_reactions,State the observation made when concentrated nitric(V) acid is added to charcoal and the mixture is heated,acid_base_reaction_hno3,high,yes
+redox_reactions,Write a balanced equation for the reaction between charcoal and concentrated nitric(V) acid,acid_base_reaction_hno3,high,yes
+redox_reactions,State what property of carbon is demonstrated in its reaction with concentrated nitric(V) acid,carbon_reducing_agent,high,yes
+reaction_kinetics,State and explain how an increase in pressure affects the rate of a gaseous reaction,factors_affecting_rate,high,yes
+reaction_kinetics,State and explain how an increase in temperature affects the rate of a reaction,factors_affecting_rate,high,yes
+reaction_kinetics,Write an equation for the reaction between ethanoic acid and copper(II) carbonate,reaction_equations,high,yes
+reaction_kinetics,Give a reason why excess copper(II) carbonate was used in a rate of reaction experiment,excess_reagent_purpose,high,yes
+reaction_kinetics,Draw a graph of volume of gas produced against time from given experimental data,graphing_experimental_data,high,yes
+reaction_kinetics,Use a graph to determine the rate of reaction at a given time,rate_calculation_from_graph,high,yes
+reaction_kinetics,Give a reason for the difference between average rates of reaction calculated at two different times,average_vs_instantaneous_rate,high,yes
+reaction_kinetics,State Graham's law of diffusion,grahams_law_diffusion,high,yes
+reaction_kinetics,"Given the rate of diffusion of sulphur(IV) oxide gas, calculate the rate of diffusion of carbon(IV) oxide gas under the same conditions using Graham's law",grahams_law_diffusion,high,yes
+laboratory_techniques,"Name another apparatus, apart from the Bunsen burner, used for heating in the laboratory",apparatus_identification,high,yes
+laboratory_techniques,Explain why a non-luminous flame is preferred for heating in the laboratory,flame_types,high,yes
+laboratory_techniques,Draw a well-labelled diagram for preparing and collecting a sample of hydrogen gas in the laboratory,gas_collection,high,yes
+laboratory_techniques,State the aim of an experiment to determine the percentage of oxygen in air using a burning candle,oxygen_percentage,high,yes
+laboratory_techniques,Identify one mistake in the set-up of an experiment to determine the percentage of oxygen in air,oxygen_percentage,medium,
+laboratory_techniques,"Given that a student calculated the volume of air used as 19.2 percent in an oxygen-in-air experiment, comment on the result",oxygen_percentage,high,yes
+laboratory_techniques,State one modification needed to adapt an oxygen-in-air experiment to use phosphorus instead of a burning candle,experiment_modification,high,yes
+laboratory_techniques,Describe an experiment using phosphorus to determine the percentage of oxygen in air,oxygen_percentage,high,yes
+separation_techniques,"Name the process carried out by an apparatus with a thermometer, round flask of salt solution, and Liebig condenser",distillation,high,yes
+separation_techniques,"Name the piece of apparatus used to cool and condense vapour back into liquid, positioned after the flask and before the collecting vessel",condenser,high,yes
+separation_techniques,State the function of the thermometer placed at the neck of the distillation flask,boiling_point,high,yes
+separation_techniques,State the function of pieces of broken porcelain added to the salt solution before heating,porcelain_chips,high,yes
+separation_techniques,Describe how a dry sample of lead(II) chloride can be obtained from a mixture of iron filings and silver chloride,filtration,high,yes
+separation_techniques,"In a hexane-water mixture separated using a separating funnel, identify which liquid is on top and which is at the bottom",separating_funnel,high,yes
+separation_techniques,"Apart from density, state one other property that allows hexane and water to be separated using a separating funnel",density,medium,
+acids_bases_salts,Explain why universal indicator is preferred over phenolphthalein to distinguish hydrochloric acid from ethanoic acid,acid_base_properties,high,yes
+acids_bases_salts,Describe how a simple acid-base indicator can be prepared from flower petals,indicator_preparation,high,yes
+acids_bases_salts,Use an equation to explain why concentrated sulphuric acid cannot be used to dry ammonia gas,gas_preparation_drying,high,yes
+acids_bases_salts,Describe how a sample of sodium sulphate can be prepared from sulphuric acid,salt_preparation,high,yes
+acids_bases_salts,State and explain the observation made when methyl orange indicator is added to the trough after an oxygen-in-air experiment,qualitative_analysis,medium,
+acids_bases_salts,Write an ionic equation for the neutralization of hydrochloric acid and sodium hydroxide,neutralization_reactions,high,yes
+solutions_and_solubility,Define the term solubility,definition_of_solubility,high,yes
+solutions_and_solubility,"Given solubility data for two salts at different temperatures, plot a graph of solubility against temperature for both salts",solubility_graph_interpretation,high,yes
+solutions_and_solubility,"Using a solubility graph, state the solubility of each salt at a given temperature",solubility_graph_interpretation,high,yes
+solutions_and_solubility,"Given a saturated solution of a salt cooled from one temperature to another, determine the mass of salt that will crystallize",crystallisation_on_cooling,high,yes
+solutions_and_solubility,Determine the concentration of a salt in moles per litre when two salts are equally soluble,molar_concentration_calculations,high,yes
+solutions_and_solubility,State and explain the observation made when a mixture of two salt solutions is heated and then cooled,common_ion_effect,medium,
+air_and_combustion,Identify the gas formed when charcoal burns in a plentiful supply of air,combustion_conditions,high,yes
+air_and_combustion,State the observation made when carbon burns in a good supply of oxygen to form carbon dioxide,products_of_combustion,high,yes
+air_and_combustion,Write a chemical equation for the formation of carbon monoxide when carbon dioxide passes over hot carbon,carbon_monoxide,high,yes
+air_and_combustion,How would one avoid the production of carbon monoxide gas when using a charcoal jiko indoors,carbon_monoxide,high,yes
+mole_concept,"Given the percentage of copper in a hydrated copper(II) sulphate salt, determine the number of water molecules of crystallization",percentage_composition,high,yes
+mole_concept,Calculate the percentage of nitrogen in the nitrogenous fertilizer formed when concentrated sulphuric acid reacts with ammonia,fertilizer_chemistry,high,yes
+mole_concept,Calculate the volume of 0.1M sodium hydroxide needed to neutralize a given volume of 0.1M sulphuric(VI) acid,acid_base_titration,high,yes
+mole_concept,"Given the molar gas volume, calculate the mass of a metal that reacted completely with a given volume of gas",gas_volume_mass,high,yes
+hard_water,"Using soap-lathering data for three water samples, identify which sample is likely to be rain water",water_quality_assessment,high,yes
+hard_water,"Identify the chemical used to treat a hard water sample based on soap-lathering data, and explain your answer",soap_lathering_test,high,yes
+hard_water,State and explain the type of hardness present in a water sample that stops staining fabric after boiling,temporary_hardness,high,yes
+atomic_structure,What is a proton,atomic_number,high,yes
+atomic_structure,"Given the percentage abundance and number of neutrons of two isotopes of an element, calculate its relative atomic mass",relative_atomic_mass,high,yes
+states_of_matter,State any two differences between solids and liquids in terms of shape and behaviour when cooled,states_of_matter,high,yes

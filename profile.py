@@ -491,6 +491,34 @@ def _prior_for(c, sid, key):
     return min(0.95, max(0.05, seed["score"]))
 
 
+def _mastery_update(c, sid, key, concept, correct, error_type):
+    """Apply one BKT step for (topic, concept) and tally the error. Returns new P(L)."""
+    row = c.execute(
+        "SELECT p, answers FROM concept_mastery WHERE student_id = ? AND topic = ? AND concept = ?",
+        (sid, key, concept),
+    ).fetchone()
+    if row:
+        prev, answers = row["p"], row["answers"] + 1
+    else:
+        prev, answers = _prior_for(c, sid, key), 1
+    p = round(_bkt_step(prev, correct), 4)
+    c.execute(
+        "INSERT INTO concept_mastery (student_id, topic, concept, p, answers, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(student_id, topic, concept) DO UPDATE SET p = excluded.p, "
+        "answers = excluded.answers, updated_at = excluded.updated_at",
+        (sid, key, concept, p, answers, time.time()),
+    )
+    if not correct and error_type:
+        c.execute(
+            "INSERT INTO error_tally (student_id, topic, concept, error_type, count) "
+            "VALUES (?, ?, ?, ?, 1) "
+            "ON CONFLICT(student_id, topic, concept, error_type) DO UPDATE SET count = count + 1",
+            (sid, key, concept, error_type),
+        )
+    return p
+
+
 def record_answer(subject, topic, correct, error_type=None, concept=None,
                   question="", answer="", feedback="", sid=None):
     """One graded answer. Updates BKT for exactly (topic, concept).
@@ -504,29 +532,7 @@ def record_answer(subject, topic, correct, error_type=None, concept=None,
     p = None
     if concept:
         with _conn() as c:
-            row = c.execute(
-                "SELECT p, answers FROM concept_mastery WHERE student_id = ? AND topic = ? AND concept = ?",
-                (sid, key, concept),
-            ).fetchone()
-            if row:
-                prev, answers = row["p"], row["answers"] + 1
-            else:
-                prev, answers = _prior_for(c, sid, key), 1
-            p = round(_bkt_step(prev, correct), 4)
-            c.execute(
-                "INSERT INTO concept_mastery (student_id, topic, concept, p, answers, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?) "
-                "ON CONFLICT(student_id, topic, concept) DO UPDATE SET p = excluded.p, "
-                "answers = excluded.answers, updated_at = excluded.updated_at",
-                (sid, key, concept, p, answers, time.time()),
-            )
-            if not correct and error_type:
-                c.execute(
-                    "INSERT INTO error_tally (student_id, topic, concept, error_type, count) "
-                    "VALUES (?, ?, ?, ?, 1) "
-                    "ON CONFLICT(student_id, topic, concept, error_type) DO UPDATE SET count = count + 1",
-                    (sid, key, concept, error_type),
-                )
+            p = _mastery_update(c, sid, key, concept, correct, error_type)
     with _conn() as c:
         c.execute(
             "INSERT INTO history (student_id, ts, topic, concept, question, answer, correct, error_type, feedback) "
@@ -534,6 +540,26 @@ def record_answer(subject, topic, correct, error_type=None, concept=None,
             (sid, time.time(), key, concept, question, answer, int(correct), error_type, feedback),
         )
     return p
+
+
+def backfill_concept(history_id, concept, correct, error_type=None, sid=None):
+    """Tag an already-recorded answer with its concept and apply the BKT step it missed.
+
+    Used by tools/backfill_concepts.py to replay answers graded before the bank carried
+    concepts. The history row keeps its original timestamp, so replaying in chronological
+    order rebuilds the numbers a live session would have produced. No-op if the row
+    already carries a concept.
+    """
+    sid = _sid(sid)
+    with _conn() as c:
+        row = c.execute(
+            "SELECT topic, concept FROM history WHERE id = ? AND student_id = ?",
+            (history_id, sid),
+        ).fetchone()
+        if not row or row["concept"]:
+            return None
+        c.execute("UPDATE history SET concept = ? WHERE id = ?", (concept, history_id))
+        return _mastery_update(c, sid, row["topic"], concept, bool(correct), error_type)
 
 
 def get_concepts(subject=None, topic=None, sid=None):

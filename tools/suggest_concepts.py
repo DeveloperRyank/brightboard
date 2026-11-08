@@ -55,6 +55,44 @@ These are the real KCSE past-paper questions banked for this topic:
 
 Return the concept map for this topic and tag every question with one concept slug."""
 
+TAGS_USER = """Topic: {topic_name}  (slug: {topic})
+
+The concept map for this topic is already agreed — use these slugs and only these:
+{concepts}
+
+These are the real KCSE past-paper questions banked for this topic:
+{questions}
+
+Return only the "tags" array, one entry per numbered question, each "concept" set to the
+single slug the question mainly tests."""
+
+
+def _tags_from(raw, concepts, questions):
+    """Validate a tags reply against the topic's slugs, reusing clean()'s rules."""
+    _, tags = clean({"concepts": concepts, "tags": raw.get("tags") or []}, questions)
+    return tags
+
+
+def draft_tags(subject, topic, concepts, questions):
+    """Tag questions against a map the user already approved — the map is not touched."""
+    listed = "\n".join(f"{i}. {q}" for i, q in enumerate(questions, 1))
+    slug_list = "\n".join(f"- {c['slug']}: {c['name']}" for c in concepts)
+    system = SYSTEM.format(subject=curriculum.get_subject(subject)["name"])
+    user = TAGS_USER.format(topic_name=curriculum.topic_name(subject, topic), topic=topic,
+                            concepts=slug_list, questions=listed)
+    last = None
+    for temperature in (0.2, 0.5):
+        try:
+            raw = llm.chat_json(system, user, temperature=temperature, max_tokens=6000)
+        except (ValueError, RuntimeError) as exc:
+            last = exc
+            continue
+        tags = _tags_from(raw, concepts, questions)
+        if tags:
+            return tags, None
+        last = ValueError("no usable tags returned")
+    return None, last
+
 
 def draft_topic(subject, topic, questions):
     listed = "\n".join(f"{i}. {q}" for i, q in enumerate(questions, 1))
@@ -132,12 +170,32 @@ def main():
         questions = [q["question"] for q in classifier.questions_for_topic(subject, topic)]
         if topic in drafts:
             print(f"= {topic}: already drafted ({len(drafts[topic])} concepts), keeping your edits")
+            topic_rows = []
             for q in questions:
                 old = prior.get((topic, q), {})
-                rows.append({"topic": topic, "question": q,
-                             "suggested_concept": old.get("suggested_concept", ""),
-                             "confidence": old.get("confidence", ""),
-                             "approved": old.get("approved", "")})
+                topic_rows.append({"topic": topic, "question": q,
+                                   "suggested_concept": old.get("suggested_concept", ""),
+                                   "confidence": old.get("confidence", ""),
+                                   "approved": old.get("approved", "")})
+            # A topic drafted before it had tags would otherwise stay invisible to the
+            # concept layer forever, so fill only the blanks and keep every edit.
+            blanks = [r for r in topic_rows if not r["suggested_concept"]]
+            if blanks:
+                print(f"  -> {len(blanks)} question(s) have no tag yet")
+                questions_to_tag = [r["question"] for r in blanks]
+                tags, err = draft_tags(subject, topic, drafts[topic], questions_to_tag)
+                if tags is None:
+                    print(f"  ! failed: {err}")
+                else:
+                    for i, row in enumerate(blanks, 1):
+                        t = tags.get(i)
+                        if not t:
+                            continue
+                        row["suggested_concept"] = t["concept"]
+                        row["confidence"] = t["confidence"]
+                        row["approved"] = "yes" if t["confidence"] == "high" else ""
+                    print(f"  ok: {len(tags)}/{len(questions_to_tag)} tagged")
+            rows.extend(topic_rows)
             continue
 
         print(f"-> {topic} ({len(questions)} questions)")

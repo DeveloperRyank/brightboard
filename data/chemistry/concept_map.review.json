@@ -54,5 +54,401 @@
       "slug": "uses_and_corrosion_of_metals",
       "name": "Uses and Corrosion of Metals"
     }
+  ],
+  "organic_chemistry": [
+    {
+      "slug": "introduction_to_hydrocarbons",
+      "name": "Introduction to Hydrocarbons and Nomenclature"
+    },
+    {
+      "slug": "isomerism",
+      "name": "Isomerism in Hydrocarbons"
+    },
+    {
+      "slug": "reactions_and_distinguishing_tests",
+      "name": "Reactions and Chemical Tests for Hydrocarbons"
+    },
+    {
+      "slug": "organic_reaction_schemes",
+      "name": "Organic Reaction Schemes and Conversions"
+    },
+    {
+      "slug": "soaps_and_detergents",
+      "name": "Soaps and Cleaning Action"
+    },
+    {
+      "slug": "polymers_and_rubber",
+      "name": "Polymers, Vulcanization, and Environmental Effects"
+    }
+  ],
+  "periodicity": [
+    {
+      "slug": "atomic_and_ionic_radii_trends",
+      "name": "Atomic and Ionic Radii Trends"
+    },
+    {
+      "slug": "ionization_energy_and_reactivity_trends",
+      "name": "Ionization Energy and Reactivity Trends"
+    },
+    {
+      "slug": "structure_bonding_and_melting_points",
+      "name": "Structure, Bonding, and Physical Properties"
+    },
+    {
+      "slug": "chemical_bonding_and_compound_formation",
+      "name": "Chemical Bonding and Compound Formation"
+    },
+    {
+      "slug": "oxidation_states_and_chemical_formulas",
+      "name": "Oxidation States and Chemical Formulas"
+    },
+    {
+      "slug": "period_3_oxides_and_chlorides",
+      "name": "Period 3 Oxides, Chlorides, and Reactions"
+    }
+  ],
+  "industrial_processes": [
+    {
+      "slug": "solvay_process",
+      "name": "Solvay Process"
+    },
+    {
+      "slug": "raw_materials",
+      "name": "Raw Materials"
+    },
+    {
+      "slug": "process_conditions",
+      "name": "Process Conditions"
+    },
+    {
+      "slug": "recycling",
+      "name": "Recycling"
+    },
+    {
+      "slug": "equations",
+      "name": "Chemical Equations"
+    },
+    {
+      "slug": "plant_location",
+      "name": "Plant Location"
+    },
+    {
+      "slug": "fertilizer_production",
+      "name": "Nitrogenous Fertilizer Production"
+    },
+    {
+      "slug": "industrial_applications",
+      "name": "Industrial Applications"
+    }
+  ],
+  "thermochemistry": [
+    {
+      "slug": "definition_standard_enthalpy",
+      "name": "Definition of Standard Enthalpy"
+    },
+    {
+      "slug": "thermochemical_equations",
+      "name": "Thermochemical Equations"
+    },
+    {
+      "slug": "energy_level_diagrams",
+      "name": "Energy Level Diagrams"
+    },
+    {
+      "slug": "hesss_law",
+      "name": "Hess's Law Calculations"
+    },
+    {
+      "slug": "heat_of_combustion",
+      "name": "Heat of Combustion"
+    },
+    {
+      "slug": "heat_of_neutralization",
+      "name": "Heat of Neutralization"
+    }
+  ],
+  "halogens": [
+    {
+      "slug": "preparation_of_chlorine",
+      "name": "Preparation of Chlorine Gas"
+    },
+    {
+      "slug": "reaction_with_metals",
+      "name": "Reaction with Metals"
+    },
+    {
+      "slug": "reaction_with_non_metals",
+      "name": "Reaction with Non-metals"
+    },
+    {
+      "slug": "reaction_with_alkali",
+      "name": "Reaction with Alkalis"
+    },
+    {
+      "slug": "reaction_with_hydrogen_sulphide",
+      "name": "Reaction with Hydrogen Sulphide"
+    },
+    {
+      "slug": "reaction_with_halides",
+      "name": "Reaction with Halides"
+    },
+    {
+      "slug": "reaction_with_litmus",
+      "name": "Reaction with Litmus"
+    },
+    {
+      "slug": "water_treatment",
+      "name": "Water Treatment"
+    },
+    {
+      "slug": "removal_of_chlorine",
+      "name": "Removal of Chlorine"
+    }
+  ],
+  "redox_reactions": [
+    {
+      "slug": "hydrogen_reducing_agent",
+      "name": "Hydrogen as a Reducing Agent"
+    },
+    {
+      "slug": "copper_oxide_reduction",
+      "name": "Reduction of Copper(II) Oxide"
+    },
+    {
+      "slug": "carbon_reducing_agent",
+      "name": "Carbon as a Reducing Agent"
+    },
+    {
+      "slug": "acid_base_reaction_hno3",
+      "name": "Reaction with Concentrated Nitric(V) Acid"
+    }
+  ],
+  "reaction_kinetics": [
+    {
+      "slug": "factors_affecting_rate",
+      "name": "Factors Affecting Rate"
+    },
+    {
+      "slug": "rate_calculation_from_graph",
+      "name": "Rate Calculation from Graph"
+    },
+    {
+      "slug": "average_vs_instantaneous_rate",
+      "name": "Average vs Instantaneous Rate"
+    },
+    {
+      "slug": "grahams_law_diffusion",
+      "name": "Graham's Law of Diffusion"
+    },
+    {
+      "slug": "reaction_equations",
+      "name": "Reaction Equations"
+    },
+    {
+      "slug": "excess_reagent_purpose",
+      "name": "Excess Reagent Purpose"
+    },
+    {
+      "slug": "graphing_experimental_data",
+      "name": "Graphing Experimental Data"
+    }
+  ],
+  "laboratory_techniques": [
+    {
+      "slug": "apparatus_identification",
+      "name": "Apparatus Identification"
+    },
+    {
+      "slug": "flame_types",
+      "name": "Flame Types"
+    },
+    {
+      "slug": "gas_collection",
+      "name": "Gas Collection"
+    },
+    {
+      "slug": "oxygen_percentage",
+      "name": "Oxygen Percentage in Air"
+    },
+    {
+      "slug": "experiment_modification",
+      "name": "Experiment Modification"
+    }
+  ],
+  "separation_techniques": [
+    {
+      "slug": "distillation",
+      "name": "Simple Distillation"
+    },
+    {
+      "slug": "condenser",
+      "name": "Condenser"
+    },
+    {
+      "slug": "boiling_point",
+      "name": "Boiling Point"
+    },
+    {
+      "slug": "porcelain_chips",
+      "name": "Porcelain Chips"
+    },
+    {
+      "slug": "filtration",
+      "name": "Filtration"
+    },
+    {
+      "slug": "separating_funnel",
+      "name": "Separating Funnel"
+    },
+    {
+      "slug": "density",
+      "name": "Density"
+    }
+  ],
+  "acids_bases_salts": [
+    {
+      "slug": "acid_base_properties",
+      "name": "Acid and Base Properties"
+    },
+    {
+      "slug": "indicator_preparation",
+      "name": "Indicator Preparation"
+    },
+    {
+      "slug": "gas_preparation_drying",
+      "name": "Gas Preparation and Drying"
+    },
+    {
+      "slug": "salt_preparation",
+      "name": "Salt Preparation"
+    },
+    {
+      "slug": "qualitative_analysis",
+      "name": "Qualitative Analysis"
+    },
+    {
+      "slug": "neutralization_reactions",
+      "name": "Neutralization Reactions"
+    },
+    {
+      "slug": "acid_strength_distinction",
+      "name": "Acid Strength Distinction"
+    }
+  ],
+  "solutions_and_solubility": [
+    {
+      "slug": "definition_of_solubility",
+      "name": "Definition Of Solubility"
+    },
+    {
+      "slug": "solubility_graph_interpretation",
+      "name": "Solubility Graph Interpretation"
+    },
+    {
+      "slug": "crystallisation_on_cooling",
+      "name": "Crystallisation On Cooling"
+    },
+    {
+      "slug": "molar_concentration_calculations",
+      "name": "Molar Concentration Calculations"
+    },
+    {
+      "slug": "common_ion_effect",
+      "name": "Common Ion Effect"
+    }
+  ],
+  "air_and_combustion": [
+    {
+      "slug": "combustion_conditions",
+      "name": "Combustion Conditions"
+    },
+    {
+      "slug": "products_of_combustion",
+      "name": "Products of Combustion"
+    },
+    {
+      "slug": "carbon_monoxide",
+      "name": "Carbon Monoxide"
+    },
+    {
+      "slug": "carbon_dioxide",
+      "name": "Carbon Dioxide"
+    }
+  ],
+  "mole_concept": [
+    {
+      "slug": "percentage_composition",
+      "name": "Percentage Composition"
+    },
+    {
+      "slug": "fertilizer_chemistry",
+      "name": "Fertilizer Chemistry"
+    },
+    {
+      "slug": "acid_base_titration",
+      "name": "Acid-Base Titration"
+    },
+    {
+      "slug": "gas_volume_mass",
+      "name": "Gas Volume and Mass"
+    }
+  ],
+  "hard_water": [
+    {
+      "slug": "water_quality_assessment",
+      "name": "Water Quality Assessment"
+    },
+    {
+      "slug": "soap_lathering_test",
+      "name": "Soap Lathering Test"
+    },
+    {
+      "slug": "temporary_hardness",
+      "name": "Temporary Hardness"
+    },
+    {
+      "slug": "permanent_hardness",
+      "name": "Permanent Hardness"
+    },
+    {
+      "slug": "water_softening_methods",
+      "name": "Water Softening Methods"
+    }
+  ],
+  "atomic_structure": [
+    {
+      "slug": "atomic_number",
+      "name": "Atomic Number"
+    },
+    {
+      "slug": "isotopes",
+      "name": "Isotopes"
+    },
+    {
+      "slug": "relative_atomic_mass",
+      "name": "Relative Atomic Mass"
+    }
+  ],
+  "states_of_matter": [
+    {
+      "slug": "kinetic_particle_theory",
+      "name": "Kinetic Particle Theory"
+    },
+    {
+      "slug": "states_of_matter",
+      "name": "States of Matter"
+    },
+    {
+      "slug": "changes_of_state",
+      "name": "Changes of State"
+    },
+    {
+      "slug": "density_and_arrangement",
+      "name": "Density and Arrangement"
+    },
+    {
+      "slug": "pressure_in_gases",
+      "name": "Pressure in Gases"
+    }
   ]
 }
