@@ -1,0 +1,1090 @@
+{
+ "generated_by": "tools/build_cbc_strands.py",
+ "source": "research/strands_round2.json",
+ "subjects": {
+  "kj_english": {
+   "source": "https://freeexams.co.ke/wp-content/uploads/2024/11/English-Grade-7-Curriculum-Designs.pdf; https://freeexams.co.ke/wp-content/uploads/2024/11/English-Grade-8-Curriculum-Designs.pdf; https://freeexams.co.ke/wp-content/uploads/2024/11/English-Grade-9-Curriculum-Designs.pdf (KICD Junior School English designs, table 'SUMMARY OF STRANDS AND SUBSTRANDS', read with pdftotext -raw; the table prints one strand cell 'Reading 1 and 2' holding two labelled groups, kept here as the printed labels 'Reading 1' and 'Reading 2')",
+   "strands": {
+    "Listening and Speaking": {
+     "7": [
+      "Oral skills -polite language",
+      "Oral presentations-oral narratives",
+      "Listening for Main Idea",
+      "Selective listening",
+      "Sounds and word stress",
+      "Conversational skills",
+      "Listening for details",
+      "Explanatory Narratives",
+      "Consonant and vowel sounds",
+      "Delivering speeches",
+      "Interviews",
+      "Views and Opinions",
+      "Extensive Listening",
+      "Sounds and Intonation",
+      "Oral Reports"
+     ],
+     "8": [
+      "Polite Language (telephone etiquette)",
+      "Oral presentations - songs",
+      "Listening comprehension",
+      "Selective listening",
+      "Pronunciation",
+      "Conversational skills - disagreeing politely",
+      "Listening for details-responding appropriately",
+      "Oral Narratives - myths",
+      "Pronunciation - sounds and stress",
+      "Oral Presentations",
+      "Interviews",
+      "Listening to respond - attitude",
+      "Extensive Listening - poems",
+      "Pronunciation and Intonation - silent consonant sounds",
+      "Oral reports - events"
+     ],
+     "9": [
+      "Polite Language -Euphemism",
+      "Oral Literature-Short forms",
+      "Listening comprehension -Grade appropriate texts (main idea and specific details",
+      "Selective listening",
+      "Pronunciation",
+      "Conversational skills -Negotiation skills",
+      "Listening for details",
+      "Oral Poetry",
+      "Diphthongs and sentence stress",
+      "Impromptu Speeches",
+      "Conversation skills- Job Interviews",
+      "Listening to respond-Expressing feelings",
+      "Extensive listening- Speeches",
+      "Intonation in sentences-question tags",
+      "Oral reports- News (role play)"
+     ]
+    },
+    "Reading 1": {
+     "7": [
+      "Independent reading",
+      "Simple poems",
+      "Information and meaning",
+      "Intensive reading",
+      "Synonyms and antonyms",
+      "Reading fluency",
+      "Independent reading-Visuals",
+      "Main idea from supporting details",
+      "Grade appropriate fiction materials",
+      "Study skills -note making",
+      "Non-fiction materials",
+      "Reading comprehension",
+      "Comprehension strategies",
+      "Study skills -summary",
+      "Reading Fluency"
+     ],
+     "8": [
+      "Independent reading",
+      "Simple poems",
+      "Intensive reading - given texts",
+      "Intensive reading - reading strategies",
+      "Study skills-Reference materials",
+      "Reading fluency - poem",
+      "Intensive reading - visuals",
+      "Intensive reading - poem",
+      "Extensive reading - fiction -Characters",
+      "Study skills - note making",
+      "Extensive Reading - non-fiction materials",
+      "Reading comprehension",
+      "Intensive Reading - comprehension strategies",
+      "Study skills - summary and note making",
+      "Reading Fluency"
+     ],
+     "9": [
+      "Independent reading-Grade appropriate texts",
+      "Intensive reading-Simple poems",
+      "Reading for information and meaning",
+      "Intensive reading-Key events",
+      "Reference materials",
+      "Reading fluency",
+      "Intensive reading-Interpretation and evaluation",
+      "Reading for interpretation",
+      "Extensive reading- Grade appropriate fiction",
+      "Study skills -Note making",
+      "Extensive Reading -Fiction",
+      "Intensive Reading-Comprehension Strategies",
+      "Intensive Reading -Visualising and Summarising",
+      "Summarising-argumentative texts",
+      "Reading Fluency"
+     ]
+    },
+    "Reading 2": {
+     "7": [
+      "Intensive reading-trickster narrative",
+      "Class reader -Previewing a text",
+      "Reading poetry",
+      "Class reader -Main characters",
+      "Intensive reading -Oral narratives",
+      "Oral literature -songs",
+      "Class reader -Characters",
+      "Intensive reading-Poetry",
+      "Class reader-sequence of events",
+      "Character traits-Monster Narratives",
+      "Intensive reading-Dilemma Narratives",
+      "Reading for Main idea",
+      "Praise songs-Purpose and occasion",
+      "Features of style-Identification and use",
+      "Poetry"
+     ],
+     "8": [
+      "Intensive reading - class reader - sequencing events",
+      "Class reader - setting (time and place)",
+      "Intensive reading - poetry",
+      "Class reader - characters",
+      "Class reader - style (dialogue and repetition)",
+      "Class reader - main idea",
+      "Class Reader - relationship between characters",
+      "Intensive reading-Similes and Metaphors",
+      "Class reader - relating events to real life",
+      "Class reader - lessons learnt",
+      "Class reader - writing about characters",
+      "Class reader - style (personification, flashback)",
+      "Class reader - relating ideas to real life",
+      "Poems"
+     ],
+     "9": [
+      "Class reader - Structure and setting",
+      "Class reader- Plot",
+      "Poems -Structure",
+      "Class reader -characters",
+      "Class reader -Style",
+      "Class reader- Themes",
+      "Class Reader- (Intensive reading) characters",
+      "Poetry-Characters",
+      "Class reader- Play (project)",
+      "Class reader- Lessons learnt",
+      "Class reader-Characterisation",
+      "Class reader- Relating characters and themes to real life",
+      "Intensive reading-Poems"
+     ]
+    },
+    "Grammar": {
+     "7": [
+      "Word classes -Nouns",
+      "Word classes- Nouns",
+      "Verbs and tense-regular and irregular verbs",
+      "Verbs and tense-simple present and past",
+      "Comparative and superlative adjectives",
+      "Adverbs",
+      "Personal and possessive Pronouns",
+      "Simple prepositions",
+      "Conjunctions",
+      "Determiners",
+      "Formation of Adjectives",
+      "Phrasal verbs",
+      "Simple sentences",
+      "Subject -verb agreement",
+      "Affirmative and Negative Sentences"
+     ],
+     "8": [
+      "Word classes -compound Nouns",
+      "Word classes - collective Nouns",
+      "Primary auxiliaries",
+      "Verbs and tenses",
+      "Adjectives",
+      "Adverbs",
+      "Pronouns",
+      "Simple prepositions",
+      "Conjunctions",
+      "Determiners and Quantifiers",
+      "Compound Sentences",
+      "Active and Passive voice",
+      "Interrogative Sentences"
+     ],
+     "9": [
+      "Gender neutral language",
+      "Nouns and quantifiers",
+      "Modal auxialiaries",
+      "Present and Past Perfect Aspect",
+      "Order of Adjectives",
+      "Comparison of Adverbs",
+      "Relative Pronouns, Interrogative Pronouns",
+      "Complex Prepositions",
+      "Conjunctions-Correlative conjunctions",
+      "Determiners -Numerals and Ordinals",
+      "Nouns",
+      "Phrasal verbs",
+      "Complex Sentences",
+      "Direct and Indirect Speech",
+      "Imperatives (Commands, requests) and exclamatory sentences"
+     ]
+    },
+    "Writing": {
+     "7": [
+      "Handwriting -Legibility",
+      "Punctuation marks",
+      "Narrative paragraphs",
+      "Paragraphing using examples",
+      "Friendly letter",
+      "Commonly misspelt words",
+      "The writing process-Narrative composition",
+      "Composition-Self assessment",
+      "Narrative Composition",
+      "Packing and Shopping lists",
+      "Spelling Antonyms, Synonyms and Numbers",
+      "Writing process-Dialogues",
+      "Descriptive writing",
+      "Functional Writing -Notices and Posters"
+     ],
+     "8": [
+      "Handwriting -Legibility",
+      "Punctuation marks",
+      "Narrative paragraphs",
+      "Paragraphing using examples",
+      "Friendly letter",
+      "Commonly misspelt words",
+      "The writing process - narrative composition",
+      "Composition - self assessment",
+      "Narrative Composition",
+      "Packing and Shopping lists",
+      "Spelling Antonyms ,Synonyms and Numbers",
+      "Writing process - dialogues",
+      "Descriptive writing",
+      "Functional Writing - notices, posters"
+     ],
+     "9": [
+      "Legibility and neatness",
+      "Punctuation marks",
+      "Structure of a paragraph",
+      "Descriptive Paragraph Narrative and Descriptive Paragraphs",
+      "Letter of application",
+      "Spelling",
+      "The writing process -Steps",
+      "Assessing writing",
+      "Narrative Composition",
+      "Filling forms-Application forms",
+      "Mechanics of writing-Abbreviations and Acronyms",
+      "The Writing process",
+      "Creative writing: Idioms",
+      "Descriptive writing",
+      "Emails"
+     ]
+    }
+   }
+  },
+  "kj_kiswahili": {
+   "source": "https://freeexams.co.ke/wp-content/uploads/2024/11/Kiswahili-Grade-7-Curriculum-Designs.pdf; https://freeexams.co.ke/wp-content/uploads/2024/11/Kiswahili-Grade-8-Curriculum-Designs.pdf; https://freeexams.co.ke/wp-content/uploads/2024/11/Kiswahili-Grade-9-Curriculum-Designs.pdf (KICD Junior School Kiswahili designs, table 'MUHTASARI WA MADA NA MADA NDOGO', read with pdftotext -raw)",
+   "strands": {
+    "Kusikiliza na Kuzungumza": {
+     "7": [
+      "Kusikiliza na Kujibu: Mazungumzo",
+      "Kusikiliza kwa Kina: Sauti /dh/ na /th/",
+      "Tanzu za Fasihi: Fasihi andishi na simulizi",
+      "Nyimbo: Nyimbo za Watoto na Bembelezi",
+      "Mazungumzo Mahususi",
+      "Kusikiliza kwa Kufasiri",
+      "Kusikiliza kwa Ufahamu: Ufahamu wa kusikiliza",
+      "Kuzungumza ili Kupasha Habari",
+      "Kusikiliza kwa Kina: Sauti /d/ na /nd/",
+      "Nyimbo: Nyimbo za Kazi na Nyimbo za Dini",
+      "Kuzungumza kwa Kuambatanisha na Vitendo/Ishara",
+      "Kusikiliza kwa Makini",
+      "Wahusika katika Nyimbo",
+      "Lugha katika Nyimbo",
+      "Kusikiliza Habari na Kujibu"
+     ],
+     "8": [
+      "Kusikiliza na Kujibu: Mahojiano",
+      "Kusikiliza kwa Kina: Sauti /g/ na /gh/",
+      "Hadithi: Mighani",
+      "Hadithi: Visasili",
+      "Kusikiliza Maagizo",
+      "Kusikiliza kwa Kufasiri",
+      "Usikilizaji Husishi",
+      "Uzungumzaji wa Papo kwa Hapo",
+      "Kusikiliza kwa Kina: Sauti /ch/ na /sh/",
+      "Hadithi: Hurafa na Hekaya",
+      "Kuzungumza kwa Kutumia Vidokezo vya Hoja",
+      "Kusikiliza kwa Makini",
+      "Hadithi: Wahusika",
+      "Hadithi: Matumizi ya Lugha"
+     ],
+     "9": [
+      "Kusikiliza na Kujibu: Mjadala",
+      "Kusikiliza kwa Kina: Sauti /b/ na /mb/",
+      "Semi: tashbihi, sitiari na methali",
+      "Semi: Vitendawili na nahau",
+      "Ufahamu wa Kusikiliza",
+      "Kusikiliza kwa Kufasiri",
+      "Kusikiliza kwa Kutathmini",
+      "Uzungumzaji wa Kushawishi",
+      "Kusikiliza kwa Kina: Sauti /j/ na /nj/",
+      "Mazungumzo: Malumbano ya Utani",
+      "Uzungumzaji katika Sherehe",
+      "Mazungumzo: Mawaidha"
+     ]
+    },
+    "Kusoma": {
+     "7": [
+      "Kusoma kwa Ufahamu: Kifungu cha Simulizi",
+      "Kusoma kwa Mapana: Matini ya kujichagulia",
+      "Kusoma kwa Kina: Novela",
+      "Kusoma kwa Ufasaha",
+      "Kusoma kwa Ufahamu",
+      "Kusoma kwa Kina: Maudhui na Dhamira",
+      "Ufupisho",
+      "Kusoma kwa Kina: Mandhari na Ploti",
+      "Kusoma kwa Ufahamu: Kifungu cha Kushawishi",
+      "Kusoma kwa Kina: Wahusika",
+      "Kusoma kwa Kina: Mbinu za Lugha",
+      "Kusoma kwa Ufahamu: Kifungu cha Mjadala"
+     ],
+     "8": [
+      "Kusoma kwa Ufahamu: Simulizi",
+      "Kusoma kwa Mapana: Matini ya kujichagulia",
+      "Kusoma kwa Kina: Tamthilia",
+      "Kusoma kwa Ufasaha",
+      "Kusoma kwa Ufahamu",
+      "Kusoma kwa Kina: Maudhui na Dhamira",
+      "Ufupisho",
+      "Kusoma kwa Kina: Mandhari na Ploti",
+      "Kusoma kwa Ufahamu: Kifungu cha Kushawishi",
+      "Kusoma kwa Kina: Wahusika katika Tamthilia",
+      "Kusoma kwa Kina: Mbinu za Lugha"
+     ],
+     "9": [
+      "Kusoma kwa Ufahamu: Simulizi",
+      "Kusoma kwa Mapana: Matini ya kujichagulia",
+      "Kusoma kwa Kina: Ushairi",
+      "Kusoma kwa Ufasaha",
+      "Kusoma kwa Ufahamu",
+      "Ufupisho",
+      "Kusoma kwa Ufahamu: Kifungu cha Kushawishi"
+     ]
+    },
+    "Kuandika": {
+     "7": [
+      "Viakifishi: Herufi kubwa na Kikomo",
+      "Barua ya Kirafiki ya Kutoa Mwaliko",
+      "Insha za Kubuni",
+      "Insha za Kubuni: Masimulizi",
+      "Insha ya Maelekezo",
+      "Insha za Kubuni: Picha",
+      "Insha za Kubuni: Maelezo",
+      "Viakifishi: Mabano na Kistari Kifupi",
+      "Barua ya Kuomba Msamaha",
+      "Hotuba ya Kupasha Habari",
+      "Kuandika Kidijitali: Baruapepe"
+     ],
+     "8": [
+      "Viakifishi: Alama ya hisi na Ritifaa",
+      "Barua ya Kirafiki: Barua ya kirafiki ya kutoa shukrani",
+      "Insha za Kubuni: Masimulizi",
+      "Insha ya Maelekezo",
+      "Insha za Kubuni: Insha ya mdokezo",
+      "Insha za Kubuni: Maelezo",
+      "Viakifishi: Mtajo na mshazari",
+      "Barua ya Kuomba Msaada",
+      "Insha za Kiuamilifu: Hotuba ya kutoa ufafanuzi",
+      "Insha za Maelekezo",
+      "Baruapepe ya Kiofisi"
+     ],
+     "9": [
+      "Viakifishi: Koloni na Semi koloni",
+      "Insha za Kiuamilifu: Barua ya Kirafiki",
+      "Insha za Kubuni: Masimulizi",
+      "Insha za Kiuamilifu: Shajara",
+      "Insha za Kubuni: Methali",
+      "Insha za Kubuni: Maelezo",
+      "Viakifishi: Mabano na Kistari Kifupi",
+      "Barua ya Kuomba Kazi",
+      "Hotuba ya Kushawishi",
+      "Kujibu Baruapepe"
+     ]
+    },
+    "Sarufi": {
+     "7": [
+      "Aina za nomino: Nomino za Makundi na Nomino za Dhahania",
+      "Vihusishi: Vihusishi vya -a Unganifu na Vihusishi vya Sababu",
+      "Aina za nomino: Nomino za Wingi na Nomino za Vitenzi-jina",
+      "Nyakati na Hali: Wakati uliopo, Wakati uliopita na Wakati ujao",
+      "Nyakati na Hali: Wakati uliopita hali ya kuendelea na Wakati ujao hali ya kuendelea",
+      "Vitenzi: Vitenzi Vikuu na Vitenzi Visaidizi",
+      "Vitenzi Vishirikishi",
+      "Ngeli na Upatanisho wa Kisarufi: Ngeli ya A-WA na Ngeli ya U-I",
+      "Ngeli na Upatanisho wa Kisarufi: Ngeli ya KI-VI na LI-YA",
+      "Vinyume vya Maneno",
+      "Mnyambuliko wa Vitenzi: Kauli ya Kutenda, Kutendea na Kutendwa",
+      "Aina za Sentensi: Sentensi Sahili",
+      "Ukanushaji kwa Kuzingatia Nyakati",
+      "Ukubwa wa Nomino",
+      "Usemi Halisi na Usemi wa Taarifa"
+     ],
+     "8": [
+      "Viwakilishi: Viwakilishi vya Nafsi, Viwalikishi Vionyeshi na Viwakilishi vya Idadi",
+      "Viwakilishi: Viwalikishi vya Sifa, Viwalikishi vya Pekee na Viwalikishi Viulizi",
+      "Viwakilishi: Vimilikishi na Visisitizi",
+      "Nyakati na Hali: Hali ya mazoea na Hali timilifu",
+      "Nyakati na Hali: Wakati uliopita hali timilifu na Wakati ujao hali timilifu",
+      "Vivumishi vya Sifa na Viashiria",
+      "Vivumishi Vimilikishi na vya Idadi",
+      "Ngeli na Upatanisho wa Kisarufi: Ngeli ya I-ZI, na I-I",
+      "Ngeli na Upatanisho wa Kisarufi: Ngeli ya U-U na U-YA",
+      "Vinyume vya Vitenzi na Vielezi",
+      "Mnyambuliko wa Vitenzi: Kauli ya: Kutendeka, Kutendewa na Kutendatenda",
+      "Aina za Sentensi: Sentensi changamano",
+      "Ukanushaji kwa Kuzingatia Hali: Hali ya mazoea na Hali timilifu",
+      "Udogo wa Nomino",
+      "Usemi Halisi na Usemi wa Taarifa"
+     ],
+     "9": [
+      "Vihusishi: Vihusishi vya Mahali na Vihusishi vya Wakati",
+      "Vihusishi: Vihusishi vya -a Unganifu na Vihusishi vya Sababu",
+      "Vihusishi: Vihusishi Vilinganishi na Kihusishi na",
+      "Nyakati na Hali: -ki- ya masharti na -ka- ya kufuatana kwa vitendo",
+      "Hali za Masharti: Hali ya masharti -nge- na Hali ya masharti -ngali",
+      "Vielezi: Vielezi vya Namna na Vielezi vya Wakati",
+      "Vielezi: Vielezi vya Mahali na Vielezi vya Idadi",
+      "Ngeli na Upatanisho wa Kisarufi: Ngeli ya U-ZI na Ngeli ya YA-YA",
+      "Ngeli na Upatanisho wa Kisarufi: Ngeli ya LI, KU, PA-KU-MU",
+      "Vinyume vya Vihusishi",
+      "Mnyambuliko wa Vitenzi: Kauli ya: Kutendana, Kutendeana na Kutendesha",
+      "Aina za Sentensi: Sentensi tata",
+      "Ukanushaji: Hali ya masharti -nge-, -ngali- na -ki",
+      "Udogo na Ukubwa wa Nomino",
+      "Usemi Halisi na Usemi wa Taarifa"
+     ]
+    }
+   }
+  },
+  "kj_mathematics": {
+   "source": "https://freeexams.co.ke/wp-content/uploads/2024/11/Mathematics-Grade-7-Curriculum-Designs.pdf; https://freeexams.co.ke/wp-content/uploads/2024/11/Mathematics-Grade-8-Curriculum-Designs.pdf; https://freeexams.co.ke/wp-content/uploads/2024/11/Mathematics-Grade-9-Curriculum-Designs.pdf (KICD Junior School Mathematics designs, table 'SUMMARY OF STRANDS AND SUB-STRANDS', read with pdftotext -raw and -layout)",
+   "strands": {
+    "Numbers": {
+     "7": [
+      "Whole Numbers",
+      "Factors",
+      "Fractions",
+      "Decimals",
+      "Squares and Square Roots"
+     ],
+     "8": [
+      "Integers",
+      "Fractions",
+      "Decimals",
+      "Squares and Square Roots",
+      "Rates, Ratio, Proportions and Percentages"
+     ],
+     "9": [
+      "Integers",
+      "Cubes and Cube Roots",
+      "Indices and Logarithms",
+      "Compound Proportions and Rates of Work"
+     ]
+    },
+    "Algebra": {
+     "7": [
+      "Algebraic Expressions",
+      "Linear Equations",
+      "Linear Inequalities"
+     ],
+     "8": [
+      "Algebraic Expressions",
+      "Linear Equations"
+     ],
+     "9": [
+      "Matrices",
+      "Equation of a Straight Line",
+      "Linear Inequalities"
+     ]
+    },
+    "Measurements": {
+     "7": [
+      "Pythagorean Relationship",
+      "Length",
+      "Area",
+      "Volume and Capacity",
+      "Time, Distance, and Speed",
+      "Temperature",
+      "Money"
+     ],
+     "8": [
+      "Circles",
+      "Area",
+      "Money"
+     ],
+     "9": [
+      "Area",
+      "Volume of Solids",
+      "Mass, Volume, Weight, and Density",
+      "Time, Distance, and Speed",
+      "Money",
+      "Approximations and Errors"
+     ]
+    },
+    "Geometry": {
+     "7": [
+      "Angles",
+      "Geometrical Constructions"
+     ],
+     "8": [
+      "Geometrical Constructions",
+      "Coordinates and graphs",
+      "Scale Drawing",
+      "Common Solids"
+     ],
+     "9": [
+      "Coordinates and Graphs",
+      "Scale Drawing",
+      "Similarity and Enlargement",
+      "Trigonometry"
+     ]
+    },
+    "Data Handling and Probability": {
+     "7": [
+      "Data Handling"
+     ],
+     "8": [
+      "Data Presentation and Interpretation",
+      "Probability"
+     ],
+     "9": [
+      "Data Interpretation (Grouped Data)",
+      "Probability"
+     ]
+    }
+   }
+  },
+  "kj_religious_education": {
+   "source": "https://freeexams.co.ke/wp-content/uploads/2024/11/CRE-Grade-7-Curriculum-Designs.pdf; https://freeexams.co.ke/wp-content/uploads/2024/11/CRE-Grade-8-Curriculum-Designs.pdf; https://freeexams.co.ke/wp-content/uploads/2024/11/CRE-Grade-9-Curriculum-Designs.pdf (KICD Junior School Christian Religious Education designs, table 'SUMMARY OF STRANDS AND SUB-STRANDS', read with pdftotext -raw and -layout)",
+   "strands": {
+    "Overview of Christian Religious Education": {
+     "7": [
+      "Importance of Learning CRE"
+     ]
+    },
+    "Creation": {
+     "7": [
+      "Accounts of Creation",
+      "Responsibility over Animals, Fish and Birds",
+      "Responsibility over Plants",
+      "Use and Misuse of God's Creation"
+     ],
+     "8": [
+      "Origin and Consequences of Sin",
+      "God's Plan for Redemption"
+     ],
+     "9": [
+      "Work"
+     ]
+    },
+    "The Bible": {
+     "7": [
+      "Functions of the Bible",
+      "Divisions of the Bible",
+      "Bible Translations",
+      "Leadership in the Bible: Moses"
+     ],
+     "8": [
+      "Faith and God's Promises",
+      "Abrahamic Covenant",
+      "Leadership in Israel (Saul)"
+     ],
+     "9": [
+      "Christian Moral Values",
+      "Kings David and Solomon"
+     ]
+    },
+    "The Early Life of Jesus Christ": {
+     "7": [
+      "Background to the Birth of Jesus Christ",
+      "Annunciation of the Birth of John the Baptist",
+      "The Birth and Childhood of Jesus Christ"
+     ]
+    },
+    "The church in Action": {
+     "7": [
+      "Selected Forms of Worship",
+      "Role of the Church in Education and Health"
+     ]
+    },
+    "Christian Living Today": {
+     "7": [
+      "Human Sexuality",
+      "Christian Marriage and Family",
+      "Alcohol, drugs and substance use",
+      "Gambling",
+      "Social Media"
+     ],
+     "8": [
+      "Family Relationships",
+      "Human Sexuality",
+      "Sacredness of Life",
+      "Bullying",
+      "Work: Talents and Abilities",
+      "Leisure"
+     ],
+     "9": [
+      "Courtship and Marriage",
+      "Responsible Parenthood",
+      "Leisure",
+      "Wealth Money and Poverty"
+     ]
+    },
+    "The Life and Ministry of Jesus": {
+     "8": [
+      "Healing of Blind Bartimaeus",
+      "Calming the Storm",
+      "Healing of the Paralytic"
+     ]
+    },
+    "Teachings of Jesus Christ": {
+     "8": [
+      "Teaching on Prayer",
+      "The Lost Sheep"
+     ]
+    },
+    "The Church": {
+     "8": [
+      "The Holy Spirit",
+      "Acts of Compassion"
+     ],
+     "9": [
+      "The Early Church",
+      "The Gifts of the Holy Spirit"
+     ]
+    },
+    "The Life and Ministry of Jesus Christ": {
+     "9": [
+      "Raising the Widow's Son",
+      "Healing the 10 Lepers",
+      "Parable on Prayer",
+      "Nicodemus Encounter with Jesus Christ",
+      "Jesus Ministry in Jerusalem"
+     ]
+    }
+   }
+  },
+  "kb_chemistry": {
+   "source": "research/grade-11-chemistry-curriculum-design.html (QuizMaster Kenya page reproducing the KICD design's strand/sub-strand table, tagged 'KICD design'; the Grade 11 Chemistry PDF itself is a Google Drive embed that blocks scripted download, so this is a secondary rendering - verify against the design before use) | research/grade-12-chemistry-curriculum-design.html (QuizMaster Kenya page reproducing the KICD design's strand/sub-strand table, tagged 'KICD design'; the Grade 12 Chemistry PDF itself is a Google Drive embed that blocks scripted download, so this is a secondary rendering - verify against the design before use)",
+   "strands": {
+    "Inorganic Chemistry": {
+     "11": [
+      "The Mole",
+      "Non-metals"
+     ],
+     "12": [
+      "Industrial Manufacture of Inorganic Chemicals",
+      "Carbon and Extraction of Metals"
+     ]
+    },
+    "Physical Chemistry": {
+     "11": [
+      "Salts",
+      "Gas Laws",
+      "Reaction Rates"
+     ],
+     "12": [
+      "Energy Changes in Physical and Chemical Processes",
+      "Electrochemistry",
+      "Nuclear Chemistry"
+     ]
+    },
+    "Organic Chemistry": {
+     "11": [
+      "Hydrocarbons"
+     ],
+     "12": [
+      "Alkanols",
+      "Alkanoic Acid",
+      "Detergents",
+      "Polymers"
+     ]
+    }
+   }
+  },
+  "kb_biology": {
+   "source": "research/grade-11-biology-curriculum-design.html (QuizMaster Kenya page reproducing the KICD design's strand/sub-strand table, tagged 'KICD design'; the Grade 11 Biology PDF itself is a Google Drive embed that blocks scripted download, so this is a secondary rendering - verify against the design before use) | research/grade-12-biology-curriculum-design.html (QuizMaster Kenya page reproducing the KICD design's strand/sub-strand table, tagged 'KICD design'; the Grade 12 Biology PDF itself is a Google Drive embed that blocks scripted download, so this is a secondary rendering - verify against the design before use)",
+   "strands": {
+    "Cell Biology and Biodiversity": {
+     "11": [
+      "Taxonomy I",
+      "Ecology",
+      "Taxonomy II",
+      "Cell Division"
+     ],
+     "12": [
+      "Genetics",
+      "Evolution"
+     ]
+    },
+    "Anatomy and Physiology of Plants": {
+     "11": [
+      "Reproduction in Plants",
+      "Growth and Development in Plants",
+      "Excretion in Plants"
+     ],
+     "12": [
+      "Response and Coordination",
+      "Support and Movement"
+     ]
+    },
+    "Anatomy and Physiology of Animals": {
+     "11": [
+      "Reproduction in Animals",
+      "Growth and Development in Animals",
+      "Excretion and Homeostasis in Animals"
+     ],
+     "12": [
+      "Response and Coordination",
+      "Support and Movement"
+     ]
+    }
+   }
+  },
+  "kb_physics": {
+   "source": "research/d/g10_physics.pdf (text: research/d/g10_physics.txt; identical to research/designs/Physics.txt) - 'SUMMARY OF STRANDS AND SUB STRANDS'",
+   "strands": {
+    "Mechanics and Thermal Physics": {
+     "10": [
+      "Introduction to Physics",
+      "Pressure",
+      "Mechanical Properties of Materials",
+      "Temperature and Thermal Expansion",
+      "Moments and equilibrium",
+      "Energy, Work, Power and Machines"
+     ]
+    },
+    "Waves and Optics": {
+     "10": [
+      "Properties of Waves",
+      "Radioactivity and Stability of Isotopes"
+     ]
+    },
+    "Electricity and Magnetism": {
+     "10": [
+      "Electrostatics",
+      "Current Electricity",
+      "Introduction to electronics"
+     ]
+    },
+    "Environmental and Space Physics": {
+     "10": [
+      "Greenhouse Effect and Climate Change",
+      "Introduction to Space Physics"
+     ]
+    }
+   }
+  },
+  "kb_mathematics": {
+   "source": "research/d/g10_mathematics.pdf (text: research/d/g10_mathematics.txt) - 'SUMMARY OF STRANDS AND SUB STRANDS'",
+   "strands": {
+    "Numbers and Algebra": {
+     "10": [
+      "Real Numbers",
+      "Indices and Logarithms",
+      "Quadratic Expressions and Equations 1"
+     ]
+    },
+    "Measurements and Geometry": {
+     "10": [
+      "Similarity and Enlargement",
+      "Reflection and Congruence",
+      "Rotation",
+      "Angle Properties of a Circle",
+      "Trigonometry 1",
+      "Area of Polygons",
+      "Area of a Part of a Circle",
+      "Surface Area and Volume of Solids",
+      "Linear Motion"
+     ]
+    },
+    "Statistics and Probability": {
+     "10": [
+      "Statistics I",
+      "Probability 1"
+     ]
+    }
+   }
+  },
+  "kb_geography": {
+   "source": "research/d/g10_geography.pdf (text: research/d/g10_geography.txt) - 'SUMMARY OF STRANDS AND SUB STRANDS' (sub-strands are printed unnumbered)",
+   "strands": {
+    "Practical Geography": {
+     "10": [
+      "Introduction to Geography",
+      "Map Reading and Interpretation",
+      "Statistical Methods",
+      "Geographic Information System"
+     ]
+    },
+    "Natural Systems and Processes": {
+     "10": [
+      "Rocks",
+      "Earth Movements",
+      "Folding",
+      "Vulcanicity",
+      "Earthquakes"
+     ]
+    },
+    "Human and Economic Activities": {
+     "10": [
+      "Agriculture",
+      "Mining",
+      "Energy",
+      "Industry"
+     ]
+    }
+   }
+  },
+  "kb_history_and_citizenship": {
+   "source": "research/d/g10_history-and-citizenship.pdf (text: research/d/g10_history-and-citizenship.txt) - 'SUMMARY OF STRANDS AND SUBSTRANDS'; columns misaligned in the table, so strand numbers were cross-checked against the body headings 'STRAND 1.0'-'STRAND 4.0'",
+   "strands": {
+    "Themes in Kenyan History and Citizenship": {
+     "10": [
+      "Linguistic groups in Kenya",
+      "Establishment of colonial rule",
+      "The Constitution of Kenya (2010)",
+      "Political developments and challenges since independence.",
+      "Elections in Kenya",
+      "National integration"
+     ]
+    },
+    "Themes in Africa History and Citizenship": {
+     "10": [
+      "Human Developments in Africa",
+      "African Civilizations up to 19th Century",
+      "Colonization of Africa",
+      "Modern Nationalism in Africa",
+      "Effects of global wars on Africa"
+     ]
+    },
+    "Themes in International History and Citizenship": {
+     "10": [
+      "Great revolutions",
+      "International organisations",
+      "Modern Slavery and servitude",
+      "Global governance",
+      "The 1st industrial revolution"
+     ]
+    },
+    "Contemporary Themes in History and Citizenship": {
+     "10": [
+      "Peace and conflict transformations in Kenya",
+      "The 4th industrial and technologies revolution",
+      "Equality and Non-Discrimination"
+     ]
+    }
+   }
+  },
+  "kb_agriculture": {
+   "source": "research/d/g10_agriculture.pdf (extracted with pdftotext -raw) - 'SUMMARY OF STRANDS AND SUB STRANDS'",
+   "strands": {
+    "Crop Production": {
+     "10": [
+      "Agricultural Land",
+      "Properties of Soil",
+      "Land Preparation",
+      "Field Management Practices",
+      "Growing Selected Crops",
+      "Crop Protection",
+      "General Crop Harvesting"
+     ]
+    },
+    "Animal Production": {
+     "10": [
+      "Breeds of Livestock",
+      "Animal Handling and Safety",
+      "General Animal Health",
+      "Bee Keeping",
+      "Animal Rearing Project"
+     ]
+    },
+    "Agricultural Technologies and Entrepreneurship": {
+     "10": [
+      "Tools and Equipment",
+      "Product Processing and Value Addition",
+      "Establishing Agricultural Enterprise",
+      "Marketing Agricultural Produce",
+      "Composting Techniques"
+     ]
+    }
+   }
+  },
+  "kb_home_science": {
+   "source": "research/d/g10_home-science.pdf (extracted with pdftotext -raw) - 'SUMMARY OF STRANDS AND SUB STRANDS'",
+   "strands": {
+    "Foods and Nutrition": {
+     "10": [
+      "Overview of Foods and Nutrition",
+      "kitchen Layouts and Equipment",
+      "Food Hygiene and Safety",
+      "Methods of Cooking",
+      "Nutritive Value of Foods"
+     ]
+    },
+    "Home Management": {
+     "10": [
+      "Hygiene During Puberty",
+      "Safety in the Home",
+      "Housing the Family",
+      "Cleaning the House",
+      "Laundry Work",
+      "Consumer Education"
+     ]
+    },
+    "Clothing and Textiles": {
+     "10": [
+      "Sewing Tools, Equipment and Materials",
+      "Textile Fibres",
+      "Clothing Construction Processes: Stitches",
+      "Clothing Construction Processes: Seams",
+      "Clothing Construction Processes: Management of Fullness"
+     ]
+    }
+   }
+  },
+  "kb_english": {
+   "source": "research/designs/English.pdf (text: research/designs/English.txt) - Grade 10 English, 'SUMMARY OF STRANDS AND SUB STRANDS'; sub-strands are printed as lettered lists",
+   "strands": {
+    "Listening And Speaking": {
+     "10": [
+      "Extensive listening",
+      "Etiquette",
+      "Critical listening",
+      "Pronunciation and conversational skills",
+      "Intensive listening",
+      "Non-verbal cues",
+      "Selective listening",
+      "Interactive listening",
+      "Pronunciation and conducting meetings",
+      "Responsive listening",
+      "Pronunciation and Syllabic Stress",
+      "Pronunciation and Emphatic Stress",
+      "Intensive listening/Viewing",
+      "Speaking fluency"
+     ]
+    },
+    "Reading": {
+     "10": [
+      "Reading fluency",
+      "Extensive reading",
+      "Study skills",
+      "Intensive reading",
+      "Extensive listening",
+      "Critical reading"
+     ]
+    },
+    "Grammar in Use": {
+     "10": [
+      "Word classes",
+      "Phrases",
+      "Clauses",
+      "Sentence structure",
+      "Sentences"
+     ]
+    },
+    "Writing": {
+     "10": [
+      "Sentence fluency",
+      "Mechanics of writing: Spelling",
+      "Elements of effective writing",
+      "Mechanics of Writing: Punctuation",
+      "The Writing Process",
+      "Creative writing",
+      "Functional writing"
+     ]
+    }
+   }
+  },
+  "kb_kiswahili": {
+   "source": "https://freeexams.co.ke/wp-content/uploads/2024/11/Kiswahili-Lugha-Gredi-10-Curriculum-Designs.pdf and https://freeexams.co.ke/wp-content/uploads/2024/11/Fasihi-ya-Kiswahili-Gredi-10-Curriculum-Designs.pdf (KICD Grade 10 Kiswahili: the 'Lugha' design supplies strands 1-4, the 'Fasihi ya Kiswahili' design supplies the three Fasihi strands; table 'MUHTASARI WA MADA NA MADA NDOGO', read with pdftotext -raw; the Lugha table prints '9.1.1 Kusikiliza kwa Kujenga Mahusiano' inside KUSOMA and colons on 6.2.1/5.3.1 - kept exactly as printed)",
+   "strands": {
+    "KUSIKILIZA NA KUZUNGUMZA": {
+     "10": [
+      "Ufahamu wa Kusikiliza: Ujumbe na fani katika matini simulizi",
+      "Matamshi Bora: Sauti /b/, /mb/, /bw/, /mbw/",
+      "Kuzungumza kwa Kupasha Habari",
+      "Kusikiliza kwa Kupata Habari",
+      "Kusikiliza kwa Kupambanua",
+      "Uzungumzaji wa Papo kwa Hapo",
+      "7.1.1. Kuzungumza kwa Ufasaha: Mjadala",
+      "Kusikiliza na Kuzungumza: Ushawishi kuhusu ukweli fulani",
+      "Usikilizaji husishi",
+      "Kuhakiki Matini ya Kusikiliza"
+     ]
+    },
+    "KUSOMA": {
+     "10": [
+      "Kusoma kwa Ufasaha: Kifungu cha maelezo",
+      "Kusoma kwa Ufahamu: Kifungu simulizi",
+      "Ufupisho: Kifungu cha kupasha habari",
+      "Kusoma kwa Mapana: Matini ya kujichagulia",
+      "Kusoma kwa Kina: Usomaji wa kurashia",
+      "6.2.1: Kusoma kwa Ufasaha: Kifungu cha maelezo",
+      "Kusikiliza kwa Kujenga Mahusiano",
+      "Kusoma kwa Kina: Usomaji wa kuduhushi"
+     ]
+    },
+    "KUANDIKA": {
+     "10": [
+      "Viakifishi: herufi kubwa, nukta, kipumuo, alama za mtajo",
+      "Insha za kiuamilifu: Barua ya Kirafiki",
+      "Insha ya Wasifu",
+      "Insha za Kiuamilifu: Ratiba",
+      "5.3.1: Kuhariri Matini",
+      "Uandishi wa kiuamilifu: Notisi",
+      "Insha za kiuamilifu: Shajara",
+      "Insha ya masimulizi: Picha",
+      "Insha fafanuzi",
+      "Tafsiri"
+     ]
+    },
+    "MATUMIZI YA LUGHA": {
+     "10": [
+      "Aina za Maneno: Nomino, Vitenzi, Viwakilishi, Vivumishi",
+      "Ngeli za Nomino: Ngeli ya A-WA, U-I, KI-VI na I-ZI",
+      "Nyakati na Hali: Wakati uliopo, Wakati uliopita, Wakati ujao",
+      "Mnyambuliko wa Vitenzi: Kutenda, Kutendea, Kutendwa, Kutendewa",
+      "Ukanushaji: Wakati uliopo, Wakati uliopita, Wakati ujao",
+      "Aina za Maneno: Vielezi, Viunganishi, Vihusishi, Vihisishi",
+      "Uundaji wa maneno",
+      "Kinyume: Nomino, Vitenzi, Vivumishi",
+      "Sentensi: Sahili, Ambatano na Changamano",
+      "Isimujamii: Sajili na kaida za matumizi ya lugha"
+     ]
+    },
+    "Fasihi Simulizi": {
+     "10": [
+      "Misingi ya fasihi simulizi",
+      "Hadithi: hekaya na hurafa",
+      "Semi: utangulizi",
+      "Ushairi simulizi: utangulizi",
+      "Mazungumzo: utangulizi",
+      "Maigizo: utangulizi",
+      "Hadithi: Ngano za mazimwi na mighani",
+      "Semi: misemo na nahau",
+      "Nyimbo: utangulizi",
+      "Ushairi simulizi: maghani ya kawaida"
+     ]
+    },
+    "Ushairi": {
+     "10": [
+      "Uainishaji wa Mashairi: utangulizi",
+      "Makundi ya mashairi : huru na ya arudhi",
+      "Uchambuzi wa mashairi: maudhui na dhamira",
+      "Ushairi: mandhari na wahusika",
+      "Uchambuzi wa ushairi: utangulizi",
+      "Ushairi: mbinu za lugha",
+      "Uchambuzi wa ushairi: uhuru wa mshairi"
+     ]
+    },
+    "Bunilizi": {
+     "10": [
+      "Utangulizi wa Bunilizi",
+      "Tamthilia: maudhui na dhamira",
+      "Tamthilia: wahusika na mandhari",
+      "Tamthilia: muundo na mtindo",
+      "Riwaya: maudhui na dhamira",
+      "Riwaya: wahusika na mandhari",
+      "Riwaya: muundo na mtindo",
+      "utunzi wa fasihi bunilizi"
+     ]
+    }
+   }
+  }
+ }
+}

@@ -11,3 +11,8 @@ data/tts_cache/
 # Upload fixtures built by tools/make_big_scan.py: regenerate, never commit.
 tools/*.pdf
 tools/*.jpg
+
+# The KICD designs, past papers and syllabus pages the curriculum was read out of. Third
+# party documents, tens of megabytes; what the app uses is the transcription, which is
+# committed at data/curriculum/kicd_strands.json.
+research/

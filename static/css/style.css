@@ -83,6 +83,10 @@
 
 * { box-sizing: border-box; }
 
+/* A class that sets display would otherwise beat [hidden] — and every filter on this site
+   is a student asking for something to stop being on the screen. */
+[hidden] { display: none !important; }
+
 html {
   font-size: 100%;                       /* rem = the system font size, always */
   -webkit-text-size-adjust: 100%;
@@ -311,33 +315,64 @@ nav .links a:active, .seg-btn:active, .tab:active, .pill-btn:active,
   box-shadow: var(--shadow-soft);
 }
 
-.topic-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-  gap: var(--sp-3);
+/* ---- picking a topic: the syllabus's own shape, year then strand ----
+   A wall of topic cards is what made this page need scrolling. <details> does the folding
+   on its own, so the grouping works before any script runs; topics.js only adds the word
+   and year filters on top of it. */
+.tp-tools {
+  display: flex; flex-wrap: wrap; gap: var(--sp-3);
+  align-items: center; justify-content: space-between;
+  max-width: 62rem; margin: 0 auto var(--sp-4);
 }
+.tp-search {
+  display: flex; align-items: center; gap: 8px; flex: 1 1 15rem;
+  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: var(--panel); padding: 0 14px; color: var(--muted-2);
+  transition: border-color var(--dur-press) var(--ease);
+}
+.tp-search:focus-within { border-color: var(--coral); color: var(--cream); }
+.tp-search input {
+  flex: 1; min-width: 0; border: 0; background: none; color: var(--cream);
+  font: inherit; font-size: var(--t-body); padding: 10px 0;
+}
+.tp-search input:focus { outline: none; }
+#tp-years .opt-pill[aria-pressed="false"] { opacity: 0.7; }
 
-.topic-card {
-  padding: var(--pad-card);
-  display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
-  text-align: center;
-  color: var(--cream);
-  transition: transform var(--dur-press) var(--ease),
-              box-shadow var(--dur-press) var(--ease),
-              border-color var(--dur-press) var(--ease);
+.tgroups { display: flex; flex-direction: column; gap: var(--sp-3); max-width: 62rem; margin: 0 auto; }
+.tgroup {
+  border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--panel); overflow: hidden;
 }
-.topic-card:hover { border-color: var(--hairline-2); box-shadow: var(--shadow-lift); transform: translateY(-2px); }
-.topic-card.locked { opacity: 0.55; }
-.topic-card .t-name { font-weight: 650; font-size: var(--t-h3); line-height: 1.35; }
-.topic-card .t-meta { color: var(--muted); font-size: var(--t-label); line-height: 1.5; }
-/* The KCSE form a topic belongs in, spelled out — a bare digit on a centred card reads as noise. */
-.topic-card .t-form {
-  font-size: var(--t-micro); letter-spacing: var(--track-micro); text-transform: uppercase;
-  color: var(--muted-2);
+.tgroup > summary {
+  display: flex; align-items: center; gap: var(--sp-3); cursor: pointer;
+  padding: 14px 18px; list-style: none;
+  transition: background var(--dur-press) var(--ease);
 }
-.topic-card .tr-mastery { width: 100%; }
-.topic-card .t-pct { font-size: var(--t-micro); color: var(--muted-2); margin-top: var(--sp-1); letter-spacing: 0.04em; }
-.topic-card .tr-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: center; margin-top: auto; padding-top: var(--sp-2); }
+.tgroup > summary::-webkit-details-marker { display: none; }
+.tgroup > summary:hover { background: var(--panel-2); }
+.tgroup > summary:active { transform: scale(0.995); }
+.tg-label { font-size: var(--t-h3); font-weight: 650; color: var(--cream); }
+.tg-count { margin-left: auto; font-size: var(--t-label); color: var(--muted-2); }
+.tg-arrow { color: var(--muted-2); font-size: var(--t-h3); transition: transform 220ms var(--ease); }
+.tgroup[open] > summary .tg-arrow { transform: rotate(90deg); }
+.tgroup[open] > summary { border-bottom: 1px solid var(--line); }
+.tg-body { padding: var(--sp-4) 18px var(--sp-5); }
+/* Not `.topic-list + .tg-strand`: topics.js can put a "show all" button between them. */
+.tg-body > .tg-strand:not(:first-child) { margin-top: var(--sp-5); }
+.tg-strand {
+  margin: 0 0 var(--sp-2); font-size: var(--t-micro); letter-spacing: var(--track-micro);
+  text-transform: uppercase; color: var(--muted-2); font-weight: 700;
+}
+/* Dense rows, left aligned — only the headings on this page are centred. */
+.topic-list { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.tp-more { display: block; margin-top: var(--sp-3); }
+.tp-none { text-align: center; margin-top: var(--sp-4); }
+
+/* For a label a student should not see but a screen reader must read. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
 
 /* subject grid — flat tiles, no coloured edge, one accent for every bar */
 .subject-grid {
@@ -376,8 +411,7 @@ nav .links a:active, .seg-btn:active, .tab:active, .pill-btn:active,
 .pill.live { color: var(--sage); border: 1px solid rgba(116, 169, 141, 0.5); }
 .pill.soon { color: var(--muted-2); border: 1px solid var(--line); }
 
-/* topic list — still used where a row is the right shape */
-.topic-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+/* topic list — the row shape every topic group uses */
 .topic-row {
   display: flex; align-items: center; gap: 16px;
   padding: 14px 18px;
@@ -520,7 +554,10 @@ label[tabindex]:focus-visible, summary:focus-visible {
 }
 .opt-pill:hover { border-color: var(--muted-2); }
 .opt-pill input { display: none; }
-.opt-pill.sel { border-color: var(--coral); background: var(--coral-wash); color: var(--cream); }
+.opt-pill.sel,
+/* Marking the chosen pill in CSS as well means the selection is visible before the script
+   has added its class, and on a browser where the script never runs. */
+.opt-pill:has(input:checked) { border-color: var(--coral); background: var(--coral-wash); color: var(--cream); }
 
 .topic-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); gap: 8px; }
 .topic-pick label {
@@ -1218,7 +1255,9 @@ table.history td.bad { color: var(--coral); }
 .landing {
   max-width: 62rem;
   margin: 0 auto;
-  padding: var(--sp-7) 0 var(--sp-8);
+  /* The first sign-up step has to be readable without scrolling, so the opening lines
+     give up as much room as they can spare. */
+  padding: var(--sp-4) 0 var(--sp-8);
   text-align: center;
   position: relative;
 }
@@ -1232,6 +1271,9 @@ table.history td.bad { color: var(--coral); }
   pointer-events: none;
   z-index: -1;
 }
+/* Every other page opens with a heading that wants air above it; this one opens with a
+   form that wants to be on screen, so it takes the gap back. */
+main:has(.landing) { padding-top: var(--sp-4); }
 
 .landing-eyebrow {
   display: inline-flex; align-items: center; gap: var(--sp-2);
@@ -1242,15 +1284,15 @@ table.history td.bad { color: var(--coral); }
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   padding: 0.375rem 0.75rem;
-  margin: 0 0 var(--sp-5);
+  margin: 0 0 var(--sp-2);
 }
 
 .landing-hero {
-  font-size: var(--t-hero);
+  font-size: clamp(2rem, 1.3rem + 2.4vw, 3.25rem);
   line-height: var(--lh-hero);
   letter-spacing: var(--track-hero);
   font-weight: 400;
-  margin: 0 auto var(--sp-4);
+  margin: 0 auto var(--sp-2);
   max-width: 18ch;
   display: flex;
   flex-direction: column;
@@ -1258,22 +1300,12 @@ table.history td.bad { color: var(--coral); }
 .lh-quiet { color: var(--muted-2); font-weight: 350; }
 .lh-loud  { color: #F5F1EA; font-weight: 600; }
 
-/* An icon inside the headline is a mark in the sentence, not a picture beside it:
-   it rides the text baseline at x-height and carries a soft accent glow. */
-.lh-ico {
-  width: 0.46em; height: 0.46em;
-  margin: 0 0.04em 0 0.1em;
-  color: var(--accent);
-  vertical-align: -0.04em;
-  filter: drop-shadow(0 0 0.2em rgba(255, 107, 87, 0.5));
-}
-
 .lh-sub {
   font-size: var(--t-lede);
   color: var(--muted);
-  max-width: 60ch;
-  margin: 0 auto var(--sp-6);
-  line-height: 1.6;
+  max-width: 54ch;
+  margin: 0 auto var(--sp-4);
+  line-height: 1.55;
 }
 
 .signup-card {
@@ -1284,7 +1316,7 @@ table.history td.bad { color: var(--coral); }
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: var(--sp-5);
+  padding: var(--sp-4) var(--sp-5);
 }
 .su-head h2 { margin: 0 0 var(--sp-1); font-size: var(--t-h2); }
 .su-head p  { margin: 0 0 var(--sp-4); color: var(--muted); font-size: var(--t-body); }
@@ -1303,6 +1335,70 @@ table.history td.bad { color: var(--coral); }
   margin: var(--sp-3) 0 0;
 }
 .su-alt { margin-top: var(--sp-2); }
+/* The sign-in link leads the card rather than trailing it — a returning student should not
+   have to scroll past the whole form to find the way back in. */
+.su-alt-top { margin: 0 0 var(--sp-2); }
+
+/* ---- sign-up, one thing per screen ----
+   The three fieldsets are in the page from the start; signup.js adds .wiz-live once it is
+   running, which is what turns them into steps. Without the script nothing here is hidden
+   and the form is simply a longer form. */
+.wizard [data-wiz] { display: none; }
+.wizard.wiz-live [data-wiz] { display: block; }
+/* The rail is a row of dots, not a block — the rule above would otherwise stack it into
+   three lines and push the fields below the fold. */
+.wizard.wiz-live .su-rail[data-wiz] { display: flex; }
+.wizard.wiz-live .su-foot [data-wiz] { display: inline-flex; }
+.wizard.wiz-live .su-step { display: none; }
+.wizard.wiz-live .su-step.on {
+  display: block;
+  border: 0; padding: 0; margin: 0 0 var(--sp-2); min-inline-size: 0;
+  animation: wizIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.su-step { border: 0; padding: 0; margin: 0 0 var(--sp-2); min-inline-size: 0; }
+.su-step > legend { padding: 0; margin-bottom: var(--sp-2); font-size: var(--t-h3); font-weight: 650; }
+.su-step .fld { margin-bottom: var(--sp-3); }
+@keyframes wizIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.su-rail { display: flex; gap: var(--sp-2); margin: 0 0 var(--sp-2); }
+.su-dot {
+  flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: var(--t-label); color: var(--muted-2);
+  border-bottom: 2px solid var(--line); padding-bottom: 8px;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+.su-dot b {
+  display: grid; place-items: center; inline-size: 22px; block-size: 22px; flex: none;
+  border-radius: 50%; border: 1px solid var(--line); background: var(--navy-deep);
+  font-size: 0.75rem; font-weight: 700; color: var(--muted-2);
+  transition: transform 220ms cubic-bezier(0.2, 1.4, 0.4, 1), background 180ms ease, color 180ms ease;
+}
+.su-dot.now { color: var(--cream); border-color: var(--coral); }
+.su-dot.now b { background: var(--coral); border-color: var(--coral); color: var(--navy-deep); transform: scale(1.12); }
+.su-dot.past { color: var(--sage); border-color: var(--sage); }
+.su-dot.past b { background: var(--sage); border-color: var(--sage); color: var(--navy-deep); }
+.su-foot { display: flex; gap: var(--sp-2); align-items: center; margin-top: var(--sp-2); }
+.su-foot .btn.wide { flex: 1; }
+
+/* Which years to offer is the qualification's answer, so every list sits in the page and
+   CSS reveals only the chosen one. Scoped to .qual-pick so sign-up and the account page
+   share the behaviour without sharing a template. */
+.qual-pick .qnote, .qual-pick .yg { display: none; }
+.qual-pick:has(#qual-kcbe:checked) .yg[data-yg="kcbe"],
+.qual-pick:has(#qual-kcbe:checked) .qnote[data-qnote="kcbe"] { display: block; }
+.qual-pick:has(#qual-kjsea:checked) .yg[data-yg="kjsea"],
+.qual-pick:has(#qual-kjsea:checked) .qnote[data-qnote="kjsea"] { display: block; }
+.qual-pick:has(#qual-kpsea:checked) .yg[data-yg="kpsea"],
+.qual-pick:has(#qual-kpsea:checked) .qnote[data-qnote="kpsea"] { display: block; }
+.qual-pick:has(#qual-kcse:checked) .yg[data-yg="kcse"],
+.qual-pick:has(#qual-kcse:checked) .qnote[data-qnote="kcse"] { display: block; }
+
+@supports not selector(:has(*)) {
+  .qual-pick .qnote, .qual-pick .yg { display: block; }
+}
 
 .landing-facts {
   list-style: none;
@@ -1326,9 +1422,61 @@ table.history td.bad { color: var(--coral); }
 .landing-facts b { color: var(--cream); font-weight: 600; }
 
 @media (max-width: 640px) {
-  .landing { padding-top: var(--sp-5); }
+  /* On a phone the nav already carries the name, so the chip hands its line to the form. */
+  .landing { padding-top: 0; }
+  .landing-eyebrow { display: none; }
   .su-grid { grid-template-columns: 1fr; }
   .landing::before { width: 100vw; top: -8rem; }
+}
+
+/* ================= motion: everything that should feel answered =================
+   Each of these is a reply to something the student just did — opened a year, finished a
+   step, arrived on a page — rather than decoration that runs on its own. All of it falls
+   under the reduced-motion switch above, which shortens every duration in the file. */
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+/* A year group that was just tapped fills in top-down, so the eye is led to the first
+   topic instead of finding thirty rows already sitting there. */
+.tgroup[open] .topic-row { animation: rowIn 240ms var(--ease) backwards; }
+.tgroup[open] .topic-row:nth-child(2) { animation-delay: 40ms; }
+.tgroup[open] .topic-row:nth-child(3) { animation-delay: 70ms; }
+.tgroup[open] .topic-row:nth-child(4) { animation-delay: 95ms; }
+.tgroup[open] .topic-row:nth-child(5) { animation-delay: 115ms; }
+.tgroup[open] .topic-row:nth-child(n+6) { animation-delay: 130ms; }
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+.subject-card { animation: cardIn 420ms var(--ease) backwards; }
+.subject-card:nth-child(2) { animation-delay: 45ms; }
+.subject-card:nth-child(3) { animation-delay: 80ms; }
+.subject-card:nth-child(4) { animation-delay: 110ms; }
+.subject-card:nth-child(n+5) { animation-delay: 140ms; }
+
+@keyframes dotPop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+/* A finished step stops showing a number and shows a tick, drawn from two borders so it
+   needs no font and no glyph. */
+.su-dot.past b { font-size: 0; animation: dotPop 320ms cubic-bezier(0.2, 1.4, 0.4, 1); }
+.su-dot.past b::after {
+  content: ""; display: block; position: absolute; inset: 0; margin: auto;
+  width: 9px; height: 5px;
+  border-left: 2px solid var(--navy-deep); border-bottom: 2px solid var(--navy-deep);
+  transform: rotate(-45deg);
+}
+.su-dot b { position: relative; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The skip link and the year headings jump the page; easing that jump reads as one
+     continuous place rather than a teleport. */
+  html { scroll-behavior: smooth; }
 }
 
 /* ================= shell: brand, skip link, footer ================= */
@@ -1344,6 +1492,8 @@ nav .links .who:hover { color: var(--cream); text-decoration: none; background: 
 .skip:focus { left: 0; }
 
 .ico { display: inline-block; vertical-align: -0.14em; flex: none; }
+/* One glyph doing double duty: a chevron pointing back is the same drawing turned round. */
+.ico.flip { transform: rotate(180deg); }
 
 .site-foot {
   border-top: 1px solid var(--line);

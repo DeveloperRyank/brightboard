@@ -1,0 +1,43 @@
+{#- A qualification decides which school years exist and what they are called, so the
+    choices are never a flat list: KCSE names Forms, the CBC qualifications name Grades,
+    and the SAT has no school year at all.
+
+    Every qualification's year list is rendered and CSS reveals only the chosen one
+    (see .qual-pick in style.css), which keeps this working with JavaScript switched off.
+    The one thing CSS cannot do is uncheck a year picked under a qualification the student
+    has moved away from, so signup.js does exactly that.
+-#}
+{% macro qual_picker(qualifications, chosen, grade) %}
+<div class="qual-pick">
+  <div class="fld">
+    <label>What are you studying for?</label>
+    <div class="opt-row" id="quals" role="radiogroup" aria-label="Qualification">
+      {% for q in qualifications %}
+      <label class="opt-pill">
+        <input type="radio" name="curriculum" value="{{ q.slug }}"
+               {{ 'checked' if q.slug == chosen }} id="qual-{{ q.slug }}">
+        {{ q.name }}
+      </label>
+      {% endfor %}
+    </div>
+    {% for q in qualifications if q.note %}
+    <p class="fld-hint qnote" data-qnote="{{ q.slug }}">{{ q.note }}</p>
+    {% endfor %}
+  </div>
+
+  {% for q in qualifications if q.grades %}
+  <div class="fld yg" data-yg="{{ q.slug }}">
+    <label>Which {{ q.year_word | lower }} are you in?</label>
+    <div class="opt-row" role="radiogroup" aria-label="{{ q.year_word }}">
+      {% for g in q.grades %}
+      <label class="opt-pill">
+        <input type="radio" name="grade" value="{{ g }}"
+               {{ 'checked' if q.slug == chosen and (g == grade or (not grade and loop.first)) }}>
+        {{ g }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

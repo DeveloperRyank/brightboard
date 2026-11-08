@@ -89,8 +89,6 @@ app.config.update(
 PUBLIC_ENDPOINTS = {"static", "index", "sign_in", "sign_up", "sign_out", "onboarding",
                     "privacy", "terms", "favicon"}
 
-FORMS = profile.FORMS
-
 # The one address a student can reach a human at, named once so the legal pages and the
 # account page cannot disagree about who to write to.
 SUPPORT_EMAIL = (os.environ.get("SUPPORT_EMAIL") or "kuriaryan51@gmail.com").strip()
@@ -491,11 +489,22 @@ def inject_globals():
 
 # ---------------- Pages ----------------
 
-def _landing_context(error=None, name="", grade="Form 1", email="", birth_date="", notice=""):
+def _landing_context(error=None, name="", cur="kcse", grade="", email="", birth_date="",
+                     notice="", step="1"):
     """Everything landing.html needs, in one place so /sign-up and a rejected sign-up
-    cannot drift apart."""
+    cannot drift apart. Which years exist at all is the qualification's decision: a KCSE
+    student is in a Form, a CBC student is in a Grade, an SAT candidate is in neither —
+    so every list is handed to the page and CSS reveals the one the student picked."""
+    if not curriculum.get_curriculum(cur):
+        cur = "kcse"
+    years = curriculum.grades_for(cur)
+    if grade and grade not in years:
+        grade = ""
+    if step not in ("1", "2", "3"):
+        step = "1"
     return {"error": error, "name": name, "grade": grade, "email": email,
-            "birth_date": birth_date, "grades": FORMS, "notice": notice,
+            "birth_date": birth_date, "notice": notice, "step": step,
+            "qualifications": curriculum.curricula(), "chosen": cur,
             "dob_max": datetime.date.today().isoformat()}
 
 
@@ -589,31 +598,41 @@ def sign_up():
         # landing page reached by its other name rather than a second, different page.
         return render_template("landing.html", **_landing_context())
     name = request.form.get("name", "").strip()[:60]
+    cur = request.form.get("curriculum", "").strip()[:20] or "kcse"
     grade = request.form.get("grade", "").strip()[:20]
     email = request.form.get("email", "")[:254]
     password = request.form.get("password", "")[:1024]
     birth_date = request.form.get("birth_date", "").strip()[:10]
+
+    def fail(message, where, code=400):
+        return render_template("landing.html", **_landing_context(
+            error=message, name=name, cur=cur, grade=grade, email=email,
+            birth_date=birth_date, step=str(where))), code
+
+    if not curriculum.get_curriculum(cur):
+        return fail("Choose which qualification you are studying for.", 1)
     if not name:
-        return _sign_up_error("Please tell us your name.", name, grade, email, birth_date)
-    if grade not in FORMS:
-        return _sign_up_error("Pick your form from the list.", name, grade, email, birth_date)
+        return fail("Please tell us your name.", 1)
+    years = curriculum.grades_for(cur)
+    if years and grade not in years:
+        return fail(f"Pick which {curriculum.year_word_for(cur).lower()} you are in.", 1)
     if _throttle(f"up:{request.remote_addr}", 6, 3600):
-        return _sign_up_error("Too many accounts are being created from this network "
-                              "right now. Try again later.", name, grade, email, birth_date, 429)
+        return fail("Too many accounts are being created from this network "
+                    "right now. Try again later.", 2, 429)
     try:
-        sid = profile.create_account(name, grade, email, password, birth_date=birth_date)
+        sid = profile.create_account(name, grade, email, password, curriculum=cur,
+                                     birth_date=birth_date)
     except ValueError as exc:
-        return _sign_up_error(str(exc), name, grade, email, birth_date)
+        # Route the message to the step that holds the field it complains about, so a
+        # student is never sent back to the start of the wizard for a bad password.
+        text = str(exc).lower()
+        where = 3 if "date of birth" in text or "old enough" in text else \
+            2 if any(w in text for w in ("email", "password", "sign in", "sign-in")) else 1
+        return fail(str(exc), where)
     session.clear()
     session["sid"] = sid
     session.permanent = True
     return redirect(url_for("quiz"))      # a brand-new profile needs the starter quiz
-
-
-def _sign_up_error(message, name, grade, email, birth_date="", code=400):
-    return render_template("landing.html",
-                           **_landing_context(error=message, name=name, grade=grade,
-                                              email=email, birth_date=birth_date)), code
 
 
 @app.route("/sign-out")
@@ -678,8 +697,12 @@ def _account_page(code=200):
     notice = _ACCOUNT_NOTICES.get(key)
     key = request.args.get("error", "")
     error = _ACCOUNT_ERRORS.get(key) or session.pop("_acct_error", None)
+    stored = profile.get_student(sid) or {}
     return render_template("account.html", held=held, notice=notice, error=error,
-                           email=profile.account_email(sid), grades=FORMS,
+                           email=profile.account_email(sid),
+                           qualifications=curriculum.curricula(),
+                           chosen=stored.get("curriculum") or "kcse",
+                           grade=stored.get("grade") or "",
                            dob_max=datetime.date.today().isoformat(),
                            style_labels=STUDY_STYLE_LABELS,
                            confidence_labels=CONFIDENCE_LABELS), code
@@ -700,6 +723,9 @@ def account_details():
             sid,
             name=request.form.get("name", ""),
             grade=request.form.get("grade", "").strip(),
+            # The year and the qualification that names it travel together: saving a Form
+            # against a CBC qualification, or the reverse, is a profile that cannot be read.
+            curriculum=request.form.get("curriculum", "").strip(),
             birth_date=request.form.get("birth_date", "").strip(),
             style=style or None,
             confidence=confidence or None,
@@ -814,6 +840,48 @@ def quiz():
                            error=None, form={})
 
 
+def _topic_groups(subject_slug, topics):
+    """Year, then strand: the shape the syllabus itself is written in.
+
+    One long list of every topic in a subject is what makes this page need scrolling — 31
+    cards side by side tells a student nothing about where to start. Split by the year a
+    topic is taught in, and by the strand sitting above it, a subject becomes three or four
+    short groups that fit a screen, and the group for the year the student is actually in
+    opens first.
+    """
+    word = curriculum.year_word_for(curriculum.curriculum_of_subject(subject_slug))
+    own = curriculum.year_number((profile.get_student() or {}).get("grade"))
+    by_year = {}
+    for t in topics:
+        by_year.setdefault(t["grade"], []).append(t)
+    years = sorted(by_year, key=lambda y: (-1 if y is None else y))
+    # A student is measured against the years this subject actually has. A Form 3 KCSE
+    # student browsing a Grade 7-9 subject has no year in common with it, and opening
+    # nothing would leave the page a row of closed headings — so the first one opens.
+    first = own if own in years else (years[0] if years else None)
+    groups = []
+    for year in years:
+        rows = by_year[year]
+        by_strand = {}
+        for t in rows:
+            by_strand.setdefault(t["strand"], []).append(t)
+        # KICD numbers its strands ("2.0 Acids, Bases and Salts"), so sorting the labels
+        # sorts the syllabus. A subject with no strand above its topics — the KCSE lists,
+        # which were written before strands were modelled — gets one unnamed group.
+        order = sorted(by_strand, key=lambda name: (name is None, str(name)))
+        strands = [{"name": name or "", "topics": by_strand[name]} for name in order]
+        groups.append({
+            "year": year,
+            "label": f"{word} {year}" if (word and year) else "All topics",
+            "count": len(rows),
+            "ready": sum(1 for t in rows if t["ready"]),
+            # Closed only when it is a different year from the one chosen to open on.
+            "open": year is None or year == first,
+            "strands": strands,
+        })
+    return groups
+
+
 @app.route("/subject/<subject>")
 def subject(subject):
     s = curriculum.get_subject(subject)
@@ -828,7 +896,8 @@ def subject(subject):
         topics.append({
             "slug": t["slug"],
             "name": t["name"],
-            "form": t.get("form"),
+            "grade": t.get("grade"),
+            "strand": t.get("strand"),
             "count": counts.get(t["slug"], 0),
             "ready": counts.get(t["slug"], 0) > 0,
             "score": r["score"] if r else None,
@@ -838,8 +907,20 @@ def subject(subject):
             "weakest_p": r["weakest_p"] if r else None,
         })
     recommendation = _named_rec(profile.recommend_next(subject, valid_keys=_all_valid_keys()))
+    # A KICD design is often transcribed one year at a time, so a subject can hold real
+    # topics for Grade 10 and nothing for Grades 11-12. Those years have to be named rather
+    # than left as a silence a student reads as "this subject has no Grade 11 work".
+    cur_slug = curriculum.curriculum_of_subject(subject)
+    have = {t.get("grade") for t in s["topics"]}
+    pending_years = ([g for g in curriculum.grades_for(cur_slug)
+                      if curriculum.year_number(g) not in have]
+                     if s["topics"] and None not in have else [])
     return render_template("subject.html", subject=s, topics=topics, has_data=has_data,
-                           recommendation=recommendation)
+                           recommendation=recommendation,
+                           groups=_topic_groups(subject, topics),
+                           pending_years=pending_years,
+                           year_word=curriculum.year_word_for(
+                               curriculum.curriculum_of_subject(subject)))
 
 
 @app.route("/lesson/<subject>/<topic>")

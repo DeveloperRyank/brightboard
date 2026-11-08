@@ -8,11 +8,25 @@
   <p>{{ topics | length }} topics in the {{ subject.name }} syllabus.</p>
 </div>
 
-{% if not has_data %}
+{% if subject.topics | length == 0 %}
+<div class="gate-note">
+  The {{ subject.name }} syllabus is on the list, but its topic names have not been
+  transcribed from the KICD design yet, so there is nothing to open. They appear here as
+  soon as they are added.
+</div>
+{% elif not has_data %}
 <div class="gate-note">
   This subject isn't wired to a question bank yet, so lessons and the Exam Center are locked.
   Add real questions at <code>data/{{ subject.slug }}/questions.csv</code> (columns
   <code>question,topic</code>) and every topic below unlocks automatically.
+</div>
+{% endif %}
+
+{% if pending_years %}
+<div class="gate-note">
+  Only part of the {{ subject.name }} curriculum design has been read so far: the years
+  missing below are <strong>{{ pending_years | join(', ') }}</strong>. Their topics appear
+  as the design is transcribed — nothing here is invented.
 </div>
 {% endif %}
 
@@ -39,36 +53,80 @@
   <span class="tag">Lesson = animated whiteboard · Exam Center = real past-paper questions</span>
 </div>
 
-<div class="topic-grid">
-  {% for t in topics %}
-  <div class="topic-card {{ '' if t.ready else 'locked' }}">
-    <div class="t-name">{{ t.name }}</div>
-    <div class="t-meta">
-      {% if t.ready %}
-        {{ t.count }} question{{ '' if t.count == 1 else 's' }}
-        {%- if t.answers %} · {{ t.answers }} answered{% endif %}
-        {%- if t.concepts %} · {{ t.concepts }} concept{{ '' if t.concepts == 1 else 's' }} tracked{% endif %}
-        {%- if t.weakest %} · weakest: {{ t.weakest }} ({{ (t.weakest_p * 100) | round | int }}%){% endif %}
-      {% else %}
-        No questions yet
-      {% endif %}
-    </div>
-    {% if t.form %}<span class="t-form">Form {{ t.form }}</span>{% endif %}
-    {% if t.score is not none %}
-    <div class="tr-mastery">
-      <div class="bar"><div style="width: {{ (t.score * 100) | round | int }}%;"></div></div>
-      <div class="t-pct mono">topic mastery {{ (t.score * 100) | round | int }}%</div>
-    </div>
+{# One list of every topic is what turned this page into a scroll. Grouped by the year it
+   is taught in, with the student's own year opened first, a subject reads as three or four
+   short blocks instead of thirty-odd cards. <details> is the whole mechanism, so the page
+   groups and folds with no script at all; topics.js only adds the search box. #}
+<div class="tp-tools" hidden>
+  <label class="sr-only" for="tp-q">Search {{ subject.name }} topics</label>
+  <span class="tp-search">{{ icon("search") }}
+    <input type="search" id="tp-q" placeholder="Search {{ topics | length }} topics"
+           autocomplete="off">
+  </span>
+  <div class="opt-row" id="tp-years">
+    <button class="opt-pill sel" type="button" data-year="">All years</button>
+    {% for g in groups %}
+    {% if g.year %}
+    <button class="opt-pill" type="button" data-year="{{ g.year }}">{{ g.label }}</button>
     {% endif %}
-    <div class="tr-actions">
-      {% if t.ready %}
-      <a class="btn small gradient" href="{{ url_for('lesson', subject=subject.slug, topic=t.slug) }}">Lesson</a>
-      <a class="btn small ghost" href="{{ url_for('exam', subject=subject.slug, topic=t.slug) }}">Exam Center</a>
-      {% else %}
-      <span class="chip err">Locked</span>
-      {% endif %}
-    </div>
+    {% endfor %}
   </div>
-  {% endfor %}
 </div>
+
+<div class="tgroups" id="tgroups">
+  {% for g in groups %}
+  <details class="tgroup" data-year="{{ g.year if g.year is not none else '' }}"
+           {{ 'open' if g.open }}>
+    <summary>
+      <span class="tg-label">{{ g.label }}</span>
+      <span class="tg-count mono">{{ g.ready }}/{{ g.count }} open</span>
+      {{ icon("chevron", "tg-arrow") }}
+    </summary>
+    <div class="tg-body">
+      {% for s in g.strands %}
+      {% if s.name %}<p class="tg-strand">{{ s.name }}</p>{% endif %}
+      <ul class="topic-list">
+        {% for t in s.topics %}
+        <li class="topic-row card {{ '' if t.ready else 'locked' }}"
+            data-name="{{ t.name | lower }}" data-year="{{ g.year if g.year is not none else '' }}">
+          <div class="tr-main">
+            <div class="tr-name">{{ t.name }}</div>
+            <div class="tr-sub">
+              {%- if t.ready -%}
+                {{ t.count }} question{{ '' if t.count == 1 else 's' }}
+                {%- if t.answers %} · {{ t.answers }} answered{% endif %}
+                {%- if t.concepts %} · {{ t.concepts }} concept{{ '' if t.concepts == 1 else 's' }} tracked{% endif %}
+                {%- if t.weakest %} · weakest: {{ t.weakest }} ({{ (t.weakest_p * 100) | round | int }}%){% endif %}
+              {%- else -%}
+                No questions yet
+              {%- endif -%}
+            </div>
+          </div>
+          {% if t.score is not none %}
+          <div class="tr-mastery">
+            <div class="bar"><div style="width: {{ (t.score * 100) | round | int }}%;"></div></div>
+            <div class="t-pct mono">{{ (t.score * 100) | round | int }}%</div>
+          </div>
+          {% endif %}
+          <div class="tr-actions">
+            {% if t.ready %}
+            <a class="btn small gradient" href="{{ url_for('lesson', subject=subject.slug, topic=t.slug) }}">Lesson</a>
+            <a class="btn small ghost" href="{{ url_for('exam', subject=subject.slug, topic=t.slug) }}">Exam Center</a>
+            {% else %}
+            <span class="chip err">Locked</span>
+            {% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+    </div>
+  </details>
+  {% endfor %}
+  <p class="tp-none empty" hidden>No topic in {{ subject.name }} is called that. Try a word
+    from the middle of the name, or clear the search.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/topics.js') }}"></script>
 {% endblock %}

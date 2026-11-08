@@ -693,7 +693,6 @@ MAX_PASSWORD = 128          # scrypt cost scales with the input, so cap it: a 10
 MAX_FAILED = 8              # then the account waits out LOCK_SECONDS
 LOCK_SECONDS = 15 * 60
 MIN_AGE = 13                # below this we do not take an account at all
-FORMS = ("Form 1", "Form 2", "Form 3", "Form 4")   # the KCSE year a student is in
 
 # One place decides how a password is stored. scrypt through Werkzeug: memory-hard, a
 # unique 16-byte salt inside every hash, constant-time comparison, and no third party
@@ -793,6 +792,16 @@ def _duplicate(exc):
     return "unique" in text or "duplicate key" in text
 
 
+def _grade_problem(curriculum_slug, grade):
+    """A year label only means something inside the qualification that uses it:
+    'Form 3' is a KCSE year, 'Grade 11' is a CBC one, and the SAT has neither."""
+    from curriculum import grades_for
+    options = grades_for(curriculum_slug)
+    if not options or grade in options:
+        return None
+    return "Pick your year from the list for that qualification."
+
+
 def create_account(name, grade, email, password, curriculum="kcse", birth_date=None):
     """Register a new student. Raises ValueError with a student-facing message."""
     email = normalise_email(email)
@@ -805,8 +814,11 @@ def create_account(name, grade, email, password, curriculum="kcse", birth_date=N
     if problem:
         raise ValueError(problem)
     if birth_date and age_from(birth_date) < MIN_AGE:
-        raise ValueError("This course is written for Form 1 and above, so we cannot make "
-                         "an account for someone that young yet.")
+        raise ValueError("This course is written for students in secondary school and "
+                         "above, so we cannot make an account for someone that young yet.")
+    problem = _grade_problem(curriculum, grade)
+    if problem:
+        raise ValueError(problem)
     try:
         with _conn() as c:
             return c.insert(
@@ -1420,8 +1432,18 @@ def update_profile(sid, name=None, grade=None, birth_date=None, curriculum=None,
             raise ValueError("Your name cannot be empty.")
         if len(name) > 60:
             raise ValueError("That name is too long.")
-    if grade is not None and grade not in FORMS:
-        raise ValueError("Choose one of: " + ", ".join(FORMS) + ".")
+    if curriculum is not None:
+        from curriculum import curricula
+        if curriculum not in {c["slug"] for c in curricula()}:
+            raise ValueError("That curriculum does not exist.")
+    if grade is not None:
+        # The year has to be valid for the qualification it is saved with — which may be
+        # the one arriving in this very request, so switching curriculum and year
+        # together is allowed and switching only the year is checked against the old one.
+        problem = _grade_problem(curriculum or (get_student(sid) or {}).get("curriculum", "kcse"),
+                                 grade)
+        if problem:
+            raise ValueError(problem)
     if birth_date is not None:
         birth_date = (birth_date or "").strip() or None
         problem = birth_date_problem(birth_date)
@@ -1433,10 +1455,6 @@ def update_profile(sid, name=None, grade=None, birth_date=None, curriculum=None,
         raise ValueError("Choose a study style from the list.")
     if confidence is not None and confidence not in CONFIDENCE_LEVELS:
         raise ValueError("Choose a confidence level from the list.")
-    if curriculum is not None:
-        from curriculum import curricula
-        if curriculum not in {c["slug"] for c in curricula()}:
-            raise ValueError("That curriculum does not exist.")
 
     writes, values = [], []
     for col, val in (("name", name), ("grade", grade), ("birth_date", birth_date),

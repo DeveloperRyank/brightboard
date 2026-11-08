@@ -3,7 +3,7 @@
   "functions": {
     "app.py": {
       "maxDuration": 300,
-      "excludeFiles": "{models/**,data/tts_cache/**,__pycache__/**,*.log,tools/**}"
+      "excludeFiles": "{models/**,data/tts_cache/**,__pycache__/**,*.log,tools/**,research/**}"
     }
   }
 }

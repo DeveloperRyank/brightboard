@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "icons.html" import icon %}
+{% from "_qual_picker.html" import qual_picker %}
 {% block title %}Your account · Brightboard{% endblock %}
 {% block content %}
 <div class="acct">
@@ -21,14 +22,6 @@
           <label for="name">Name</label>
           <input type="text" id="name" name="name" class="field" value="{{ student.name }}"
                  maxlength="60" autocomplete="name" required>
-        </div>
-        <div class="fld">
-          <label for="grade">Your form / grade</label>
-          <select id="grade" name="grade" class="field" required>
-            {% for g in grades %}
-            <option value="{{ g }}" {{ 'selected' if student.grade == g }}>{{ g }}</option>
-            {% endfor %}
-          </select>
         </div>
         <div class="fld">
           <label for="birth_date">Date of birth</label>
@@ -63,6 +56,9 @@
             and we will move your account for you.</p>
         </div>
       </div>
+      {{ qual_picker(qualifications, chosen, grade) }}
+      <p class="fld-hint">Changing your qualification changes which years you can pick, and the
+        subjects and papers Brightboard shows you.</p>
       <button class="btn gradient" type="submit" data-once>Save changes</button>
     </form>
   </section>

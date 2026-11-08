@@ -1,42 +1,50 @@
 {% extends "base.html" %}
 {% from "icons.html" import icon %}
+{% from "_qual_picker.html" import qual_picker %}
 {% block title %}Brightboard — find the concept behind the lost marks{% endblock %}
 {% block content %}
 <section class="landing">
-  <p class="landing-eyebrow">{{ icon("board") }} Brightboard · {{ cur_name }}</p>
+  <p class="landing-eyebrow">{{ icon("board") }} Brightboard</p>
 
   <h1 class="landing-hero">
     <span class="lh-quiet">You already know</span>
-    <span class="lh-loud">where you {{ icon("target", "lh-ico") }}lost marks.</span>
+    <span class="lh-loud">where you lost marks.</span>
   </h1>
 
-  <p class="lh-sub">Mark a real past paper and Brightboard names the one concept behind the loss,
-    then teaches exactly that on a whiteboard — drawn and spoken, at your pace.</p>
+  <p class="lh-sub">Mark a real past paper and Brightboard names the one concept behind the
+    loss — then teaches exactly that.</p>
 
   {% if notice %}<div class="banner good" role="status">{{ icon("check") }} {{ notice }}</div>{% endif %}
   {% if error %}<div class="banner" role="alert">{{ icon("alert") }} {{ error }}</div>{% endif %}
 
-  <form method="post" action="{{ url_for('sign_up') }}" class="signup-card" id="signup">
+  <form method="post" action="{{ url_for('sign_up') }}" class="signup-card wizard" id="signup"
+        data-step="{{ step }}"{% if error %} data-rejected{% endif %}>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="su-head">
-      <h2>Create your account</h2>
-      <p>An email and a password. Only you ever see the work inside it.</p>
+    <input type="hidden" name="step" id="su-step" value="{{ step }}">
+
+    <p class="su-alt su-alt-top">Already have an account?
+      <a href="{{ url_for('sign_in') }}">Sign in</a></p>
+
+    <div class="su-rail" data-wiz>
+      {% for n, label in [(1, "You"), (2, "Sign-in"), (3, "Last check")] %}
+      <span class="su-dot" data-dot="{{ n }}"><b>{{ n }}</b>{{ label }}</span>
+      {% endfor %}
     </div>
 
-    <div class="su-grid">
+    <fieldset class="su-step" data-panel="1">
+      <legend><span class="q-legend">Who is learning?</span></legend>
       <div class="fld">
         <label for="name">Your name</label>
         <input type="text" id="name" name="name" class="field" value="{{ name }}"
-               maxlength="60" autocomplete="name" placeholder="e.g. Amina" required>
+               maxlength="60" autocomplete="name" placeholder="e.g. John" required
+               data-autofocus>
       </div>
-      <div class="fld">
-        <label for="grade">Your form / grade</label>
-        <select id="grade" name="grade" class="field" required>
-          {% for g in grades %}
-          <option value="{{ g }}" {{ 'selected' if grade == g }}>{{ g }}</option>
-          {% endfor %}
-        </select>
-      </div>
+
+      {{ qual_picker(qualifications, chosen, grade) }}
+    </fieldset>
+
+    <fieldset class="su-step" data-panel="2">
+      <legend><span class="q-legend">How you get back in</span></legend>
       <div class="fld">
         <label for="email">Email</label>
         <input type="email" id="email" name="email" class="field" value="{{ email }}"
@@ -46,35 +54,46 @@
       <div class="fld">
         <label for="password">Password</label>
         <input type="password" id="password" name="password" class="field"
-               minlength="8" maxlength="128" autocomplete="new-password" required>
+               minlength="8" maxlength="128" autocomplete="new-password" required
+               data-autofocus>
         <p class="fld-hint">At least 8 characters. A short phrase you can remember works best.</p>
       </div>
+    </fieldset>
+
+    <fieldset class="su-step" data-panel="3">
+      <legend><span class="q-legend">One last check</span></legend>
       <div class="fld">
         <label for="birth_date">Date of birth</label>
         <input type="date" id="birth_date" name="birth_date" class="field" value="{{ birth_date }}"
-               autocomplete="bday" min="1905-01-01" max="{{ dob_max }}" required>
-        <p class="fld-hint">Used only to check the account is old enough. Never shown to anyone else.</p>
+               autocomplete="bday" min="1905-01-01" max="{{ dob_max }}" required data-autofocus>
+        <p class="fld-hint">This course is written for secondary school and above, so we check the
+          account is old enough. Never shown to anyone else.</p>
       </div>
-    </div>
+    </fieldset>
 
-    <button class="btn pill wide" type="submit" data-once>
-      Create account {{ icon("arrow") }}
-    </button>
+    <div class="su-foot">
+      <button class="btn ghost pill" type="button" id="su-back" data-wiz>
+        {{ icon("chevron", "flip") }} Back</button>
+      <button class="btn pill" type="button" id="su-next" data-wiz>
+        Continue {{ icon("arrow") }}</button>
+      <button class="btn pill wide" type="submit" id="su-done" data-once>
+        Create account {{ icon("arrow") }}
+      </button>
+    </div>
     <p class="su-terms">
       By creating an account you agree to the
       <a href="{{ url_for('terms') }}">Terms</a> and
       <a href="{{ url_for('privacy') }}">Privacy Policy</a>.
     </p>
-    <p class="su-alt">
-      Already have an account?
-      <a href="{{ url_for('sign_in') }}">Sign in</a>
-    </p>
   </form>
 
   <ul class="landing-facts">
     <li>{{ icon("file") }} <span><b>Real papers.</b> Questions come from the actual past-paper bank, never invented ones.</span></li>
-    <li>{{ icon("bulb") }} <span><b>One gap at a time.</b> It teaches the concept you lost, not the whole chapter.</span></li>
+    <li>{{ icon("bulb") }} <span><b>One gap at a time.</b> The concept you lost is drawn and spoken on a whiteboard — never the whole chapter.</span></li>
     <li>{{ icon("shield") }} <span><b>Yours alone.</b> Every page of work is read back only to the account that made it.</span></li>
   </ul>
 </section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/signup.js') }}"></script>
 {% endblock %}
