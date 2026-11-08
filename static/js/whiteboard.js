@@ -369,7 +369,8 @@ function setupBoard(canvas) {
   const cssHeight = Math.round((cssWidth * BOARD_H) / BOARD_W);
   canvas.width = cssWidth * dpr;
   canvas.height = cssHeight * dpr;
-  canvas.style.height = cssHeight + "px";
+  // The box is sized by CSS (aspect-ratio on canvas#board), never from here: writing
+  // style.height after the first paint is what made everything below the board jump.
   const ctx = canvas.getContext("2d");
   ctx.setTransform((cssWidth / BOARD_W) * dpr, 0, 0, (cssHeight / BOARD_H) * dpr, 0, 0);
   return ctx;
@@ -576,6 +577,9 @@ function initBoard(canvas) {
 }
 
 function drawFrame(timeline, t) {
+  // The player starts its frame loop before a lesson exists, and a question interlude
+  // can be dismissed mid-build; both hand in a null timeline.
+  if (!timeline || !_ctx) return;
   const ctx = _ctx;
   if (!ctx) return;
   ctx.clearRect(0, 0, BOARD_W, BOARD_H);

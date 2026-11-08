@@ -43,10 +43,19 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", () => { initBoard(canvas); if (timeline) drawFrame(timeline, boardT); });
   window.addEventListener("beforeunload", () => Voice.cancel());
 
-  setInterval(tick, 40);
+  requestAnimationFrame(loop);
   paintQuestion();
   loadExplanation();
 });
+
+let lastFrame = null;
+
+function loop(now) {
+  const dt = lastFrame === null ? 0 : Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+  tick(dt);
+  requestAnimationFrame(loop);
+}
 
 // ---------- getting the next explanation ----------
 
@@ -70,6 +79,8 @@ async function loadExplanation() {
     });
     const data = await readJSON(resp);
     if (!resp.ok) throw new Error(data.error || "The tutor couldn't prepare this question");
+    // An answer with no lesson in it would start the player on an empty board.
+    if (!data.lesson) throw new Error("the tutor sent back an empty board");
     hideLoading();
     startExplanation(data.lesson);
     prefetchNext();
@@ -126,9 +137,8 @@ function goto(i) {
   startStep(i);
 }
 
-function tick() {
+function tick(dt) {
   if (!lesson || !playing) return;
-  const dt = 0.04;
   boardT += dt * SPEEDS[speed].board;
   drawFrame(timeline, boardT);
   const text = narrationText();

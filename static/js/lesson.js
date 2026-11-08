@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", () => { initBoard(canvas); redrawCurrent(); });
   window.addEventListener("beforeunload", voiceCancel);
 
-  setInterval(tick, 40);
+  requestAnimationFrame(loop);
 
   const embedded = JSON.parse(document.getElementById("lesson-data").textContent || "null");
   if (INITIAL_STATUS === "ready" && embedded) {
@@ -115,9 +115,13 @@ function pollStatus() {
       const resp = await fetch("/api/lesson/" + encodeURIComponent(SUBJECT) + "/" + encodeURIComponent(TOPIC) + "/status");
       const data = await readJSON(resp);
       if (data.status === "ready") {
-        clearInterval(pollTimer);
         const d = await fetch("/api/lesson/" + encodeURIComponent(SUBJECT) + "/" + encodeURIComponent(TOPIC) + "/data");
         const lessonData = await readJSON(d);
+        // The lesson can vanish between the two answers (a regeneration clears it), and
+        // a 404 here would hand initPlayer an undefined lesson and a permanently blank
+        // board. Leave the poll running instead.
+        if (!lessonData.lesson) return;
+        clearInterval(pollTimer);
         hideLoading();
         initPlayer(lessonData.lesson);
       } else if (data.status === "error") {
@@ -173,8 +177,21 @@ function redrawCurrent() {
   else if (timeline) drawFrame(timeline, boardT);
 }
 
-function tick() {
-  const dt = 0.04;
+// Frames follow the display instead of a 40 ms timer, and move by the time that
+// actually passed: a timer that is throttled behind a long paint makes the drawing
+// stutter, while real elapsed time keeps it at the same speed with fewer frames.
+let lastFrame = null;
+
+function loop(now) {
+  const dt = lastFrame === null ? 0 : Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+  tick(dt);
+  requestAnimationFrame(loop);
+}
+
+function tick(dt) {
+  // Frames start as soon as the page opens, while the lesson is still being written.
+  if (!lesson) return;
   if (mode === "qa") {
     qaT += dt * SPEEDS[speed].board;
     drawFrame(qaTimeline, qaT);

@@ -140,7 +140,7 @@ h2 { font-size: 19px; margin: 28px 0 12px; }
   padding: 10px;
   margin: 16px 0;
 }
-canvas#board { width: 100%; height: auto; display: block; border-radius: 8px; }
+canvas#board { width: 100%; aspect-ratio: 1000 / 620; display: block; border-radius: 8px; }
 
 .narration {
   background: var(--panel);
