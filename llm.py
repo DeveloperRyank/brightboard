@@ -106,7 +106,7 @@ def check_config():
                 "OPENROUTER_API_KEY is missing. Copy .env.example to .env and paste your key from openrouter.ai/keys."
             )
         if not OR_MODEL:
-            problems.append("LLM_MODEL is missing from .env (e.g. nvidia/nemotron-3-super-120b-a12b:free).")
+            problems.append("LLM_MODEL is missing from .env (e.g. nvidia/nemotron-3.5-lightning:free).")
     return problems
 
 
@@ -125,6 +125,10 @@ def _openrouter_chat(system, user, temperature, max_tokens):
         ],
         "temperature": temperature,
         "max_tokens": max_tokens,
+        # Reasoning models bill their thinking against max_tokens, so on the smaller
+        # budgets here they can spend everything on reasoning and return no content.
+        # Off costs nothing on non-reasoning models and matches Gemini's thinkingBudget=0.
+        "reasoning": {"enabled": False},
     }
     last_error = None
     for attempt, wait in enumerate((0, 10, 30)):
@@ -134,9 +138,20 @@ def _openrouter_chat(system, user, temperature, max_tokens):
         if resp.status_code == 200:
             data = resp.json()
             choices = data.get("choices")
-            if choices:
-                return choices[0]["message"]["content"]
+            # On a reasoning model max_tokens covers the thinking too, so a 200 can
+            # carry an empty `content` (finish_reason=length). Never hand that back —
+            # callers expect text and would fail later, far from the cause.
+            text = choices[0]["message"].get("content") if choices else None
+            if text and text.strip():
+                return text
             last_error = f"LLM returned no usable completion: {str(data)[:300]}"
+            if (choices or [{}])[0].get("finish_reason") == "length":
+                # The token budget ran out mid-thought; a retry at the same size will
+                # just run out again, so stop burning the free daily allowance.
+                raise RuntimeError(
+                    f"OpenRouter used all {max_tokens} tokens on reasoning before writing "
+                    "any answer. Raise max_tokens or pick a model that does not think out loud."
+                )
         else:
             last_error = f"LLM API error {resp.status_code}: {resp.text[:500]}"
             if resp.status_code not in (429, 500, 502, 503):
