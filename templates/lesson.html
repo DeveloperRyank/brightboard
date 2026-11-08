@@ -62,10 +62,21 @@
   <button class="btn ghost small" id="btn-regenerate">↻ Redraw lesson</button>
 </div>
 
-<div class="rec-card" id="lesson-done" style="display: none; margin-top: 18px;">
-  <div class="target">{{ icon("cap") }}</div>
-  <div class="rec-text">Lesson complete. Ready to prove it on real {{ subject_name(subject) }} questions?</div>
-  <a class="btn" id="done-exam" href="{{ url_for('exam', subject=subject, topic=topic) }}">Prove it in the Exam Center →</a>
+<div class="done-panel" id="lesson-done" style="display: none;">
+  <div class="done-badge">{{ icon("check") }}</div>
+  <div class="done-eyebrow">Board complete</div>
+  <h2 class="done-title">You worked through {{ topic_name(subject, topic) }}</h2>
+  <p class="done-sub">The board stays yours to revisit — every step is still drawn. Now take it somewhere it counts.</p>
+  <ul class="done-stats">
+    <li><b id="done-steps">—</b><span>steps drawn</span></li>
+    <li><b id="done-concepts">—</b><span>concepts covered</span></li>
+    <li><b id="done-time">—</b><span>on the board</span></li>
+  </ul>
+  <div class="done-actions">
+    <a class="btn gradient" id="done-exam" href="{{ url_for('exam', subject=subject, topic=topic) }}">Prove it in the Exam Center</a>
+    <button class="btn ghost" id="done-replay">{{ icon("restart") }} Replay the board</button>
+    <a class="btn ghost" href="{{ url_for('subject', subject=subject) }}">Next topic</a>
+  </div>
 </div>
 
 <div class="ask-panel" id="ask-panel">

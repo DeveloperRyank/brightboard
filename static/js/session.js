@@ -22,6 +22,20 @@
     const ringColor = ratio < 0.4 ? "var(--brick)" : ratio < 0.7 ? "var(--ochre)" : "var(--sage)";
     const C = 2 * Math.PI * 52;
 
+    // A low score is not a failure here — it is the diagnostic working. The line has to
+    // say something true for a 2/12 paper as well as for a 12/12 one.
+    const verdict = ratio >= 0.85
+      ? { cls: "", text: "Outstanding paper." }
+      : ratio >= 0.7
+        ? { cls: "", text: "Strong paper." }
+        : ratio >= 0.4
+          ? { cls: "mid", text: "Progress made — and the gaps are named." }
+          : { cls: "low", text: "We found the gaps. That is the whole point." };
+    const tracked = (s.concepts || []).length;
+    const gain = tracked
+      ? `<div class="sess-gain">${iconSvg("spark")} ${tracked} concept${tracked === 1 ? "" : "s"} updated</div>`
+      : "";
+
     let html = `
     <div class="session-panel glass">
       <div class="sess-head">
@@ -36,9 +50,11 @@
         <div class="sess-titles">
           <div class="eyebrow">Paper marked</div>
           <h2>${esc(s.topic_name || pretty(s.topic))}</h2>
+          <p class="sess-verdict ${verdict.cls}">${verdict.text}</p>
           <p class="sub" style="margin: 6px 0 0;">
             ${right} of ${total} correct${masteryText}
           </p>
+          ${gain}
         </div>
       </div>`;
 

@@ -34,37 +34,35 @@
 </div>
 {% endif %}
 
-<div class="section-head" style="--accent: {{ subject.accent }};">
+<div class="section-head">
   <h2>Topics</h2>
   <span class="tag">Lesson = animated whiteboard · Exam Center = real past-paper questions</span>
 </div>
 
-<div class="topic-list" style="--accent: {{ subject.accent }};">
+<div class="topic-grid">
   {% for t in topics %}
-  <div class="topic-row {{ '' if t.ready else 'locked' }}">
-    <div class="tr-main">
-      <div class="tr-name">{{ t.name }}</div>
-      <div class="tr-sub">
-        {% if t.ready %}
-          {{ t.count }} question{{ '' if t.count == 1 else 's' }}
-          {%- if t.answers %} · {{ t.answers }} answered{% endif %}
-          {%- if t.concepts %} · {{ t.concepts }} concept{{ '' if t.concepts == 1 else 's' }} tracked{% endif %}
-          {%- if t.weakest %} · weakest: {{ t.weakest }} ({{ (t.weakest_p * 100) | round | int }}%){% endif %}
-        {% else %}
-          No questions yet — locked
-        {% endif %}
-      </div>
+  <div class="topic-card {{ '' if t.ready else 'locked' }}">
+    <div class="t-name">{{ t.name }}</div>
+    <div class="t-meta">
+      {% if t.ready %}
+        {{ t.count }} question{{ '' if t.count == 1 else 's' }}
+        {%- if t.answers %} · {{ t.answers }} answered{% endif %}
+        {%- if t.concepts %} · {{ t.concepts }} concept{{ '' if t.concepts == 1 else 's' }} tracked{% endif %}
+        {%- if t.weakest %} · weakest: {{ t.weakest }} ({{ (t.weakest_p * 100) | round | int }}%){% endif %}
+      {% else %}
+        No questions yet
+      {% endif %}
     </div>
-    {% if t.form %}<span class="tr-form">{{ t.form }}</span>{% endif %}
+    {% if t.form %}<span class="t-form">Form {{ t.form }}</span>{% endif %}
     {% if t.score is not none %}
     <div class="tr-mastery">
-      <div class="bar"><div style="width: {{ (t.score * 100) | round | int }}%; background: {% if t.score < 0.4 %}var(--brick){% elif t.score < 0.7 %}var(--ochre){% else %}var(--sage){% endif %};"></div></div>
-      <div class="tr-sub mono" style="text-align:right; margin-top:4px;">{{ (t.score * 100) | round | int }}%</div>
+      <div class="bar"><div style="width: {{ (t.score * 100) | round | int }}%;"></div></div>
+      <div class="t-pct mono">topic mastery {{ (t.score * 100) | round | int }}%</div>
     </div>
     {% endif %}
     <div class="tr-actions">
       {% if t.ready %}
-      <a class="btn small" href="{{ url_for('lesson', subject=subject.slug, topic=t.slug) }}">Lesson</a>
+      <a class="btn small gradient" href="{{ url_for('lesson', subject=subject.slug, topic=t.slug) }}">Lesson</a>
       <a class="btn small ghost" href="{{ url_for('exam', subject=subject.slug, topic=t.slug) }}">Exam Center</a>
       {% else %}
       <span class="chip err">Locked</span>

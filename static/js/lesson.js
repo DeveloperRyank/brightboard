@@ -35,6 +35,8 @@ let answerPos = 0;
 let canvas, narrationEl;
 let pollTimer = null;
 let msgTimer = null;
+let startedAt = 0;
+let doneShown = false;
 
 // The board this tab has already seen for this topic, in this account.
 const LESSON_CACHE = "lesson." + CACHE_SCOPE + "." + SUBJECT + "." + TOPIC;
@@ -55,6 +57,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-send-ask").addEventListener("click", sendQuestion);
   document.getElementById("btn-regenerate").addEventListener("click", regenerate);
   document.getElementById("btn-retry").addEventListener("click", regenerate);
+  document.getElementById("done-replay").addEventListener("click", () => {
+    playing = true;
+    goto(0);
+    document.getElementById("board").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
   document.getElementById("btn-mic").addEventListener("click", toggleMic);
   document.getElementById("ask-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
@@ -193,6 +200,8 @@ function initPlayer(lessonData) {
   mode = "lesson";
   asking = false;
   playing = true;
+  startedAt = Date.now();
+  doneShown = false;
   hideLoading(); // reveal the controls whether we arrived via cache or via polling
   paintPlayButton();
   startStep(0);
@@ -221,6 +230,7 @@ function startStep(i) {
   mode = "lesson";
   timeline = buildTimeline(lesson.steps[step]);
   boardT = 0;
+  doneShown = false;
   document.getElementById("lesson-done").style.display = "none";
   paintNarration();
   drawFrame(timeline, 0);
@@ -279,8 +289,27 @@ function tick(dt) {
   } else {
     playing = false;
     paintPlayButton();
-    document.getElementById("lesson-done").style.display = "";
+    showDone();
   }
+}
+
+// ---------- the reward for reaching the last line ----------
+//
+// Finishing a board has to feel like something closed, not like a player that ran out
+// of steps. The panel carries what was actually covered, counted off the lesson itself,
+// so it can never claim a number the board did not teach.
+function showDone() {
+  const panel = document.getElementById("lesson-done");
+  if (!panel || doneShown) return;
+  doneShown = true;
+  const concepts = new Set(lesson.steps.map((s) => s.concept).filter(Boolean));
+  const secs = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+  document.getElementById("done-steps").textContent = String(lesson.steps.length);
+  document.getElementById("done-concepts").textContent = String(concepts.size || lesson.steps.length);
+  document.getElementById("done-time").textContent =
+    secs < 60 ? secs + "s" : Math.round(secs / 60) + " min";
+  panel.style.display = "";
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function paintNarration() {
@@ -296,7 +325,7 @@ function paintNarration() {
   document.getElementById("btn-prev").disabled = step === 0;
   const next = document.getElementById("btn-next");
   next.textContent = step === lesson.steps.length - 1 ? "Enter the Exam Center →" : "Next →";
-  next.classList.toggle("warn", step === lesson.steps.length - 1);
+  next.classList.toggle("gradient", step === lesson.steps.length - 1);
 }
 
 // ---------- voice output ----------

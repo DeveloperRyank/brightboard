@@ -508,7 +508,10 @@ def index():
     cur = current_curriculum()
     subs = _subject_stats(curriculum.subjects(cur))
     recommendation = _named_rec(profile.recommend_next(valid_keys=_all_valid_keys(cur)))
-    return render_template("index.html", subjects=subs, recommendation=recommendation)
+    # Sign-in is a moment worth marking, but only on the screen it lands on, and only once.
+    welcome = session.pop("welcome", None) is not None
+    return render_template("index.html", subjects=subs, recommendation=recommendation,
+                           welcome=welcome, studied=sum(s["studied"] for s in subs))
 
 
 @app.route("/favicon.ico")
@@ -566,7 +569,10 @@ def sign_in():
     session.clear()                      # do not carry over a session set up before sign-in
     session["sid"] = sid
     session.permanent = True             # honours PERMANENT_SESSION_LIFETIME
-    return redirect(_safe_target(request.form.get("next")) or url_for("index"))
+    target = _safe_target(request.form.get("next"))
+    if not target:
+        session["welcome"] = 1
+    return redirect(target or url_for("index"))
 
 
 def _sign_in_error(message, code, email):

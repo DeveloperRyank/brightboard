@@ -8,9 +8,9 @@
   <p>Drop a PDF or a photo of a marked test, worksheet or past paper. The AI reads it (including scanned pages) — then either folds the gaps it finds into your mastery profile, or walks you through the paper one real question at a time on the whiteboard.</p>
 </div>
 
-<div class="" style="border-radius: 18px; padding: 20px; margin-bottom: 22px;">
-  <label for="subject" style="display:block; margin-bottom:8px; font-size:14px;">Subject this paper belongs to</label>
-  <select id="subject" class="field" style="width:100%; max-width: 320px;">
+<div class="up-form">
+  <label for="subject">Subject this paper belongs to</label>
+  <select id="subject" class="field">
     {% for s in subjects %}
     <option value="{{ s.slug }}" {{ 'selected' if s.slug == 'chemistry' }}>{{ s.name }}</option>
     {% endfor %}
