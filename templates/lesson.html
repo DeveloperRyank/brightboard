@@ -66,14 +66,21 @@
   <div class="done-badge">{{ icon("check") }}</div>
   <div class="done-eyebrow">Board complete</div>
   <h2 class="done-title">You worked through {{ topic_name(subject, topic) }}</h2>
-  <p class="done-sub">The board stays yours to revisit — every step is still drawn. Now take it somewhere it counts.</p>
+  <p class="done-sub">The board stays yours to revisit — every step is still drawn.
+    {%- if practicable %} Now take it somewhere it counts.
+    {%- else %} It was drawn from your {{ name }} notes, and no past paper on it is in
+    the bank yet — so the next move is a paper of your own.{% endif -%}</p>
   <ul class="done-stats">
     <li><b id="done-steps">—</b><span>steps drawn</span></li>
     <li><b id="done-concepts">—</b><span>concepts covered</span></li>
     <li><b id="done-time">—</b><span>on the board</span></li>
   </ul>
   <div class="done-actions">
+    {% if practicable %}
     <a class="btn gradient" id="done-exam" href="{{ url_for('exam', subject=subject, topic=topic) }}">Prove it in the Exam Center</a>
+    {% else %}
+    <a class="btn gradient" href="{{ url_for('upload') }}">Mark a paper you have</a>
+    {% endif %}
     <button class="btn ghost" id="done-replay">{{ icon("restart") }} Replay the board</button>
     <a class="btn ghost" href="{{ url_for('subject', subject=subject) }}">Next topic</a>
   </div>

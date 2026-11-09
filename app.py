@@ -22,6 +22,7 @@ import classifier
 import concepts
 import curriculum
 import llm
+import notes
 import profile
 import tutor
 
@@ -266,7 +267,15 @@ def _gkey(subject, topic, sid=None):
 
 
 def topic_ready(subject, topic):
-    """A topic can run a lesson/test only when it has real questions behind it."""
+    """A topic can run a lesson when it has something true to teach from: the notes that
+    were supplied for it, or a past-paper bank to work backwards from. Notes came first
+    for Physics and will come first for every subject the notes arrive for; a question
+    bank is no longer the only door into a topic."""
+    return notes.has_notes(subject, topic) or topic_practicable(subject, topic)
+
+
+def topic_practicable(subject, topic):
+    """A topic can run the Exam Center only when it has real questions to ask."""
     return bool(classifier.questions_for_topic(subject, topic))
 
 
@@ -277,9 +286,12 @@ def current_curriculum():
 
 
 def _lesson_sig(subject, topic, sid=None):
-    """What a cached lesson was built from: the student's concept state AND the
-    concept map, so editing the map on disk rebuilds every lesson for that topic."""
-    return profile.topic_signature(subject, topic, sid) + "|" + concepts.fingerprint(subject, topic)
+    """What a cached lesson was built from: the student's concept state, the concept map
+    and the notes page behind the topic. Rebuild any of the three and every cached
+    lesson for that topic is stale — a lesson generated from notes the student no longer
+    has is worse than no lesson at all."""
+    return (profile.topic_signature(subject, topic, sid) + "|"
+            + concepts.fingerprint(subject, topic) + "|" + notes.fingerprint(subject, topic))
 
 
 def _prefetch_narration(lesson):
@@ -297,6 +309,7 @@ def generate_lesson(subject, topic, sid=None):
         subject, topic, [q["question"] for q in questions],
         adapt_context(subject, topic, sid),
         concept_list=concepts.concepts_for(subject, topic) or None,
+        notes=notes.topic_notes(subject, topic) or None,
     )
     profile.save_lesson(subject, topic, lesson,
                         _lesson_sig(subject, topic, sid), sid=sid)
@@ -451,6 +464,9 @@ def _named_rec(rec):
     rec["concept_name"] = (concepts.concept_name(rec["subject"], rec["topic"], rec["concept"])
                            if rec.get("concept") else None)
     rec["error_label"] = profile.ERROR_LABELS.get(rec.get("error_type"))
+    # A student who learns from papers gets sent to the Exam Center only if that topic
+    # has papers in it — a topic unlocked by notes alone has a lesson and no exam.
+    rec["practicable"] = topic_practicable(rec["subject"], rec["topic"])
     return rec
 
 
@@ -462,6 +478,7 @@ def _subject_stats(subjects, sid=None):
         s["studied"] = len(mine)
         s["avg_score"] = round(sum(r["score"] for r in mine) / len(mine), 2) if mine else None
         s["has_data"] = classifier.subject_has_data(s["slug"])
+        s["has_notes"] = notes.subject_has_notes(s["slug"])
     return subjects
 
 
@@ -865,10 +882,12 @@ def _topic_groups(subject_slug, topics):
         by_strand = {}
         for t in rows:
             by_strand.setdefault(t["strand"], []).append(t)
-        # KICD numbers its strands ("2.0 Acids, Bases and Salts"), so sorting the labels
-        # sorts the syllabus. A subject with no strand above its topics — the KCSE lists,
-        # which were written before strands were modelled — gets one unnamed group.
-        order = sorted(by_strand, key=lambda name: (name is None, str(name)))
+        # The order the topics are listed in is the order they are taught in, so a strand
+        # joins the page where the first topic under it appears. KICD designs are
+        # transcribed in syllabus order and a notes booklet is built in teaching order, so
+        # both already arrive right; sorting the labels alphabetically would not. A
+        # subject with no strand above its topics gets one unnamed group, and it goes last.
+        order = sorted(by_strand, key=lambda name: name is None)
         strands = [{"name": name or "", "topics": by_strand[name]} for name in order]
         groups.append({
             "year": year,
@@ -887,19 +906,24 @@ def subject(subject):
     s = curriculum.get_subject(subject)
     if not s:
         return redirect(url_for("index"))
-    has_data = classifier.subject_has_data(subject)
     counts = classifier.topic_counts(subject)
+    with_notes = notes.note_topics(subject)
     rollup = {r["topic"]: r for r in _topic_rows(subject)}
     topics = []
     for t in s["topics"]:
         r = rollup.get(t["slug"])
+        count = counts.get(t["slug"], 0)
         topics.append({
             "slug": t["slug"],
             "name": t["name"],
             "grade": t.get("grade"),
             "strand": t.get("strand"),
-            "count": counts.get(t["slug"], 0),
-            "ready": counts.get(t["slug"], 0) > 0,
+            "count": count,
+            # Two different doors. Notes make a topic teachable; only past papers make it
+            # something a student can be marked on, and the page has to say which is shut.
+            "ready": t["slug"] in with_notes or count > 0,
+            "from_notes": t["slug"] in with_notes,
+            "practicable": count > 0,
             "score": r["score"] if r else None,
             "answers": r["answers"] if r else 0,
             "concepts": r["concepts"] if r else 0,
@@ -915,7 +939,9 @@ def subject(subject):
     pending_years = ([g for g in curriculum.grades_for(cur_slug)
                       if curriculum.year_number(g) not in have]
                      if s["topics"] and None not in have else [])
-    return render_template("subject.html", subject=s, topics=topics, has_data=has_data,
+    return render_template("subject.html", subject=s, topics=topics,
+                           has_data=classifier.subject_has_data(subject),
+                           has_notes=bool(with_notes),
                            recommendation=recommendation,
                            groups=_topic_groups(subject, topics),
                            pending_years=pending_years,
@@ -939,6 +965,8 @@ def lesson(subject, topic):
         status=status,
         error=error,
         server_tts=llm.tts_available(),
+        practicable=topic_practicable(subject, topic),
+        from_notes=notes.has_notes(subject, topic),
         concept_names={c["slug"]: c["name"] for c in concepts.concepts_for(subject, topic)},
     )
 
@@ -968,7 +996,10 @@ def regenerate_lesson(subject, topic):
 
 @app.route("/exam/<subject>/<topic>")
 def exam(subject, topic):
-    if not curriculum.get_subject(subject) or not topic_ready(subject, topic):
+    # Notes open a lesson; only past papers open this. A topic taught from notes and
+    # nothing else has no questions to ask, so it is not an Exam Center visit — the
+    # subject page keeps its button off rather than sending a student to an empty paper.
+    if not curriculum.get_subject(subject) or not topic_practicable(subject, topic):
         return redirect(url_for("subject", subject=subject))
     available = classifier.questions_for_topic(subject, topic)
     n = min(5, max(3, len(available)))

@@ -61,7 +61,7 @@
   </div>
   {% if student and student.style == 'papers' %}
     <a class="btn gradient" href="{{ url_for('upload') }}">Upload a paper</a>
-  {% elif student and student.style == 'tests' %}
+  {% elif student and student.style == 'tests' and recommendation.practicable %}
     <a class="btn gradient" href="{{ url_for('exam', subject=recommendation.subject, topic=recommendation.topic) }}">Enter the Exam Center</a>
   {% else %}
     <a class="btn gradient" href="{{ url_for('lesson', subject=recommendation.subject, topic=recommendation.topic) }}">Study it now</a>
@@ -72,15 +72,15 @@
 <div class="section-head">
   <h2>Subjects</h2>
   {% if cur == 'kcse' %}
-    <span class="tag">Chemistry is live on real KCSE past papers · others unlock as question banks are added</span>
+    <span class="tag">Lessons open from supplied notes · the Exam Center opens from past papers</span>
   {% else %}
-    <span class="tag">{{ cur_name }} subjects unlock as question banks are added</span>
+    <span class="tag">{{ cur_name }} subjects open as their notes and past papers are added</span>
   {% endif %}
 </div>
 
 <div class="subject-grid">
   {% for s in subjects %}
-  {% set ready = s.live and s.has_data %}
+  {% set ready = s.has_data or s.has_notes %}
   <a class="subject-card" href="{{ url_for('subject', subject=s.slug) }}">
     <span class="pill {{ 'live' if ready else 'soon' }}">{{ 'Live' if ready else 'Soon' }}</span>
     <span class="s-icon">{{ icon(s.icon) }}</span>

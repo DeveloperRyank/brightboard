@@ -1,5 +1,7 @@
 """LLM-powered tutoring: whiteboard lesson generation, interruptible Q&A, answer diagnosis."""
 
+import re
+
 import concepts
 import curriculum
 import llm
@@ -9,36 +11,36 @@ def _subject_name(subject):
     s = curriculum.get_subject(subject)
     return s["name"] if s else subject.replace("_", " ").title()
 
-CANVAS_RULES = """
+CANVAS_BASE = """
 The canvas is a 1000 x 620 dark board, CLEARED between steps — each step is a self-contained frame.
 Every stroke animates pen-style, like chalk. Keep each step to 1-3 visuals with room to breathe.
 
 PREFERRED — PRE-BUILT TEMPLATES. For any real diagram use a template: its geometry is fixed and
 pre-verified, so nothing overlaps or drifts off-board. You only PICK a template and FILL its label
-slots with short plain strings. NEVER invent coordinates for apparatus, molecules, graphs or energy
-profiles — that is exactly what templates exist to prevent.
+slots with short plain strings. NEVER invent coordinates for apparatus, molecules, graphs, rays or
+energy profiles — that is exactly what templates exist to prevent.
   {"type":"template","template":"NAME","labels":{...},"variant":"..."}
-Templates (slots you may fill; any slot you omit keeps a sensible default):
-  distillation    burner + round flask + thermometer + condenser + beaker
-                  slots: mixture, thermometer, condenser, distillate
-  titration       burette over a conical flask
-                  slots: titrant, analyte, endpoint
-  filtration      funnel + filter paper over a conical flask
-                  slots: residue, filtrate
-  methane         tetrahedral CH4 ball-and-stick
-                  slots: name, geometry
-  water           bent H2O with lone pairs
-                  slots: angle, name, geometry
-  energy_profile  reaction-coordinate energy curve — variant REQUIRED: "exo" or "endo"
-                  slots: reactants, products, ts, ea, dh
-  graph_axes      labelled x/y axes — variant: "line", "curve" or "empty"
-                  slots: title, xlabel, ylabel
-One template per step is normally plenty; it fills the board. Use the template that matches the concept.
+Templates for THIS subject (slots you may fill; any slot you omit keeps a sensible default):
+<<templates>>
+One template per step is normally plenty; it fills the board. Teach the great majority of steps
+ON THE BOARD: a student should see the thing, the apparatus or the ray the narration names.
+Match the template to what the concept IS, not to how a picture of it looks. A spring diagram and a
+refraction diagram are both "lines on a board" — only one of them is correct. A wrong template is worse
+than no template: it teaches the student something false.
+Pick the template by the physics of the step: what the step discusses is what the board draws. A step
+about a lens uses the lens diagram even when it is only defining the lens; a step about rays through
+a glass block uses the refraction diagram. Only a step that is purely numbers — substituting into a
+formula, reducing an expression, listing answers — may go without a diagram, and then write the
+working in labels across the board instead of leaving it blank.
+ALWAYS give the "variant" when the template lists variants: the variant is the part of the diagram that
+carries the meaning, and without it the board draws an empty frame.
+If none of these depicts the concept, draw it freeform, or use graph_axes for a relationship between two
+quantities — NEVER stretch a template to cover a different subject's apparatus or phenomenon.
 
 FALLBACK — only for things no template covers (a lone beaker, an ion, a word-equation box, a bare
 label). These freeform shapes ARE validated: anything off-board or overlapping another shape is
 rejected, so use templates wherever possible and keep freeform shapes few, small and well separated.
-  {"type":"draw","glyph":"round_flask|beaker|test_tube|thermometer|condenser|burner|funnel|filter_paper|evaporating_dish|electrode|atom|graph_axes|bulb","x":N,"y":N,"size":N}
+  {"type":"draw","glyph":"round_flask|beaker|test_tube|thermometer|condenser|burner|funnel|filter_paper|evaporating_dish|electrode|atom|graph_axes|bulb|burette|conical_flask|battery_cell|resistor|lamp|magnet_bar|pivot|speech_bubble|mic","x":N,"y":N,"size":N}
   {"type":"draw","shape":"line|arrow","x1":N,"y1":N,"x2":N,"y2":N,"color":"#hex"}
   {"type":"draw","shape":"path","points":[[x,y],...],"color":"#hex"}
   {"type":"draw","shape":"circle","cx":N,"cy":N,"r":N,"color":"#hex"}
@@ -54,11 +56,105 @@ Highlights are coral. Never invent a hex, and never use colour as decoration —
 Labels SHORT (a few words), placed next to the part they name, never on top of a drawing.
 """
 
-def _lesson_system(subject_name):
+# graph_axes carries a relationship for any subject; the rest are locked to the subject
+# whose apparatus or phenomenon they actually draw.
+_SHARED_TEMPLATES = """\
+  graph_axes      labelled x/y axes for any graph of one quantity against another
+                  variant REQUIRED: "line", "curve" or "empty"
+                  slots: title, xlabel, ylabel"""
+
+_SUBJECT_TEMPLATES = {
+    "chemistry": """\
+  distillation    burner + round flask + thermometer + condenser + beaker
+                  USE FOR: separating liquids by boiling point, fractional distillation
+  titration       burette over a conical flask
+                  USE FOR: acid-base titration, indicator, endpoint, molar calculations
+  filtration      funnel + filter paper over a conical flask
+                  USE FOR: separating an insoluble solid from a liquid, residue and filtrate
+  methane         tetrahedral CH4 ball-and-stick
+                  USE FOR: the shape of a tetrahedral molecule, bond angle 109.5 degrees
+  water           bent H2O with lone pairs
+                  USE FOR: the shape of a bent molecule, bond angle 104.5, polarity
+  energy_profile  reaction-coordinate energy curve — variant REQUIRED: "exo" or "endo"
+                  USE FOR: chemical reactions giving out or taking in heat, activation energy
+                  A correct pick looks like: {"type":"template","template":"titration",
+                  "labels":{"titrant":"Acid in the burette","endpoint":"Pink with phenolphthalein"}}""",
+    "physics": """\
+  spring          a spring hanging from a fixed support beside a millimetre scale
+                  variant REQUIRED: "unstretched", "loaded" (extension measured), "spring_balance"
+                  slots: extension, load, reading
+  free_body       one body with its force arrows
+                  variant REQUIRED: "on_surface", "inclined_plane", "suspended"
+                  slots: weight, normal, applied, friction, tension, angle
+  lever           a rigid bar on a fulcrum with load, effort and the two arms
+                  variant REQUIRED: "first_class", "second_class", "third_class"
+                  slots: load, effort, load_arm, effort_arm
+  circuit         cell + ammeter + resistor + switch in one loop
+                  variant: "switch_closed", "switch_open", "voltmeter_across", "second_lamp",
+                  "parallel_lamps"
+                  slots: component
+  wave            a wave drawn against its rest line
+                  variant REQUIRED: "transverse" (crests, wavelength, amplitude), "longitudinal"
+                  (particle rows with compressions and rarefactions)
+                  slots: wavelength, amplitude, trough_note, crest_note, vibration,
+                  compression, rarefaction
+  curved_mirror   spherical mirror on the principal axis, object, two rays and the image
+                  variant REQUIRED: "concave", "convex"
+                  slots: title, object_note, image_note, virtual_note, use
+  thin_lens       lens, principal axis, F and 2F marks, two rays and the image
+                  variant REQUIRED: "converging", "diverging"
+                  slots: title, object_note, image_note, power
+  refraction      ray entering a denser medium, with the normal and the angles marked
+                  variant REQUIRED: "glass_block", "prism"
+                  slots: i, r, r1, r2, e, a, deviation, law, emerge, note
+  magnetism       field lines and poles
+                  variant REQUIRED: "bar_magnet", "solenoid", "two_wires"
+                  slots: field, core
+  vector_triangle two forces added as vectors, or several forces closing into equilibrium
+                  variant REQUIRED: "parallelogram", "polygon"
+                  slots: resultant, angle, rule, equilibrant
+  electroscope    gold-leaf electroscope: disc, rod, leaves inside a jar
+                  variant: "uncharged", "charged", "positive", "negative", "discharge"
+                  slots: observation
+
+Pick by the physics, not the picture:
+  Hooke's law, spring balance, elastic limit ......... spring
+  forces on one body, friction, inclined plane, tension  free_body
+  moments, torque, lever classes, pulley systems ..... lever
+  Ohm's law, series and parallel, ammeters, voltmeters, mains wiring ... circuit
+  wave terms, ripples, light as a wave ............... wave/transverse
+  sound, particles in a medium ....................... wave/longitudinal
+  curved mirrors, image formation by reflection ...... curved_mirror
+  lenses, image formation by refraction through a lens  thin_lens
+  bending at a boundary, glass block, prism, dispersion, total internal reflection, optical fibre,
+    real and apparent depth .......................... refraction
+  magnets, field lines, electromagnet, solenoid, force between wires ... magnetism
+  adding forces, resolving into components, equilibrium of forces ... vector_triangle
+  static charges, charging by induction, leaking charge ... electroscope
+  any quantity plotted against another (a = Ft, V = IR, T vs L) ... graph_axes
+A correct pick looks like: {"type":"template","template":"refraction","variant":"glass_block",
+"labels":{"law":"n = sin i / sin r","emerge":"Parallel ray, displaced sideways"}}
+A WRONG pick looks like: using spring for a ray diagram, circuit for a prism, or
+energy_profile for a Physics energy change — those drawings show something else entirely.""",
+}
+
+
+def _canvas_rules(subject):
+    # The rules text is full of literal JSON braces, so the subject block is substituted
+    # with a plain replace rather than str.format.
+    key = (subject or "").replace("_", " ").strip().lower()
+    block = _SUBJECT_TEMPLATES.get(key, "")
+    joined = (block + "\n" + _SHARED_TEMPLATES) if block else _SHARED_TEMPLATES
+    return CANVAS_BASE.replace("<<templates>>", joined)
+
+
+def _lesson_system(subject):
+    subject_name = _subject_name(subject)
     return f"""You are a KCSE {subject_name} tutor creating a visual whiteboard lesson for a secondary-school student in Kenya.
 You output STRICT JSON only — no prose, no code fences, no commentary before or after the JSON.
 Your reply must begin with the character {{ and end with the character }}.
-{CANVAS_RULES}"""
+{_canvas_rules(subject)}"""
+
 
 LESSON_USER_TEMPLATE = """Create a complete whiteboard lesson that teaches the WHOLE topic "{topic}" for a KCSE {subject_name} student — every core concept in the topic, in teaching order, not just one worked example. A student who finishes this lesson must understand the entire topic well enough to answer any KCSE question on it.
 
@@ -81,7 +177,7 @@ Output JSON in exactly this shape (most steps use ONE template action, optionall
   "steps": [
     {{"narration": "One or two spoken sentences the student hears and reads for this step (plain, encouraging, exam-focused).",
       "actions": [
-        {{"type":"template","template":"distillation","labels":{{"mixture":"Crude oil","distillate":"Fraction collected"}}}}
+        {{"type":"template","template":"graph_axes","variant":"line","labels":{{"title":"Relationship being taught","xlabel":"what is varied","ylabel":"what it changes"}}}}
       ]}}
   ]
 }}
@@ -120,12 +216,49 @@ Output JSON in exactly this shape (most steps use ONE template action, optionall
     {{"concept": "a slug from the list above",
       "narration": "One or two spoken sentences the student hears and reads for this step (plain, encouraging, exam-focused).",
       "actions": [
-        {{"type":"template","template":"distillation","labels":{{"mixture":"Crude oil","distillate":"Fraction collected"}}}}
+        {{"type":"template","template":"graph_axes","variant":"line","labels":{{"title":"Relationship being taught","xlabel":"what is varied","ylabel":"what it changes"}}}}
       ]}}
   ]
 }}
 
 Use {lo} to {hi} steps so every concept is genuinely covered. Pick the template that matches each concept; only fall back to freeform shapes when no template fits, and never let them overlap or run off the board."""
+
+# The notes the student's subject was supplied with, not a question bank, decide what a
+# lesson teaches. The booklet is quoted in full and the model is told to stay inside it:
+# a lesson that drifts beyond the notes is a lesson the student cannot revise from.
+NOTES_LESSON_TEMPLATE = """Create a complete whiteboard lesson that teaches the WHOLE topic "{topic}" for a KCSE {subject_name} student.
+
+What follows is the class notes this topic is actually taught from — a teacher's pages, in the order the student meets them. They are the authority for this lesson: teach what they say, and teach nothing they do not cover.
+
+<notes>
+{notes}
+</notes>
+
+Coverage rules — these are checked, and a lesson that breaks them is thrown away:
+- Work through the notes in their own order. Every heading, every list and every worked example in them is something the student has to be taught; give each one at least one step.
+- Keep the notes' definitions, formulae, units and constants exactly as they are written. Where they work an example with real numbers, teach that example with those numbers — do not invent a tidier one.
+- The student cannot see the booklet's diagrams. Where the notes say "as shown below" or refer to an arrangement, describe the apparatus in words and draw it on the board yourself.
+- Do NOT write exam questions for the student to answer, here or anywhere in the lesson — practice comes only from the real question bank. Use the notes' examples as teaching material, not as tests.
+{outline}{style}
+{adapt}
+
+Structure the lesson:
+1. First step orients the student: what the topic is and why the exam looks for it.
+2. Then the notes in order — for each idea: the definition or law, the mechanism or diagram behind it, and one worked or illustrative example from the pages.
+3. Weave in the traps, keywords, units and step order the notes themselves insist on.
+4. Final step: a summary of the whole topic the student can revise from.
+
+Because the board clears between steps, every step's drawing must stand alone: redraw any apparatus, scheme or graph the step refers to.
+
+Output JSON in exactly this shape (most steps use ONE template action, optionally plus a label):
+{{
+  "title": "Lesson title",
+  "steps": [
+    {step_shape}
+  ]
+}}
+
+Use {lo} to {hi} steps so the whole topic is genuinely covered. Pick the template that matches each idea; only fall back to freeform shapes when no template fits, and never let them overlap or run off the board."""
 
 ASK_SYSTEM = """You are a KCSE {subject_name} tutor. A student paused a visual whiteboard lesson to ask you a question.
 You output STRICT JSON only — no prose, no code fences, nothing before or after the JSON:
@@ -221,7 +354,177 @@ TEMPLATE_CATALOG = {
     "water": {"variants": [], "slots": ["angle", "name", "geometry"]},
     "energy_profile": {"variants": ["exo", "endo"], "slots": ["reactants", "products", "ts", "ea", "dh"]},
     "graph_axes": {"variants": ["line", "curve", "empty"], "slots": ["title", "xlabel", "ylabel"]},
+    "spring": {"variants": ["unstretched", "loaded", "spring_balance"],
+               "slots": ["extension", "load", "reading"]},
+    "free_body": {"variants": ["on_surface", "inclined_plane", "suspended"],
+                  "slots": ["weight", "normal", "applied", "friction", "tension", "angle"]},
+    "lever": {"variants": ["first_class", "second_class", "third_class"],
+              "slots": ["load", "effort", "load_arm", "effort_arm"]},
+    "circuit": {"variants": ["switch_closed", "switch_open", "voltmeter_across",
+                             "second_lamp", "parallel_lamps"], "slots": ["component"]},
+    "wave": {"variants": ["transverse", "longitudinal"],
+             "slots": ["wavelength", "amplitude", "trough_note", "crest_note", "vibration",
+                       "compression", "rarefaction"]},
+    "curved_mirror": {"variants": ["concave", "convex"],
+                      "slots": ["title", "object_note", "image_note", "virtual_note", "use"]},
+    "thin_lens": {"variants": ["converging", "diverging"],
+                  "slots": ["title", "object_note", "image_note", "power"]},
+    "refraction": {"variants": ["glass_block", "prism"],
+                   "slots": ["i", "r", "r1", "r2", "e", "a", "deviation", "law", "emerge", "note"]},
+    "magnetism": {"variants": ["bar_magnet", "solenoid", "two_wires"], "slots": ["field", "core"]},
+    "vector_triangle": {"variants": ["parallelogram", "polygon"],
+                        "slots": ["resultant", "angle", "rule", "equilibrant"]},
+    "electroscope": {"variants": ["uncharged", "charged", "positive", "negative", "discharge"],
+                     "slots": ["observation"]},
 }
+
+# Most physics variants are the meaningful half of the diagram — a template drawn without
+# one renders a bare frame the student learns nothing from. When the model names a
+# catalogued template but leaves out (or invents) the variant, supply the common case.
+DEFAULT_VARIANT = {
+    "spring": "loaded",
+    "free_body": "on_surface",
+    "wave": "transverse",
+    "curved_mirror": "concave",
+    "thin_lens": "converging",
+    "refraction": "glass_block",
+    "magnetism": "bar_magnet",
+    "vector_triangle": "parallelogram",
+    "lever": "first_class",
+    "circuit": "switch_closed",
+    "graph_axes": "empty",
+    "electroscope": "uncharged",
+}
+
+# What the model picks a diagram by is its eye, not the physics: given a refraction lesson it
+# happily draws a spring because a spring is "lines on a board". The notes already say which
+# phenomena a topic covers, so they decide the allowed diagrams in code instead of hoping the
+# prompt is obeyed. A wrong diagram teaches something false; a substituted one does not.
+# Phrases must be specific to the phenomenon — bare "cell", "tension" or "magnet" describes
+# half the syllabus, and a whole-word match keeps "magnet" out of "electromagnetic".
+_TEMPLATE_TRIGGERS = {
+    "spring": ("hooke", "spring balance", "spring", "elastic limit", "force-extension",
+               "force extension", "unstretched", "loaded spring"),
+    "free_body": ("free body", "free-body", "forces acting on", "normal reaction", "upthrust",
+                  "inclined plane", "frictional force", "force of friction", "resultant force",
+                  "tension in the string", "on a surface", "buoyant", "float", "sink"),
+    "lever": ("lever", "fulcrum", "turning effect", "moment of", "moments", "torque", "pulley",
+              "wheel and axle", "mechanical advantage", "velocity ratio", "centre of gravity",
+              "bottle opener", "wheelbarrow", "crowbar", "tongs", "see-saw", "pair of scissors"),
+    "circuit": ("circuit", "ammeter", "voltmeter", "ohm", "resistor", "battery", "emf", "kwh",
+                "short circuit", "wiring", "heating effect of", "live wire", "parallel lamp",
+                "potential difference", "current through", "electric heater"),
+    "wave": ("wave", "wavelength", "crest", "trough", "ripple", "frequency", "amplitude",
+             "transverse", "longitudinal", "compression", "rarefaction", "vibration"),
+    "curved_mirror": ("concave", "convex", "spherical mirror", "curved mirror", "mirror",
+                      "principal focus", "centre of curvature", "radius of curvature"),
+    "thin_lens": ("lens", "converging", "diverging", "eyepiece", "objective lens",
+                  "magnifying glass", "spectacles", "projector"),
+    "refraction": ("refraction", "refractive", "prism", "glass block", "critical angle",
+                   "total internal", "optical fibre", "optical fiber", "apparent depth",
+                   "dispersion", "snell", "spectrum"),
+    "magnetism": ("magnetic field", "bar magnet", "magnet", "electromagnet", "solenoid",
+                  "field line", "magnetic pole", "coil of wire", "magnetic flux", "domains"),
+    "vector_triangle": ("vector", "resultant", "parallelogram law", "resolution of forces",
+                        "triangle of forces", "equilibrant", "vectors in equilibrium",
+                        "perpendicular components"),
+    "electroscope": ("electroscope", "gold leaf", "leaf diverge", "leaves diverge",
+                     "electrostatic", "charging by", "coulomb", "discharge", "capacitor"),
+}
+
+_GATE_MATCHES = {
+    name: [re.compile(rf"\b{re.escape(p)}(?:es|s)?\b") for p in trigs]
+    for name, trigs in _TEMPLATE_TRIGGERS.items()
+}
+
+# Which drawing of a template a step wants, when the template has more than one shape. Read off
+# the step's own words, because a dispersion step and a glass-block step share one topic.
+_VARIANT_HINTS = {
+    "wave": (("longitudinal", ("longitudinal", "sound", "compression", "rarefaction")),),
+    "thin_lens": (("converging", ("converging", "convex lens", "real image", "magnif")),
+                  ("diverging", ("diverging", "concave lens"))),
+    "refraction": (("prism", ("prism", "dispersion", "spectrum", "deviation")),
+                   ("glass_block", ("glass block", "apparent depth", "critical angle",
+                                    "total internal"))),
+    "curved_mirror": (("convex", ("convex",)), ("concave", ("concave",))),
+    "free_body": (("inclined_plane", ("inclined plane", "slope", "ramp")),
+                  ("suspended", ("suspended", "hangs", "ceiling", "string"))),
+    "circuit": (("switch_open", ("open switch", "open circuit")),
+                ("parallel_lamps", ("in parallel", "parallel lamp")),
+                ("voltmeter_across", ("voltmeter",))),
+    "magnetism": (("solenoid", ("solenoid", "coil", "electromagnet")),
+                  ("two_wires", ("two wires", "between the wires"))),
+    "electroscope": (("uncharged", ("uncharged", "no charge")),
+                     ("positive", ("positively charged",)),
+                     ("negative", ("negatively charged",))),
+    "spring": (("unstretched", ("unstretched", "no load", "original length")),
+               ("spring_balance", ("spring balance", "newton meter", "force meter"))),
+    "lever": (("second_class", ("wheelbarrow", "second class")),
+              ("third_class", ("tongs", "fishing rod", "third class"))),
+}
+
+
+# A lens lesson borrows most of a mirror lesson's words — focus, centre of curvature, convex,
+# concave — and a ray diagram of the wrong apparatus teaches the wrong thing, so among the
+# competing ray diagrams only the topic's own strongest description survives.
+_EXCLUSIVE_GROUPS = ({"thin_lens", "curved_mirror", "refraction"},)
+
+
+def _phrase_hits(regexes, phrases, text):
+    """Matched phrases, with a short one swallowed by a longer match counted only once:
+    "spring balance" and "spring" are the same piece of evidence, not two."""
+    hit = [p for p, rx in zip(phrases, regexes) if rx.search(text)]
+    return [p for p in hit if not any(p != q and p in q for q in hit)]
+
+
+def template_gate(subject, notes_text):
+    """Which templates the supplied notes describe, best first; None when there are no notes."""
+    key = (subject or "").replace("_", " ").strip().lower()
+    text = (notes_text or "").lower()
+    if key != "physics" or not text:
+        return None
+    scored = sorted(((len(_phrase_hits(rxs, _TEMPLATE_TRIGGERS[name], text)), name)
+                     for name, rxs in _GATE_MATCHES.items()), key=lambda row: (-row[0], row[1]))
+    for group in _EXCLUSIVE_GROUPS:
+        winner = next((n for s, n in scored if n in group and s >= 2), None)
+        if winner:
+            scored = [(s, n) for s, n in scored if n not in group or n == winner]
+    # Two separate phrases before a diagram counts, and only the three strongest survive: one
+    # stray word in a topic's notes must not lock out the diagram the topic really needs.
+    top = [name for n, name in scored if n >= 2][:3]
+    return {"allowed": set(top) | {"graph_axes"}, "primary": top[0] if top else None}
+
+
+# A substituted diagram has nowhere honest to put the teacher's own wording. Nothing in any
+# template draws above y=80, so the band at the top of the board is the only free space.
+_SPILL_Y = (44, 68)
+
+
+def _matched_variant(hints, text):
+    """The variant this text asks for, or None when it does not clearly ask for one."""
+    hit = [name for name, phrases in hints if any(p in text for p in phrases)]
+    return hit[0] if len(hit) == 1 else None
+
+
+def _step_gate(gate, narration):
+    """The gate for one step: the same allowed diagrams, but the variant read from that step's
+    own words — a dispersion step wants the prism, the step before it wants the glass block."""
+    if not gate or not gate.get("primary"):
+        return gate
+    return {**gate, "hint": _matched_variant(_VARIANT_HINTS.get(gate["primary"], ()),
+                                             (narration or "").lower())}
+
+
+def _spilled_labels(labels, keep):
+    out = []
+    for key, value in (labels or {}).items():
+        if key in keep or not isinstance(value, str) or not value.strip():
+            continue
+        out.append({"type": "label", "text": value.strip()[:70], "x": 56, "y": _SPILL_Y[len(out)],
+                    "size": 15, "color": "#BFB09C"})
+        if len(out) == 2:
+            break
+    return out
 
 
 def _num(v):
@@ -327,7 +630,7 @@ def validate_lesson(lesson, allowed_concepts=None):
     return problems
 
 
-def _sanitize_actions(actions):
+def _sanitize_actions(actions, gate=None):
     """Keep templates (if known) and freeform shapes that pass bounds+overlap; drop the rest."""
     kept, boxes = [], []
     for a in actions or []:
@@ -335,8 +638,31 @@ def _sanitize_actions(actions):
             continue
         t = a.get("type")
         if t == "template":
-            if a.get("template") in TEMPLATE_CATALOG:
-                kept.append(a)
+            name = a.get("template")
+            spec = TEMPLATE_CATALOG.get(name)
+            # The notes name the phenomenon, so a diagram of something else is a mistake, not a
+            # style choice — and so is a template name the renderer does not own. With nothing in
+            # the notes to draw, the model's own pick stands unjudged.
+            judged = bool(gate and gate.get("primary"))
+            if judged and (spec is None or name not in gate["allowed"]):
+                labels = a.get("labels") or {}
+                spec = TEMPLATE_CATALOG[gate["primary"]]
+                keep = {k: v for k, v in labels.items() if k in spec["slots"]}
+                kept.append({"type": "template", "template": gate["primary"],
+                             "variant": gate.get("hint") or DEFAULT_VARIANT.get(gate["primary"]),
+                             "labels": keep})
+                kept.extend(_spilled_labels(labels, keep))
+                continue
+            if spec:
+                # An invented variant would silently fall back to the bare base diagram,
+                # so never keep a name we don't have geometry for.
+                variant = a.get("variant")
+                if variant and variant not in spec["variants"]:
+                    variant = None
+                if not variant:
+                    variant = (gate.get("hint") if judged and gate["primary"] == name else None) \
+                        or DEFAULT_VARIANT.get(name)
+                kept.append({**a, "variant": variant} if variant else a)
             continue
         if t == "label":
             kept.append(a)
@@ -353,16 +679,63 @@ def _sanitize_actions(actions):
     return kept
 
 
-def generate_lesson(subject, topic, example_questions, adapt_context, concept_list=None):
-    """Build a lesson. When concept_list is given (the hand-authored map) the lesson
-    must cover every concept in order and each step is tagged with its concept slug;
-    the real questions then only ground the exam STYLE. Without a map the questions
-    define the scope, as before."""
+_STEP_NARRATION = ('"narration": "One or two spoken sentences the student hears and reads '
+                   'for this step (plain, encouraging, exam-focused)."')
+_STEP_ACTIONS = ("""      "actions": [
+        {"type":"template","template":"graph_axes","labels":{"title":"...","xlabel":"...","ylabel":"..."}}
+      ]""")
+
+
+def _plain_step_shape():
+    return "{%s,\n%s}" % (_STEP_NARRATION, _STEP_ACTIONS)
+
+
+def _annotated_step_shape():
+    return ('{"concept": "a slug from the list above",\n      %s,\n%s}'
+            % (_STEP_NARRATION, _STEP_ACTIONS))
+
+
+def _style_block(example_questions):
+    """Past papers, used only to set the depth a lesson has to reach. Empty when the
+    topic has no bank — the notes alone then decide the scope, which is honest: a
+    subject can be taught before it can be examined."""
+    if not example_questions:
+        return ""
+    return ("\nThese real KCSE past-paper questions from this topic show the STYLE the "
+            "notes lead to — the wording, the command words and the depth KNEC expects. "
+            "Use them for depth only:\n"
+            + "\n".join(f"- {q}" for q in example_questions[:8]) + "\n")
+
+
+def generate_lesson(subject, topic, example_questions, adapt_context, concept_list=None,
+                    notes=None):
+    """Build a lesson.
+
+    Supplied notes outrank everything else: they are the content, so the lesson walks
+    through them in their own order. Next comes the hand-authored concept map, which
+    fixes the concepts and their teaching order and tags every step; without either,
+    the past-paper questions define the scope, as they did before any of this existed.
+    A concept map that arrives alongside notes only adds step tags to the notes."""
     subject_name = _subject_name(subject)
     topic_name = curriculum.topic_name(subject, topic)
-    system = _lesson_system(subject_name)
+    system = _lesson_system(subject)
     slugs = [c["slug"] for c in (concept_list or [])]
-    if slugs:
+    gate = template_gate(subject, notes)
+    if notes:
+        lo = max(8, min(20, len(notes.split()) // 160))
+        user = NOTES_LESSON_TEMPLATE.format(
+            topic=topic_name, subject_name=subject_name, notes=notes,
+            outline=("\nThis topic also has a concept map. Tag every step with the concept "
+                     "it teaches — \"concept\": \"<slug>\", copied exactly from this list — "
+                     "and keep this teaching order:\n"
+                     + "\n".join(f"{i}. {c['slug']} — {c['name']}"
+                                 for i, c in enumerate(concept_list or [], 1)) + "\n"
+                     if slugs else ""),
+            style=_style_block(example_questions), adapt=adapt_context,
+            lo=lo, hi=min(24, lo + 5),
+            step_shape=_annotated_step_shape() if slugs else _plain_step_shape(),
+        )
+    elif slugs:
         examples = "\n".join(f"- {q}" for q in example_questions[:12])
         lo = max(8, len(slugs) + 1)
         user = CONCEPT_LESSON_TEMPLATE.format(
@@ -386,22 +759,22 @@ def generate_lesson(subject, topic, example_questions, adapt_context, concept_li
         last_raw = raw
         problems = validate_lesson(raw, slugs)
         if not problems:
-            return normalize_lesson(raw, slugs)
+            return normalize_lesson(raw, slugs, gate)
         last_err = ValueError("invalid lesson: " + "; ".join(problems[:5]))
     if last_raw is not None:
         # Never dead-end the student: sanitize the best attempt instead of failing outright.
-        return normalize_lesson(last_raw, slugs)
+        return normalize_lesson(last_raw, slugs, gate)
     raise last_err or ValueError("lesson generation failed")
 
 
-def normalize_lesson(lesson, allowed_concepts=None):
+def normalize_lesson(lesson, allowed_concepts=None, gate=None):
     if not isinstance(lesson, dict) or not isinstance(lesson.get("steps"), list) or not lesson["steps"]:
         raise ValueError("Lesson JSON missing 'steps'")
     allowed = set(allowed_concepts or ())
     steps = []
     for step in lesson["steps"]:
         narration = str(step.get("narration", "")).strip()
-        actions = _sanitize_actions(step.get("actions", []))
+        actions = _sanitize_actions(step.get("actions", []), _step_gate(gate, narration))
         concept = step.get("concept") if allowed else None
         if concept not in allowed:
             concept = None
@@ -734,7 +1107,7 @@ def generate_walkthrough_step(subject, question, attempt=1):
     concept = question.get("concept")
     allowed = [concept] if concept else []
     marks = question.get("marks")
-    system = _lesson_system(_subject_name(subject))
+    system = _lesson_system(subject)
     user = WALK_USER_TEMPLATE.format(
         subject_name=_subject_name(subject),
         number=f" ({question['number']})" if question.get("number") else "",

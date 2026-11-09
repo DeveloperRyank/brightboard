@@ -90,6 +90,12 @@ def _topics_from_pairs(pairs):
     return [{"slug": s, "name": n, "grade": y} for (s, n, y) in pairs]
 
 
+def _topics_from_syllabus(pairs):
+    """(slug, name, year, strand) quadruples, for a KCSE subject whose work is written
+    down as Form + strand — Physics, whose notes booklet is itself organised that way."""
+    return [{"slug": s, "name": n, "grade": y, "strand": st} for (s, n, y, st) in pairs]
+
+
 def _flat_topics(slugs_names):
     """(slug, name) pairs for subjects whose topics are not split by year."""
     return [{"slug": s, "name": n} for (s, n) in slugs_names]
@@ -116,25 +122,62 @@ MATHEMATICS_TOPICS = _flat_topics([
     ("solid_geometry", "Solid Geometry"),
 ])
 
-PHYSICS_TOPICS = _flat_topics([
-    ("measurement", "Measurement and Units"),
-    ("forces", "Forces and Newton's Laws"),
-    ("pressure", "Pressure"),
-    ("moments", "Turning Effect of Force"),
-    ("energy_work_power", "Work, Energy and Power"),
-    ("heat", "Heat and Temperature"),
-    ("waves", "Waves"),
-    ("sound", "Sound"),
-    ("light", "Light and Optics"),
-    ("electrostatics", "Electrostatics"),
-    ("current_electricity", "Current Electricity"),
-    ("magnetism", "Magnetism and Electromagnetism"),
-    ("capacitors", "Capacitors"),
-    ("electronics", "Diodes and Electronics"),
-    ("gas_laws", "Gas Laws"),
-    ("atomic_physics", "Atomic Physics"),
-    ("radioactivity", "Radioactivity"),
-    ("photoelectric_effect", "Photoelectric Effect"),
+# KCSE Physics, as the four Forms of the syllabus and the strands inside each of them.
+# The names and the order are the Teacher.co.ke Form 1-4 notes booklet the lessons are
+# built from (tools/build_physics_notes.py): its forty chapters are the whole course, so
+# the list below is that booklet rather than the eight flat headings this subject used to
+# carry. Capacitors is listed because the syllabus teaches it and a student still has to
+# find it here — it simply has no notes yet, so it stays locked.
+PHYSICS_TOPICS = _topics_from_syllabus([
+    # Form 1
+    ("intro_to_physics", "Introduction to Physics", 1, "Physics and Measurement"),
+    ("measurement_i", "Measurement I", 1, "Physics and Measurement"),
+    ("forces", "Forces", 1, "Mechanics"),
+    ("pressure", "Pressure", 1, "Mechanics"),
+    ("particulate_nature_of_matter", "Particulate Nature of Matter", 1, "Thermal Physics"),
+    ("thermal_expansion", "Thermal Expansion", 1, "Thermal Physics"),
+    ("heat_transfer", "Heat Transfer", 1, "Thermal Physics"),
+    ("rectilinear_propagation", "Rectilinear Propagation and Reflection at Plane Surfaces",
+     1, "Optics and Waves"),
+    ("electrostatics_i", "Electrostatics I", 1, "Electricity and Magnetism"),
+    ("cells_and_simple_circuits", "Cells and Simple Circuits", 1, "Electricity and Magnetism"),
+    # Form 2
+    ("magnetism", "Magnetism", 2, "Electricity and Magnetism"),
+    ("measurement_ii", "Measurement II", 2, "Physics and Measurement"),
+    ("turning_effect_of_a_force", "Turning Effect of a Force", 2, "Mechanics"),
+    ("equilibrium_and_centre_of_gravity", "Equilibrium and Centre of Gravity", 2, "Mechanics"),
+    ("reflection_at_curved_surfaces", "Reflection at Curved Surfaces", 2, "Optics and Waves"),
+    ("magnetic_effect_of_current", "Magnetic Effect of an Electric Current", 2,
+     "Electricity and Magnetism"),
+    ("hookes_law", "Hooke's Law", 2, "Mechanics"),
+    ("waves_i", "Waves I", 2, "Optics and Waves"),
+    ("sound", "Sound", 2, "Optics and Waves"),
+    ("fluid_flow", "Fluid Flow", 2, "Mechanics"),
+    # Form 3
+    ("linear_motion", "Linear Motion", 3, "Mechanics"),
+    ("refraction_of_light", "Refraction of Light", 3, "Optics and Waves"),
+    ("newtons_laws", "Newton's Laws of Motion", 3, "Mechanics"),
+    ("energy_work_power_machines", "Energy, Work, Power and Machines", 3, "Mechanics"),
+    ("current_electricity", "Current Electricity", 3, "Electricity and Magnetism"),
+    ("waves_ii", "Waves II", 3, "Optics and Waves"),
+    ("electrostatics_ii", "Electrostatics II", 3, "Electricity and Magnetism"),
+    ("heating_effect_of_current", "Heating Effect of an Electric Current", 3,
+     "Electricity and Magnetism"),
+    ("quantity_of_heat", "Quantity of Heat", 3, "Thermal Physics"),
+    ("gas_laws", "The Gas Laws", 3, "Thermal Physics"),
+    # Form 4
+    ("thin_lenses", "Thin Lenses", 4, "Optics and Waves"),
+    ("uniform_circular_motion", "Uniform Circular Motion", 4, "Mechanics"),
+    ("floating_and_sinking", "Floating and Sinking", 4, "Mechanics"),
+    ("electromagnetic_spectrum", "Electromagnetic Spectrum", 4, "Optics and Waves"),
+    ("electromagnetic_induction", "Electromagnetic Induction", 4, "Electricity and Magnetism"),
+    ("mains_electricity", "Mains Electricity", 4, "Electricity and Magnetism"),
+    ("cathode_rays", "Cathode Rays", 4, "Atomic and Nuclear Physics"),
+    ("x_rays", "X-Rays", 4, "Atomic and Nuclear Physics"),
+    ("photoelectric_effect", "Photoelectric Effect", 4, "Atomic and Nuclear Physics"),
+    ("radioactivity", "Radioactivity", 4, "Atomic and Nuclear Physics"),
+    ("electronics", "Electronics", 4, "Electricity and Magnetism"),
+    ("capacitors", "Capacitors", 4, "Electricity and Magnetism"),
 ])
 
 BIOLOGY_TOPICS = _flat_topics([
