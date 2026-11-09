@@ -17,6 +17,6 @@ tools/*.jpg
 # committed at data/curriculum/kicd_strands.json.
 research/
 
-# Scratch harnesses that poke the live engine and the real profile.db. Local only,
-# never a part of the app.
-tools_local_*.py
+# Scratch harnesses that poke the live engine and the real profile.db, plus the dumps,
+# DOM captures and lesson JSON they leave behind. Local only, never a part of the app.
+tools_local_*

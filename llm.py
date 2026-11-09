@@ -49,6 +49,12 @@ try:
 except ValueError:
     GEMINI_THINKING_BUDGET = 0
 
+# Free tiers queue a reply for minutes at a time when they are busy, and a student waiting
+# on a lesson should not sit behind that queue. Every chat call now has a wall-clock budget:
+# inside it we retry, at the edge of it we give up and let the caller use the lesson or
+# answer it already has. Raise it with LLM_CHAT_BUDGET_SECONDS if a paid model is added.
+CHAT_BUDGET = float(os.environ.get("LLM_CHAT_BUDGET_SECONDS", "240") or 240)
+
 # Narration order: Kokoro (local ONNX, no key, no quota, works offline) first whenever
 # models/ holds the v1.0 files, then Edge TTS (Microsoft neural, free) and Gemini TTS as
 # hosted fallbacks. TTS_PROVIDER="edge" skips straight to the hosted pair, and
@@ -116,7 +122,7 @@ def _or_headers():
     return {"Authorization": f"Bearer {OR_API_KEY}", "Content-Type": "application/json"}
 
 
-def _openrouter_chat(system, user, temperature, max_tokens):
+def _openrouter_chat(system, user, temperature, max_tokens, deadline=None):
     payload = {
         "model": OR_MODEL,
         "messages": [
@@ -130,13 +136,30 @@ def _openrouter_chat(system, user, temperature, max_tokens):
         # Off costs nothing on non-reasoning models and matches Gemini's thinkingBudget=0.
         "reasoning": {"enabled": False},
     }
+    deadline = deadline or (time.time() + CHAT_BUDGET)
     last_error = None
     for attempt, wait in enumerate((0, 10, 30)):
+        left = deadline - time.time()
+        if left < 15:
+            # Out of budget. Another attempt would cost the student more waiting than the
+            # reply is worth, so stop and let the caller use what it already has.
+            reason = f"OpenRouter did not answer within {int(CHAT_BUDGET)}s"
+            last_error = f"{last_error}; {reason}" if last_error else f"Request timed out: {reason}"
+            break
         if wait:
-            time.sleep(wait)
-        resp = requests.post(OR_API_URL, headers=_or_headers(), json=payload, timeout=180)
-        if resp.status_code == 200:
-            data = resp.json()
+            time.sleep(min(wait, left - 10))
+        try:
+            resp = requests.post(OR_API_URL, headers=_or_headers(), json=payload,
+                                 timeout=min(180, left))
+            status, body = resp.status_code, resp.text
+            data = resp.json() if status == 200 else None
+        except (requests.RequestException, ValueError) as exc:
+            # The free tier breaks the stream partway through a long reply as often as it
+            # answers it. A broken reply costs the student the whole lesson, so use the
+            # attempt we already saved up: the next one usually lands.
+            last_error = f"OpenRouter request failed: {type(exc).__name__}: {exc}"
+            continue
+        if status == 200:
             choices = data.get("choices")
             # On a reasoning model max_tokens covers the thinking too, so a 200 can
             # carry an empty `content` (finish_reason=length). Never hand that back —
@@ -153,11 +176,11 @@ def _openrouter_chat(system, user, temperature, max_tokens):
                     "any answer. Raise max_tokens or pick a model that does not think out loud."
                 )
         else:
-            last_error = f"LLM API error {resp.status_code}: {resp.text[:500]}"
-            if resp.status_code not in (429, 500, 502, 503):
+            last_error = f"LLM API error {status}: {body[:500]}"
+            if status not in (429, 500, 502, 503):
                 break
-            if resp.status_code == 429 and (
-                "free-models-per-day" in resp.text or "openrouter_free_tier_daily" in resp.text
+            if status == 429 and (
+                "free-models-per-day" in body or "openrouter_free_tier_daily" in body
             ):
                 raise RuntimeError(
                     "OpenRouter's free daily limit is used up (50 requests/day). "
@@ -192,7 +215,7 @@ def _retry_hint(resp):
     return total or None
 
 
-def _gemini_chat(system, user, temperature, max_tokens, json_mode, file=None):
+def _gemini_chat(system, user, temperature, max_tokens, json_mode, file=None, deadline=None):
     url = f"{GEMINI_BASE}/{GEMINI_MODEL}:generateContent"
     gen_config = {"temperature": temperature, "maxOutputTokens": max_tokens}
     if GEMINI_THINKING_BUDGET >= 0:
@@ -209,14 +232,24 @@ def _gemini_chat(system, user, temperature, max_tokens, json_mode, file=None):
     }
     last_error = None
     overloaded = False
+    deadline = deadline or (time.time() + CHAT_BUDGET)
     # With OpenRouter configured we can degrade instead of waiting a quota window out,
     # so one quick retry is plenty; without it, sit out the per-minute cap properly.
     waits = [0.0, 5.0] if _or_ready() else [0.0, 5.0, 15.0, 30.0]
     quota_hint = None
     for attempt in range(len(waits)):
+        left = deadline - time.time()
+        if left < 15:
+            last_error = f"Request timed out: Gemini did not answer within {int(CHAT_BUDGET)}s"
+            break
         if waits[attempt]:
-            time.sleep(waits[attempt])
-        resp = requests.post(url, headers=_gemini_headers(), json=body, timeout=180)
+            time.sleep(min(waits[attempt], left - 10))
+        try:
+            resp = requests.post(url, headers=_gemini_headers(), json=body,
+                                 timeout=min(180, left))
+        except requests.RequestException as exc:
+            last_error = f"Gemini request failed: {type(exc).__name__}: {exc}"
+            continue
         if resp.status_code == 200:
             data = resp.json()
             cands = data.get("candidates") or []
@@ -261,11 +294,15 @@ def _announce_fallback(reason):
         print(f"[llm] {reason} -> text calls fall back to OpenRouter ({OR_MODEL}); vision stays on Gemini")
 
 
-def chat(system, user, temperature=0.4, max_tokens=3000, json_mode=False, file=None):
+def chat(system, user, temperature=0.4, max_tokens=3000, json_mode=False, file=None,
+         deadline=None):
     """One chat completion. Returns the assistant text.
 
     `file` (Gemini only) is {"mime": str, "data_b64": str} for an inline PDF/image,
     letting the model read uploaded papers — text layers and scans alike.
+
+    `deadline` is a wall-clock limit for the whole call including every retry and any
+    provider switch inside it; it defaults to CHAT_BUDGET seconds from now.
 
     When Gemini's free-tier quota is spent, text calls quietly continue on OpenRouter
     (if configured) rather than dead-ending the student; vision calls cannot.
@@ -273,14 +310,16 @@ def chat(system, user, temperature=0.4, max_tokens=3000, json_mode=False, file=N
     problems = check_config()
     if problems:
         raise RuntimeError(" ".join(problems))
+    deadline = deadline or (time.time() + CHAT_BUDGET)
     if PROVIDER != "gemini":
         if file:
             raise RuntimeError("Document analysis needs LLM_PROVIDER=gemini (OpenRouter is text-only).")
-        return _openrouter_chat(system, user, temperature, max_tokens)
+        return _openrouter_chat(system, user, temperature, max_tokens, deadline=deadline)
 
     if file:
         try:
-            return _gemini_chat(system, user, temperature, max_tokens, json_mode, file=file)
+            return _gemini_chat(system, user, temperature, max_tokens, json_mode,
+                                file=file, deadline=deadline)
         except QuotaExhausted as exc:
             wait = f" (resets in about {int(exc.retry_in // 60)} min)" if exc.retry_in else ""
             raise RuntimeError(
@@ -295,9 +334,9 @@ def chat(system, user, temperature=0.4, max_tokens=3000, json_mode=False, file=N
 
     global _CHAT_SKIP_GEMINI_UNTIL
     if _or_ready() and time.time() < _CHAT_SKIP_GEMINI_UNTIL:
-        return _openrouter_chat(system, user, temperature, max_tokens)
+        return _openrouter_chat(system, user, temperature, max_tokens, deadline=deadline)
     try:
-        return _gemini_chat(system, user, temperature, max_tokens, json_mode)
+        return _gemini_chat(system, user, temperature, max_tokens, json_mode, deadline=deadline)
     except QuotaExhausted as exc:
         if not _or_ready():
             raise
@@ -305,13 +344,13 @@ def chat(system, user, temperature=0.4, max_tokens=3000, json_mode=False, file=N
         cooldown = min(max(exc.retry_in or 300.0, 60.0), 900.0)
         _CHAT_SKIP_GEMINI_UNTIL = time.time() + cooldown
         _announce_fallback("Gemini quota spent")
-        return _openrouter_chat(system, user, temperature, max_tokens)
+        return _openrouter_chat(system, user, temperature, max_tokens, deadline=deadline)
     except ProviderUnavailable as exc:
         if not _or_ready():
             raise
         _CHAT_SKIP_GEMINI_UNTIL = time.time() + 120.0
         _announce_fallback("Gemini is at capacity (503)")
-        return _openrouter_chat(system, user, temperature, max_tokens)
+        return _openrouter_chat(system, user, temperature, max_tokens, deadline=deadline)
 
 
 # ---------------- Text-to-speech (Kokoro local + Edge + Gemini) ----------------

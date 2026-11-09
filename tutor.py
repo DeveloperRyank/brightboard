@@ -1,6 +1,8 @@
 """LLM-powered tutoring: whiteboard lesson generation, interruptible Q&A, answer diagnosis."""
 
+import json
 import re
+import time
 
 import concepts
 import curriculum
@@ -172,11 +174,12 @@ Your reply must begin with the character {{ and end with the character }}.
 # measures the real glyphs of every line, lays rows down in order and places every mark on
 # the words it names. A script that tries to do any of that itself is rejected.
 
-SCRIPT_BASE = """THE BOARD IS PLAYED, NOT DRAWN BY YOU. You write a lesson script: a flat list of
-operations the whiteboard engine performs in order, while the same words are spoken out loud.
+SCRIPT_BASE = """THE BOARD IS PLAYED, NOT DRAWN BY YOU. You write a lesson script: operations the
+whiteboard engine performs in order, while the same words are spoken out loud. One operation per
+line, and nothing else on the line.
 You never choose a position, a size, a colour code or a canvas — the engine measures the real
-handwriting and places every line itself. Any coordinate in your JSON is a bug and the script
-is thrown away.
+handwriting and places every line itself. Any coordinate in your script is a bug and that
+operation is thrown away.
 
 Operations (every one of these keys is exactly as written):
   {"op":"caption","text":"Title of this sheet of board — at most 6 words"}
@@ -222,20 +225,20 @@ def _figure_docs(subject):
 def _script_system(subject):
     return f"""You are a KCSE {_subject_name(subject)} tutor planning one continuous whiteboard
 lesson for a secondary-school student in Kenya, to be played back with your words spoken aloud.
-You output STRICT JSON only — no prose, no code fences, nothing before or after the JSON.
-Your reply must begin with the character {{ and end with the character }}.
+Your whole reply is the lesson script and nothing else: ONE operation per line, each line a
+complete JSON object on its own. No array brackets, no commas between the lines, no indentation,
+no code fences, no commentary before or after.
 {SCRIPT_BASE}
 {FIGURE_LETTERS.replace("<<figures>>", _figure_docs(subject))}"""
 
 
-def _script_head(topic_name, subject_name):
-    return (f'{{\n  "title": "{topic_name}",\n  "steps": [\n'
-            '    {"op":"caption","text":"What this sheet is about"},\n'
-            '    {"op":"say","text":"The sentence the tutor says out loud."},\n'
-            '    {"op":"write","text":"M = 20 g","id":"given","row":0},\n'
-            '    {"op":"write","text":"n = 20/100 = 0.2 mol","id":"answer","row":1,"color":"accent"},\n'
-            '    {"op":"ring","target":"answer","find":"0.2 mol"}\n'
-            '  ]\n}')
+def _script_head():
+    """The shape, in the same one-per-line form the model is asked to write in."""
+    return ('{"op":"caption","text":"What this sheet is about"}\n'
+            '{"op":"say","text":"The sentence the tutor says out loud."}\n'
+            '{"op":"write","text":"M = 20 g","id":"given","row":0}\n'
+            '{"op":"write","text":"n = 20/100 = 0.2 mol","id":"answer","row":1,"color":"accent"}\n'
+            '{"op":"ring","target":"answer","find":"0.2 mol"}')
 
 
 SCRIPT_SHAPE_NOTES = """Teach the topic as a teacher would at the board, in this order:
@@ -278,7 +281,7 @@ Coverage rules — these are checked, and a lesson that breaks them is thrown aw
 
 {shape}
 
-Output JSON exactly like this shape, with the operations listed in your instructions:
+Write the script itself, nothing else: ONE operation per line, exactly in this shape,
 {shape_example}
 
 Use {lo} to {hi} sheets. Every sheet needs a caption, at least one say, and at least one write
@@ -304,7 +307,7 @@ allocations and the depth KNEC expects. Use them for depth only, never as questi
 
 {shape}
 
-Output JSON exactly like this shape, with the operations listed in your instructions:
+Write the script itself, nothing else: ONE operation per line, exactly in this shape,
 {shape_example}
 
 Use {lo} to {hi} sheets. Every sheet needs a caption, at least one say, and at least one write
@@ -321,7 +324,7 @@ The past-paper questions the topic is examined by:
 
 {shape}
 
-Output JSON exactly like this shape, with the operations listed in your instructions:
+Write the script itself, nothing else: ONE operation per line, exactly in this shape,
 {shape_example}
 
 Use {lo} to {hi} sheets. Every sheet needs a caption, at least one say, and at least one write
@@ -904,6 +907,16 @@ MARK_OPS = {"ring", "underline", "arrow", "tick"}
 ROW_LIMIT = 5
 LINE_LIMIT = 64
 _SHEET_LIMIT = 26
+# What one lesson is asked for when nothing fixes its size. Every sheet is a caption, a
+# spoken line and two to five writes, so the count is what the student waits through.
+LO_PLAIN, HI_PLAIN = 8, 12
+
+# A lesson is written while the student watches a loading board, so the whole job — both
+# attempts, and every retry the provider makes inside them — has one wall-clock ceiling.
+# Measured on the free tiers this runs on, a good script arrives in about 50 seconds; past
+# two and a half minutes the queue is the problem, not the lesson, and the caller still has
+# the last lesson cached to open instead.
+LESSON_BUDGET = 150.0
 # Anything that looks like this in a reply is the model reaching for the canvas, which
 # it does not own. The engine measures every one of these off real glyphs.
 _GEO_KEYS = {"x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "size", "width",
@@ -925,6 +938,105 @@ def _as_text(v):
     return str(v if v is not None else "").strip()
 
 
+_FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.S)
+
+
+def _escape_inner_quotes(line):
+    """Put the missing backslash in front of a quote the model left open inside a value.
+
+    {"op":"say","text":"the acid "eats" the metal"} is one character away from valid JSON,
+    and it is the mistake these replies really make. A quote only closes a string when what
+    follows it could follow a closing quote."""
+    out, in_str, esc = [], False, False
+    for i, ch in enumerate(line):
+        if esc:
+            out.append(ch)
+            esc = False
+            continue
+        if ch == "\\":
+            out.append(ch)
+            esc = in_str
+            continue
+        if ch == '"':
+            if in_str:
+                if line[i + 1:].lstrip()[:1] in (",", ":", "}", "]"):
+                    in_str = False
+                    out.append(ch)
+                else:
+                    out.append('\\"')
+                continue
+            in_str = True
+        out.append(ch)
+    return "".join(out)
+
+
+def _iter_objects(text):
+    """Every top-level {...} in the reply, in order, ignoring braces inside strings."""
+    depth, start, in_str, esc = 0, -1, False, False
+    for i, ch in enumerate(text):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth:
+            depth -= 1
+            if depth == 0:
+                yield text[start:i + 1]
+
+
+def _read_object(chunk):
+    """One JSON object, repaired once if a quote was left open inside a value."""
+    text = chunk.strip().rstrip(",").strip()
+    for candidate in (text, _escape_inner_quotes(text)):
+        try:
+            obj = json.loads(candidate)
+        except ValueError:
+            continue
+        if isinstance(obj, dict):
+            return obj
+    return None
+
+
+def parse_script(text, title=None, repairs=None):
+    """Read a lesson reply operation by operation, wherever the model put the line breaks.
+
+    A lesson used to be one nested JSON blob, so a single unescaped quote — or a reply cut
+    off by the output budget — threw thirty seconds of writing away and left the student
+    with an error. Read object by object instead: one broken operation costs that operation,
+    a reply that ran out of room keeps everything it finished, and a model that ignores the
+    one-per-line instruction and returns a wrapped {"steps": [...]} still works."""
+    body = _as_text(text)
+    fenced = _FENCE.search(body)
+    if fenced:
+        body = fenced.group(1)
+    steps, broken = [], 0
+    for chunk in _iter_objects(body):
+        obj = _read_object(chunk)
+        if obj is None:
+            if '"op"' in chunk:
+                broken += 1
+            continue
+        if isinstance(obj.get("steps"), list):
+            steps.extend(o for o in obj["steps"] if isinstance(o, dict) and o.get("op"))
+            title = _as_text(obj.get("title")) or title
+        elif obj.get("op"):
+            steps.append(obj)
+    if repairs is not None and broken:
+        repairs.append(f"{broken} operation(s) in the reply could not be read, so they "
+                       "were left out")
+    return {"title": _as_text(title) or "Lesson", "steps": steps}
+
+
 def validate_script(script, allowed_concepts=None, gate=None, subject=None):
     """A list of human-readable problems; empty means the engine can play this script."""
     problems = []
@@ -944,6 +1056,16 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
     sheets = 0
     writes = 0
     say_lines = 0
+
+    def _new_sheet():
+        """The board wipes when a line will not fit, and the work carries on underneath.
+        The engine does that on its own, so counting it as a sheet here — rather than
+        calling it a fault and making the model write the whole lesson again — is the
+        honest reading of the same script."""
+        nonlocal sheet, rows, ids, accents, shown, sheets
+        sheet = f"{sheet} (continued)" if sheet else "Untitled sheet"
+        rows, ids, accents, shown = 0, {}, 0, False
+        sheets += 1
 
     for i, op in enumerate(script["steps"]):
         if not isinstance(op, dict):
@@ -987,12 +1109,18 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
             if len(text) > LINE_LIMIT:
                 problems.append(f"step {i}: '{text[:24]}…' is {len(text)} characters — the board takes "
                                 "one short line at a time; say the rest instead")
+            # The engine wipes the board when the rows run out, whatever row number the
+            # next line asks for, so a sixth line of working is a new sheet rather than a
+            # fault. Counting it on the requested row instead would call it a second
+            # "line1" on the old sheet and reject a lesson the board plays happily.
+            if rows >= ROW_LIMIT:
+                _new_sheet()
             row = op.get("row")
             if row is not None and not (isinstance(row, (int, float)) and 0 <= int(row) < ROW_LIMIT):
                 problems.append(f"step {i}: row must be 0 to {ROW_LIMIT - 1}")
-            rows = max(rows, (int(row) + 1) if isinstance(row, (int, float)) else rows + 1)
-            if rows > ROW_LIMIT:
-                problems.append(f"step {i}: sheet '{sheet}' has more than {ROW_LIMIT} rows — start a new caption")
+                row = None
+            needed = (int(row) + 1) if isinstance(row, (int, float)) else rows + 1
+            rows = max(rows, needed)
             if op.get("color") not in (None, "", "accent"):
                 problems.append(f"step {i}: colour is a word, 'accent' or nothing at all")
             if op.get("color") == "accent":
@@ -1021,13 +1149,11 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
                 if len(_as_text(value)) > 48:
                     problems.append(f"step {i}: label '{slot}' is a sentence — the notes beside a diagram "
                                     "are a few words")
-            row = op.get("row")
-            if isinstance(row, (int, float)):
-                rows = max(rows, int(row) + 1)
-            else:
-                rows += 1
-            if rows > ROW_LIMIT:
-                problems.append(f"step {i}: sheet '{sheet}' has more than {ROW_LIMIT} rows — start a new caption")
+            if rows >= ROW_LIMIT:
+                _new_sheet()
+            # A drawing fills the sheet from its row to the bench, so the engine sends the
+            # next line to a fresh board; counting it that way here keeps the two in step.
+            rows = ROW_LIMIT
             shown = True
             continue
         # marks
@@ -1067,8 +1193,35 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
     return problems
 
 
+def _thin_sheets(steps, max_sheets):
+    """Fit an over-written lesson to the board instead of throwing it away.
+
+    A model asked for ten sheets often writes twenty, and the old answer to that was to
+    reject the lesson and spend another minute of the student's time asking for it again.
+    The hook, the last worked example and the recap are worth more than the sixth example,
+    so the middle is cut in teaching order and the ends survive."""
+    if not max_sheets or max_sheets < 5 or len(steps) <= max_sheets:
+        return steps
+    bounds = [i for i, op in enumerate(steps)
+              if isinstance(op, dict) and op.get("op") == "caption"]
+    if not bounds:
+        return steps
+    sheets = []
+    for j, start in enumerate(bounds):
+        stop = bounds[j + 1] if j + 1 < len(bounds) else len(steps)
+        sheets.append(steps[start:stop])
+    if len(sheets) <= max_sheets:
+        return steps
+    head, middle, tail = sheets[:1], sheets[1:-3], sheets[-3:]
+    keep = head + middle[:max(0, max_sheets - len(head) - len(tail))] + tail
+    out = list(steps[:bounds[0]])
+    for sheet in keep:
+        out.extend(sheet)
+    return out
+
+
 def normalize_script(script, allowed_concepts=None, durations=None, subject=None,
-                     gate=None, repairs=None):
+                     gate=None, repairs=None, max_sheets=None):
     """Repair the script down to what the engine can actually play, and stamp spoken time.
 
     Most of what a model gets wrong about this contract is mechanical — a coordinate it
@@ -1083,12 +1236,19 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
     note = repairs if repairs is not None else []
     figures = _figure_names(subject)
     allowed = set(allowed_concepts or ())
+    given = (script or {}).get("steps") or []
+    written = _thin_sheets(given, max_sheets)
+    if len(written) < len(given):
+        note.append(f"the reply held {len(given)} operations, more than the board can "
+                    f"teach in {max_sheets} sheets, so {len(given) - len(written)} were "
+                    "left out and the lesson still reaches its recap")
     steps = []
     sheets = 0
     used = set()          # rows taken on the current sheet
     ids = {}
     accents = 0
     shown = False
+    last_id = None        # the line the hand wrote most recently on this sheet
 
     def flush_sheet():
         """An empty sheet is a board wipe for no reason: drop its caption."""
@@ -1114,16 +1274,17 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
         """A full sheet is not the end of the lesson — the board wipes and the work goes
         on, exactly as it does in class. The engine already does this on its own, so the
         generator has to as well, or it drops content the board has room to show."""
-        nonlocal sheets, shown, accents
+        nonlocal sheets, shown, accents, last_id
         if sheets >= _SHEET_LIMIT:
             return False
         sheets += 1
         used.clear()
         ids.clear()
+        last_id = None      # the lines it could point at are off the board now
         shown, accents = False, 0
         return True
 
-    for i, op in enumerate((script or {}).get("steps") or []):
+    for i, op in enumerate(written):
         if not isinstance(op, dict) or op.get("op") not in SCRIPT_OPS:
             note.append(f"step {i}: not an operation the board understands")
             continue
@@ -1145,7 +1306,7 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
                             "sheets, so the rest of the lesson was left out")
                 break
             sheets += 1
-            used, ids, accents, shown = set(), {}, 0, False
+            used, ids, accents, shown, last_id = set(), {}, 0, False, None
             steps.append({"op": "caption", "text": text})
             continue
 
@@ -1175,12 +1336,19 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
                 row = place(op.get("row"))
             used.add(row)
             line = {"op": "write", "text": text, "row": row}
+            # A line has to be nameable or nothing can be marked on it later, so a write
+            # the model never gave an id still gets one. Models very often skip the id and
+            # then point a ring at the word "write" — that mark is kept below, on the line
+            # the hand actually wrote last, which is the line a teacher would be ringing.
             wid = _as_text(op.get("id"))[:28].replace(" ", "_")
-            if wid and wid not in ids:
-                line["id"] = wid
-                ids[wid] = text
-            elif wid:
+            if wid and wid in ids:
                 note.append(f"step {i}: id '{wid}' was already used on this sheet")
+                wid = None
+            if not wid:
+                wid = f"line{len(ids) + 1}"
+            line["id"] = wid
+            ids[wid] = text
+            last_id = wid
             if op.get("color") == "accent" and accents < 1:
                 line["color"] = "accent"
                 accents += 1
@@ -1200,8 +1368,11 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
                 if not more:
                     break
                 used.add(spot)
-                steps.append({"op": "write", "text": more, "row": spot,
+                more_id = f"line{len(ids) + 1}"
+                ids[more_id] = more
+                steps.append({"op": "write", "text": more, "row": spot, "id": more_id,
                               **({"concept": concept} if concept else {})})
+                last_id = more_id
                 shown = True
             if rest:
                 note.append(f"step {i}: '{text[:18]}…' went over the row, so the rest is said")
@@ -1247,8 +1418,13 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
         # marks
         target = _as_text(op.get("target"))
         if target not in ids:
-            note.append(f"step {i}: '{kind}' pointed at '{target}', which was never written here")
-            continue
+            if last_id is None:
+                note.append(f"step {i}: '{kind}' pointed at '{target}', and nothing has been "
+                            "written on this sheet yet")
+                continue
+            note.append(f"step {i}: '{kind}' pointed at '{target}', which is not on this "
+                        "sheet, so it marks the line written just before it")
+            target = last_id
         line = {"op": kind, "target": target}
         find = _as_text(op.get("find"))
         if kind != "tick" and find:
@@ -1387,9 +1563,10 @@ def generate_lesson(subject, topic, example_questions, adapt_context, concept_li
     system = _script_system(subject)
     slugs = {c["slug"] for c in (concept_list or [])}
     gate = template_gate(subject, notes)
-    shape = _script_head(topic_name, subject_name)
+    shape = _script_head()
     if notes:
-        lo = max(9, min(20, len(notes.split()) // 130))
+        lo = max(8, min(14, len(notes.split()) // 170))
+        hi = min(16, lo + 4)
         user = NOTES_SCRIPT_TEMPLATE.format(
             topic=topic_name, subject_name=subject_name, notes=notes,
             outline=("\nThis topic also has a concept map. Tag the first operation of every "
@@ -1399,48 +1576,54 @@ def generate_lesson(subject, topic, example_questions, adapt_context, concept_li
                                  for i, c in enumerate(concept_list or [], 1)) + "\n"
                      if concept_list else ""),
             style=_style_block(example_questions), adapt=adapt_context,
-            lo=lo, hi=min(24, lo + 6), shape=SCRIPT_SHAPE_NOTES, shape_example=shape,
+            lo=lo, hi=hi, shape=SCRIPT_SHAPE_NOTES, shape_example=shape,
         )
     elif slugs:
         examples = "\n".join(f"- {q}" for q in example_questions[:12])
-        lo = max(9, len(slugs) + 3)
+        lo = max(8, min(14, len(slugs) + 2))
+        hi = min(16, lo + 4)
         user = CONCEPT_SCRIPT_TEMPLATE.format(
             topic=topic_name, subject_name=subject_name,
             concept_list="\n".join(
                 f"{i}. {c['slug']} — {c['name']}" for i, c in enumerate(concept_list, 1)),
-            examples=examples, adapt=adapt_context, lo=lo, hi=min(24, lo + 8),
+            examples=examples, adapt=adapt_context, lo=lo, hi=hi,
             shape=SCRIPT_SHAPE_NOTES, shape_example=shape,
         )
     else:
         examples = "\n".join(f"- {q}" for q in example_questions[:14])
+        lo, hi = LO_PLAIN, HI_PLAIN
         user = PLAIN_SCRIPT_TEMPLATE.format(
             topic=topic_name, subject_name=subject_name, examples=examples,
-            adapt=adapt_context, lo=12, hi=22,
+            adapt=adapt_context, lo=lo, hi=hi,
             shape=SCRIPT_SHAPE_NOTES, shape_example=shape,
         )
 
     last_err = None
+    deadline = time.time() + LESSON_BUDGET
     for _ in range(2):
-        try:
-            raw = llm.chat_json(system, user, temperature=0.5, max_tokens=12000)
-        except ValueError as exc:
-            last_err = exc
-            continue
-        script = normalize_script(raw, slugs, speech_durations(narration_lines(raw)),
-                                  subject, gate)
+        raw = llm.chat(system, user, temperature=0.5, max_tokens=9000, json_mode=True,
+                       deadline=deadline)
+        reply = parse_script(raw, topic_name)
+        script = normalize_script(reply, slugs, speech_durations(narration_lines(reply)),
+                                  subject, gate, max_sheets=hi)
         problems = validate_script(script, slugs, gate, subject)
         if not problems:
             return script
         # Say exactly what is still wrong after the repairs, to the same prompt that
         # produced it. Anything normalize_script could fix silently is not worth a round trip.
         last_err = ValueError("unplayable lesson script: " + "; ".join(problems[:6]))
-        short = any("sheet(s)" in p or "spoken line" in p for p in problems)
+        thin = any("sheet(s)" in p or "spoken line" in p for p in problems)
+        if not script["steps"]:
+            user += ("\n\nThat reply had no lesson operations in it. Write the script again as "
+                     "ONE operation per line — a complete JSON object on each line, no array "
+                     "brackets, no commas at the ends of lines, no prose.")
+            continue
         user += ("\n\nThe board engine cannot play your script because:\n- "
                  + "\n- ".join(problems[:8])
                  + ("\n\nYour last reply ran out of room before it finished. Write a tighter "
                     "script: 8 to 10 sheets, one spoken line each, and reach the recap."
-                    if short else "")
-                 + "\nOutput the whole script again as JSON.")
+                    if thin else "")
+                 + "\nWrite the whole script again, one operation per line.")
     raise last_err or ValueError("lesson generation failed")
 
 

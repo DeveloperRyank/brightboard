@@ -112,17 +112,21 @@ async function runOne(wb, data, label) {
   }
   check("ink with voice", () => races.length ? "RACES " + races.join(" | ") : null, out);
 
-  // 5. a phrase mark lands on glyphs that exist, and the glyphs it names
+  // 5. a mark lands on glyphs that exist. Measured against the line's own extent, not its
+  //    midpoint: a ring around the answer at the end of a long line sits far right of centre
+  //    and is still exactly where the tutor meant it.
   const marks = [];
   for (const s of plan.scenes) {
     for (const it of s.items) {
       if (!it.mark) continue;
       const cx = it.pts.reduce((a, p) => a + p[0], 0) / it.pts.length;
       const cy = it.pts.reduce((a, p) => a + p[1], 0) / it.pts.length;
-      const near = s.items.filter((o) => o.kind === "text" &&
-        Math.abs((o.chars[0].x0 + o.chars[o.chars.length - 1].x1) / 2 - cx) < 220 &&
-        Math.abs(o.y - cy) < 220);
-      if (!near.length) marks.push("[" + cx.toFixed(0) + "," + cy.toFixed(0) + "]");
+      const on = s.items.some((o) => {
+        if (o.kind !== "text" || !o.chars.length) return false;
+        return cx > o.chars[0].x0 - 70 &&
+          cx < o.chars[o.chars.length - 1].x1 + 95 && Math.abs(cy - o.y) < 150;
+      });
+      if (!on) marks.push("[" + cx.toFixed(0) + "," + cy.toFixed(0) + "]");
     }
   }
   check("marks on words", () => marks.length ? "FLOATING " + marks.join(" ") : null, out);
@@ -140,14 +144,20 @@ async function runOne(wb, data, label) {
     const bad = [];
     const early = [];
     for (const s of plan.scenes) {
-      wb.render(Math.max(0, s.t1 - 0.02));
+      // Inclusive, and a hair past it: ink scheduled to land exactly when the sheet ends
+      // is on time, and a boundary rendered to the last float would show the final glyph
+      // one frame short of drawn. What must not happen is ink owned by a sheet that is
+      // still unfinished when its own clock has run out.
+      const time = Math.min(plan.total, s.t1 + 0.05);
+      wb.render(time);
       s.items.forEach((it, i) => {
         const n = wb.nodes[i];
         if (!n) { bad.push("no node"); return; }
+        const late = it.t0 + it.dur > time + 0.002;
         if (it.kind === "text" && !it.mark) {
           const unseen = n.spans.filter((sp) => sp.style.visibility === "hidden").length;
-          if (unseen) bad.push(unseen + " glyphs unseen");
-        } else if (it.kind !== "text" &&
+          if (unseen && late) bad.push(unseen + " glyphs unseen");
+        } else if (it.kind !== "text" && late &&
                    Number(n.path.getAttribute("stroke-dashoffset")) > 0.5) bad.push("stroke unfinished");
       });
       const ink = s.items.filter((it) => it.kind === "text" && !it.mark).length;
@@ -188,6 +198,10 @@ async function runOne(wb, data, label) {
 window.__run = async function () {
   const wb = new Whiteboard(document.getElementById("board"));
   await wb.ready();
+  // Headless Chrome answers prefers-reduced-motion with "reduce" whatever the command
+  // line says, and in that mode the engine drops the animation and shows the whole sheet
+  // at once. These checks are about the hand, so ask for the hand.
+  wb.reduced = false;
   const fresh = await runOne(wb, SCRIPT, "script");
   const old = await runOne(wb, LEGACY, "legacy");
   const out = fresh.out.concat(["---"], old.out);

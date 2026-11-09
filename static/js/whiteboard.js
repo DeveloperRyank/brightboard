@@ -122,7 +122,14 @@ class Whiteboard {
         beat.speech = beat.dur;          // how long the line takes to say, before reading room
         continue;
       }
-      if (op.op === "pause") { beat.pause = (beat.pause || 0) + (Number(op.ms) || 400) / 1000; continue; }
+      if (op.op === "pause") {
+        // The gap gets a beat of its own. Folded into the beat that is writing, it joins
+        // the ink in being stretched to fill the sentence, and the hand ends up standing
+        // still at the end of the sheet for seconds instead of the half second asked for.
+        this._beat(scene).pause = (Number(op.ms) || 400) / 1000;
+        beat = this._beat(scene);
+        continue;
+      }
       if (op.op === "write" && scene.nextRow >= this.o.rows) {
         scenes.push(scene); scene = this._scene(""); beat = this._beat(scene);
       }
