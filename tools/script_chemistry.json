@@ -1,0 +1,46 @@
+{
+ "title": "Stoichiometry",
+ "steps": [
+  {
+   "op": "caption",
+   "text": "Mini-check and recap"
+  },
+  {
+   "op": "say",
+   "text": "Question 1: What does the coefficient 2 in front of H₂O tell us?",
+   "dur": 4.41
+  },
+  {
+   "op": "write",
+   "text": "2 moles of water are produced per 2 moles of hydrogen reacted",
+   "row": 0,
+   "id": "q1"
+  },
+  {
+   "op": "say",
+   "text": "Question 2: If 2 moles of carbon react with oxygen, how many moles of CO₂ are formed?",
+   "dur": 5.86
+  },
+  {
+   "op": "write",
+   "text": "C + O₂ → CO₂, so 2 moles CO₂",
+   "row": 1,
+   "id": "q2"
+  },
+  {
+   "op": "write",
+   "text": "1. Mole = mass / Mᵣ 2. Mole ratio from equation",
+   "row": 2,
+   "id": "recap"
+  },
+  {
+   "op": "write",
+   "text": "3. Mass = moles × Mᵣ",
+   "row": 3
+  },
+  {
+   "op": "tick",
+   "target": "recap"
+  }
+ ]
+}

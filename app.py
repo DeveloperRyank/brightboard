@@ -295,10 +295,15 @@ def _lesson_sig(subject, topic, sid=None):
 
 
 def _prefetch_narration(lesson):
-    """Warm the local narrator's audio for every step while the student is still on the
-    first one, so playback never waits on synthesis."""
-    if lesson:
-        llm.prefetch_narration([s.get("narration") for s in lesson.get("steps", [])])
+    """Warm the local narrator's audio for the opening lines while the student is still on
+    the first one, so playback never waits on synthesis.
+
+    Only the first few are queued at once: a lesson's whole narration would hold the
+    narrator behind the lines the student actually reaches, and the rest are queued as
+    the playhead moves."""
+    lines = tutor.narration_lines(lesson)[:6] if lesson else []
+    if lines:
+        llm.prefetch_narration(lines)
 
 
 def generate_lesson(subject, topic, sid=None):
@@ -991,7 +996,9 @@ def lesson(subject, topic):
         subject=subject,
         topic=topic,
         name=curriculum.topic_name(subject, topic),
-        lesson=cached if status == "ready" else None,
+        # A lesson that could not be redrawn is still the best board this topic has:
+        # the page plays the stored one and says why it is not the newest.
+        lesson=cached if status in ("ready", "error") else None,
         status=status,
         error=error,
         server_tts=llm.tts_available(),

@@ -493,6 +493,26 @@ def start_narrator():
         threading.Thread(target=_kokoro, daemon=True).start()
 
 
+def narration_seconds(text):
+    """How long this line's own audio lasts, in seconds, or None if it isn't generated.
+
+    The lesson plan spends the difference between a sentence and its ink on reading time,
+    so a real measurement makes the pause the right length instead of a guessed one. The
+    player follows the audio regardless, so a missing one costs pacing, never sync.
+    """
+    if not _kokoro_ok():
+        return None
+    line = str(text or "").strip()[:1000]      # the same clamp /api/tts keys on
+    if not line:
+        return None
+    try:
+        with wave.open(_kokoro_wav_path(KOKORO_VOICE, line), "rb") as w:
+            rate, frames = w.getframerate(), w.getnframes()
+        return frames / float(rate) if rate else None
+    except Exception:
+        return None
+
+
 _EDGE_BREAKER_UNTIL = 0.0
 _EDGE_FAILS = 0
 
@@ -676,6 +696,45 @@ def synthesize(text, voice=None):
 
 # ---------------- JSON helpers ----------------
 
+def _salvage(text):
+    """Recover the complete part of a reply that ran out of output tokens mid-JSON.
+
+    A lesson cut off at step 19 still teaches 18 steps and a paper cut off at question
+    40 still marks 39, which beats an error screen. Everything after the last element
+    that closed is discarded and the brackets still open there are closed by hand."""
+    starts = [i for i in (text.find("{"), text.find("[")) if i != -1]
+    if not starts:
+        return None
+    stack, cut, tail = [], None, ""
+    in_str = esc = False
+    for i in range(min(starts), len(text)):
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]":
+            if not stack:
+                return None
+            stack.pop()
+            if stack:  # an element somewhere inside the outer value just closed
+                cut, tail = i + 1, "".join("}" if c == "{" else "]" for c in reversed(stack))
+    if cut is None:
+        return None
+    body = text[min(starts):cut].rstrip().rstrip(",")
+    try:
+        return json.loads(body + tail)
+    except json.JSONDecodeError:
+        return None
+
+
 def extract_json(text):
     """Pull the first JSON object/array out of an LLM reply, tolerating code fences
     and the reasoning preamble some models emit."""
@@ -695,6 +754,9 @@ def extract_json(text):
                 return json.loads(text[start : end + 1])
             except json.JSONDecodeError:
                 continue
+    partial = _salvage(text)
+    if partial:
+        return partial
     raise ValueError(f"No JSON found in LLM reply: {text[:300]}")
 
 

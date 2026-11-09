@@ -16,3 +16,7 @@ tools/*.jpg
 # party documents, tens of megabytes; what the app uses is the transcription, which is
 # committed at data/curriculum/kicd_strands.json.
 research/
+
+# Scratch harnesses that poke the live engine and the real profile.db. Local only,
+# never a part of the app.
+tools_local_*.py

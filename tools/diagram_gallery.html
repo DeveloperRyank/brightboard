@@ -1,0 +1,85 @@
+<!doctype html>
+<!-- Diagram gallery: renders every template and every variant through the real engine,
+     finished (t = total), so the geometry can be looked at rather than reasoned about.
+
+     python -m http.server -p 8777 && open http://127.0.0.1:8777/tools/diagram_gallery.html
+     Headless: see tools_local_gallery_shots.sh -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../static/css/style.css">
+<style>
+  body { background: var(--navy); color: var(--cream); margin: 0; padding: 16px;
+         font: 14px/1.4 system-ui, sans-serif; }
+  #grid { display: grid; gap: 16px; grid-template-columns: repeat(2, 520px); }
+  figure { margin: 0; }
+  figcaption { padding: 4px 2px; color: #9fb0cc; font-size: 13px; }
+  svg.board { width: 520px; height: 323px; display: block; background: #0A1730;
+              border: 1px solid #1d2c4a; border-radius: 8px; }
+  #count { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div id="count"></div>
+<div id="grid"></div>
+<script src="../static/js/diagrams.js"></script>
+<script src="../static/js/whiteboard.js"></script>
+<script>
+/** Every drawing the board knows: name + variant, with the template's own label defaults. */
+function allFigures(variants) {
+  const out = [];
+  for (const name of Object.keys(TEMPLATES)) {
+    const t = TEMPLATES[name] || {};
+    out.push({ name: name, label: name });
+    if (!variants) continue;
+    for (const v of Object.keys(t.variants || {})) {
+      if (v !== "default") out.push({ name: name, variant: v, label: name + " · " + v });
+    }
+  }
+  return out;
+}
+
+const params = new URLSearchParams(location.search);
+const FIGS = allFigures(params.get("variants") !== "0");
+const from = Number(params.get("from") || 0);
+const take = Number(params.get("n") || 4);
+const slice = FIGS.slice(from, from + take);
+
+document.getElementById("count").textContent =
+  "figures " + (from + 1) + "-" + (from + slice.length) + " of " + FIGS.length;
+
+async function draw(cell) {
+  const svg = cell.querySelector("svg");
+  const wb = new Whiteboard(svg);
+  await wb.ready();
+  const script = { title: cell.dataset.label, steps: [
+    { op: "caption", text: cell.dataset.label },
+    { op: "figure", name: cell.dataset.name, row: 0,
+      variant: cell.dataset.variant || undefined },
+  ] };
+  const plan = wb.planScript(script);
+  wb.render(plan.total);
+  cell.dataset.strokes = String(plan.scenes.reduce((a, s) => a + s.items.length, 0));
+}
+
+(async function () {
+  const grid = document.getElementById("grid");
+  for (const f of slice) {
+    const fig = document.createElement("figure");
+    fig.dataset.name = f.name;
+    fig.dataset.variant = f.variant || "";
+    fig.dataset.label = f.label;
+    fig.innerHTML = '<svg class="board" viewBox="0 0 1000 620" ' +
+      'preserveAspectRatio="xMidYMid meet"></svg><figcaption></figcaption>';
+    grid.appendChild(fig);
+  }
+  for (const cell of grid.children) {
+    await draw(cell);
+    cell.querySelector("figcaption").textContent =
+      cell.dataset.label + " — " + cell.dataset.strokes + " items";
+  }
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

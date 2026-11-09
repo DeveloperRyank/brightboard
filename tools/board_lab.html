@@ -1,0 +1,235 @@
+<!doctype html>
+<!-- Board lab: plays a script through the real engine with no server and no voice, so
+     geometry, timing and sync can be measured. Open with any static server:
+     python -m http.server -p 8777 && http://127.0.0.1:8777/tools/board_lab.html
+     window.__run() returns the report. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../static/css/style.css">
+<style>
+  body { background: var(--navy); color: var(--cream); margin: 0; padding: 24px; }
+  #board { width: 900px; height: 558px; display: block; }
+  pre { font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<svg id="board"></svg>
+<pre id="report"></pre>
+<script src="../static/js/diagrams.js"></script>
+<script src="../static/js/whiteboard.js"></script>
+<script>
+const SCRIPT = { title: "Fractions, one line at a time", steps: [
+  { op: "caption", text: "Adding fractions" },
+  { op: "say", text: "Same bottom, or you are not adding the same kind of thing.", dur: 4.2 },
+  { op: "write", text: "1/4 + 2/4 = 3/4", id: "a" },
+  { op: "underline", target: "a", find: "2/4" },
+  { op: "pause", ms: 250 },
+  { op: "say", text: "The bottom stays the same size. Only the tops are counted.", dur: 4.6 },
+  { op: "write", text: "same bottom = same kind, so the tops add: 1 + 2 = 3", id: "why", size: 34, color: "accent" },
+  { op: "ring", target: "why", find: "1 + 2 = 3" },
+  { op: "caption", text: "A trap" },
+  { op: "say", text: "Change one bottom and the sentence stops being true.", dur: 4.0 },
+  { op: "write", text: "1/4 + 2/3 = 3/7 is wrong: thirds and quarters are not sevenths, and the sizes differ.", id: "b" },
+  { op: "arrow", target: "b", find: "3/7" },
+  { op: "say", text: "Fix it with a common bottom of twelve.", dur: 3.4 },
+  { op: "write", text: "1/4 + 2/3 = 3/12 + 8/12 = 11/12", id: "c" },
+  { op: "tick", target: "c" },
+  { op: "figure", name: "graph_axes", x: 60, row: 4, w: 600, h: 190,
+    labels: { title: "y", xlabel: "x", ylabel: "y" } },
+] };
+
+// A board saved before the script schema, to prove one hand plays both.
+const LEGACY = { title: "Legacy", steps: [
+  { concept: "circuit", narration: "Current leaves the cell, meets the bulb, returns.",
+    actions: [
+      { type: "template", template: "circuit", labels: { title: "Simple circuit", cell: "Cell", bulb: "Bulb" } },
+      { type: "label", text: "One loop, one current", x: 80, y: 560, size: 22 },
+    ] },
+  { concept: null, narration: "Open the loop anywhere and it stops.",
+    actions: [
+      { type: "draw", shape: "line", x1: 120, y1: 120, x2: 420, y2: 120, color: "#F4EBDD" },
+      { type: "highlight", cx: 300, cy: 120, r: 40 },
+    ] },
+] };
+
+const W = 1000, H = 620, PAD = 2;
+
+function within(it) {
+  const bad = [];
+  if (it.kind === "text") {
+    const right = it.x + it.width;
+    if (it.x < PAD || right > W - PAD) bad.push("text off left/right: " + it.text.slice(0, 24) + " [" + it.x.toFixed(0) + "," + right.toFixed(0) + "]");
+    if (it.y < PAD || it.y > H - PAD) bad.push("text off top/bottom: " + it.text.slice(0, 24) + " y=" + it.y.toFixed(0));
+  } else {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of it.pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+    if (x0 < PAD || x1 > W - PAD || y0 < PAD || y1 > H - PAD)
+      bad.push("stroke off board: [" + [x0, y0, x1, y1].map((v) => v.toFixed(0)).join(",") + "]");
+  }
+  return bad;
+}
+
+function check(name, fn, out) {
+  try { out.push(name + ": " + (fn() || "ok")); }
+  catch (e) { out.push(name + ": THREW " + e.message); }
+}
+
+async function runOne(wb, data, label) {
+  const out = [];
+  const script = wbScriptFrom(data);
+  const plan = wb.planScript(script);
+  const sched = wb.schedule();
+  if (!plan.scenes.length) { out.push(label + ": NO SCENES"); return { out, plan, sched }; }
+
+  // 1. geometry stays on the sheet
+  const geo = [];
+  for (const s of plan.scenes) for (const it of s.items) geo.push(...within(it));
+  check("on-board", () => geo.length ? "OFF BOARD\n  " + geo.join("\n  ") : null, out);
+
+  // 2. rows do not collide (a diagram's own labels are part of the diagram)
+  const collide = [];
+  for (const s of plan.scenes) {
+    const rows = s.items.filter((i) => i.kind === "text" && !i.fig).map((i) => Math.round(i.y));
+    for (const r of rows) for (const q of rows) if (r !== q && Math.abs(r - q) < 40) collide.push(r + "/" + q);
+  }
+  check("rows clear", () => collide.length ? "ROWS TOUCH " + [...new Set(collide)].join(" ") : null, out);
+
+  // 3. the clock is monotonic and the schedule matches it
+  const times = [];
+  for (let i = 1; i < sched.length; i++) if (sched[i].at < sched[i - 1].end - 1e-6) times.push(i);
+  check("schedule", () => times.length ? "LINES OVERLAP at " + times.join(",") : null, out);
+  check("schedule inside", () => sched.every((b) => b.at >= 0 && b.end <= plan.total + 1e-6) ? null
+    : "line runs past the end: total " + plan.total.toFixed(2), out);
+
+  // 4. the ink can never finish before the sentence it belongs to
+  const races = [];
+  for (const s of plan.scenes) for (const b of s.beats) {
+    if (!b.text) continue;
+    const last = b.items.length ? Math.max(...b.items.map((i) => i.t0 + i.dur)) : 0;
+    if (last > b.t0 + b.dur + 1e-6) races.push(b.text.slice(0, 18));
+    if (b.speech > b.dur + 1e-6) races.push("spoken longer than its span: " + b.text.slice(0, 18));
+  }
+  check("ink with voice", () => races.length ? "RACES " + races.join(" | ") : null, out);
+
+  // 5. a phrase mark lands on glyphs that exist, and the glyphs it names
+  const marks = [];
+  for (const s of plan.scenes) {
+    for (const it of s.items) {
+      if (!it.mark) continue;
+      const cx = it.pts.reduce((a, p) => a + p[0], 0) / it.pts.length;
+      const cy = it.pts.reduce((a, p) => a + p[1], 0) / it.pts.length;
+      const near = s.items.filter((o) => o.kind === "text" &&
+        Math.abs((o.chars[0].x0 + o.chars[o.chars.length - 1].x1) / 2 - cx) < 220 &&
+        Math.abs(o.y - cy) < 220);
+      if (!near.length) marks.push("[" + cx.toFixed(0) + "," + cy.toFixed(0) + "]");
+    }
+  }
+  check("marks on words", () => marks.length ? "FLOATING " + marks.join(" ") : null, out);
+
+  // 6. the whole video plays, forwards and backwards, without throwing
+  check("plays", () => {
+    for (let time = 0; time <= plan.total; time += 1 / 24) wb.render(time);
+    for (let i = 0; i < 200; i++) wb.render(Math.random() * plan.total);
+    return null;
+  }, out);
+
+  // 7. every sheet is fully written by the time the clock leaves it, and a sheet with real
+  //    work on it is still being written when its own clock is half over
+  check("every sheet finishes", () => {
+    const bad = [];
+    const early = [];
+    for (const s of plan.scenes) {
+      wb.render(Math.max(0, s.t1 - 0.02));
+      s.items.forEach((it, i) => {
+        const n = wb.nodes[i];
+        if (!n) { bad.push("no node"); return; }
+        if (it.kind === "text" && !it.mark) {
+          const unseen = n.spans.filter((sp) => sp.style.visibility === "hidden").length;
+          if (unseen) bad.push(unseen + " glyphs unseen");
+        } else if (it.kind !== "text" &&
+                   Number(n.path.getAttribute("stroke-dashoffset")) > 0.5) bad.push("stroke unfinished");
+      });
+      const ink = s.items.filter((it) => it.kind === "text" && !it.mark).length;
+      if (ink < 3) continue;                       // one line and a sentence: the hand rests
+      wb.render(s.t0 + (s.t1 - s.t0) / 2);
+      const spans = [...wb.layer.querySelectorAll("tspan")];
+      const seen = spans.filter((sp) => sp.style.visibility === "visible").length;
+      if (seen === spans.length) early.push(s.caption.slice(0, 18));
+    }
+    return bad.length ? [...new Set(bad)].join(", ")
+      : early.length ? "hand stopped too early on: " + early.join(" | ") : null;
+  }, out);
+
+  // 8. the board has two colours, never a third
+  check("two colours", () => {
+    const set = new Set();
+    wb.render(plan.total);
+    wb.layer.querySelectorAll("text").forEach((t) => set.add(getComputedStyle(t).fill));
+    wb.layer.querySelectorAll("path").forEach((p) => set.add(getComputedStyle(p).stroke));
+    return set.size > 2 ? [...set].join(" | ") : null;
+  }, out);
+
+  // 9. the strip always knows which sheet it is on
+  check("captions", () => {
+    const bad = [];
+    for (const s of plan.scenes) {
+      const c = wb.cue(s.t0 + 0.01, "caption");
+      if (s.caption && (!c || c.text !== s.caption)) bad.push(s.caption.slice(0, 16));
+    }
+    return bad.length ? "sheet title missing: " + bad.join(", ") : null;
+  }, out);
+
+  out.push(label + ": " + plan.scenes.length + " sheets, " + sched.length + " lines, " +
+    plan.total.toFixed(1) + "s");
+  return { out, plan, sched };
+}
+
+window.__run = async function () {
+  const wb = new Whiteboard(document.getElementById("board"));
+  await wb.ready();
+  const fresh = await runOne(wb, SCRIPT, "script");
+  const old = await runOne(wb, LEGACY, "legacy");
+  const out = fresh.out.concat(["---"], old.out);
+  // ?script=path/to/lesson.json plays a real generated lesson through the same checks.
+  const url = new URLSearchParams(location.search).get("script");
+  if (url) {
+    try {
+      const real = await (await fetch(url)).json();
+      const lesson = await runOne(wb, real, "generated");
+      out.push("---", ...lesson.out);
+    } catch (e) {
+      out.push("---", "generated: THREW " + e.message);
+    }
+  }
+  return out.join("\n");
+};
+
+/** How much of the first sheet is written at each quarter of its own clock. */
+window.__probe = async function () {
+  const wb = new Whiteboard(document.getElementById("board"));
+  await wb.ready();
+  const plan = wb.planScript(SCRIPT);
+  const s = plan.scenes[0];
+  const rows = [];
+  for (const q of [0, 0.25, 0.5, 0.75, 1]) {
+    wb.render(s.t0 + (s.t1 - s.t0) * q);
+    const spans = [...wb.layer.querySelectorAll("tspan")];
+    const seen = spans.filter((x) => x.style.visibility === "visible").length;
+    const paths = [...wb.layer.querySelectorAll("path")];
+    const drawn = paths.filter((p) => Number(p.getAttribute("stroke-dashoffset")) < 0.5).length;
+    const pen = wb.pen.getAttribute("opacity");
+    rows.push("t+" + ((s.t1 - s.t0) * q).toFixed(2) + "s  glyphs " + seen + "/" + spans.length +
+      "  strokes done " + drawn + "/" + paths.length + "  pen " + pen +
+      "  " + wb.pen.getAttribute("transform"));
+  }
+  return rows.join("\n");
+};
+
+/** ?report=1 writes the checks into the page, so a headless browser can read them. */
+if (new URLSearchParams(location.search).get("report") === "1") {
+  window.__run().then((text) => { document.getElementById("report").textContent = text; });
+}
+</script>
+</body>
+</html>

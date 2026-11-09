@@ -1,6 +1,10 @@
 // Shared narrator: server-side neural TTS (Edge/Gemini) with a browser
 // speechSynthesis fallback. Both paths honour the same done/onEnd contract so
 // callers can auto-advance and resume exactly where they paused.
+//
+// elapsed() is what lets a player treat the voice as a clock rather than as an event:
+// it reports how much of the sentence has actually been said, in sentence-seconds, so a
+// whiteboard can be positioned against the words instead of against a timer that drifts.
 
 window.Voice = (function () {
   let audioEl = null;
@@ -9,6 +13,10 @@ window.Voice = (function () {
   let rate = 1.0;
   let blocked = false;   // browser refused to play audio (no user gesture yet)
   let serverDownUntil = 0;  // /api/tts failed recently; go straight to the browser voice
+  let speechPath = null;    // "clip" | "browser" | null — decides how elapsed() is measured
+  let speechStart = 0;      // performance.now() when the current line began
+  let pauseAt = 0;          // performance.now() when it was paused, 0 while talking
+  let heard = 0;            // sentence-seconds reported so far, kept after the line ends
 
   const useServer = () => typeof SERVER_TTS !== "undefined" && SERVER_TTS;
   const hasBrowser = () => typeof window !== "undefined" && "speechSynthesis" in window;
@@ -36,16 +44,41 @@ window.Voice = (function () {
 
   function pause() {
     if (audioEl) { try { audioEl.pause(); } catch (e) { /* ignore */ } return; }
+    pauseAt = performance.now();
     if (hasBrowser()) speechSynthesis.pause();
   }
 
   function resume() {
     if (audioEl) { const p = audioEl.play(); if (p && p.catch) p.catch(() => {}); return; }
+    // The browser voice has no position to read, so its clock is wall time: freeze the
+    // paused stretch out of it rather than letting the sentence run ahead of the ink.
+    if (pauseAt) speechStart += performance.now() - pauseAt;
+    pauseAt = 0;
     if (hasBrowser()) speechSynthesis.resume();
+  }
+
+  // ---------- how far the sentence has actually got ----------
+
+  /** Sentence-seconds spoken so far — the number a board can be positioned against. */
+  function elapsed() {
+    if (speechPath === "clip") {
+      if (audioEl && isFinite(audioEl.currentTime)) heard = audioEl.currentTime;
+    } else if (speechPath === "browser" && !done) {
+      heard = Math.max(heard, ((performance.now() - speechStart) / 1000) * rate);
+    }
+    return heard;
+  }
+
+  function beginLine() {
+    speechPath = null;
+    speechStart = performance.now();
+    pauseAt = 0;
+    heard = 0;
   }
 
   function browserSpeak(text, tk, onEnd) {
     if (!hasBrowser() || !text) { done = true; if (onEnd) onEnd(); return; }
+    speechPath = "browser";
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = rate;
@@ -87,6 +120,7 @@ window.Voice = (function () {
 
   function playClip(url, text, tk, onEnd) {
     stopAudio();
+    speechPath = "clip";
     audioEl = new Audio(url);
     audioEl.playbackRate = rate;
     const finish = () => { if (tk === token && !done) { done = true; audioEl = null; if (onEnd) onEnd(); } };
@@ -137,13 +171,37 @@ window.Voice = (function () {
   }
 
   function speak(text, onEnd) {
-    if (!text) { done = true; if (onEnd) onEnd(); return; }
+    if (!text) { done = true; speechPath = null; if (onEnd) onEnd(); return; }
     const tk = ++token;
     stopAudio();
     if (hasBrowser()) speechSynthesis.cancel();
     done = false;
+    beginLine();
     if (useServer() && Date.now() >= serverDownUntil) serverSpeak(text, tk, onEnd);
     else browserSpeak(text, tk, onEnd);
+  }
+
+  // The line a scrub or a resume is about to need should already be paid for: a lesson
+  // whose clock waits on a round trip is a lesson whose hand stops moving.
+  const preloading = new Set();
+
+  function preload(text) {
+    const line = String(text || "").trim();
+    if (!line || !useServer() || clips.has(line) || preloading.has(line)) return;
+    if (Date.now() < serverDownUntil) return;
+    preloading.add(line);
+    fetch("/api/tts", {
+      method: "POST",
+      headers: csrfHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ text: line }),
+    }).then((resp) => {
+      if (resp.status === 204) throw new Error("still warming");  // not worth a URL yet
+      if (!resp.ok) throw new Error("tts " + resp.status);
+      return resp.blob();
+    }).then((blob) => {
+      if (!clips.has(line)) rememberClip(line, URL.createObjectURL(blob));
+    }).catch(() => { /* spoken later, fetched then */ })
+      .then(() => { preloading.delete(line); });
   }
 
   return {
@@ -152,6 +210,8 @@ window.Voice = (function () {
     pause,
     resume,
     setRate,
+    elapsed,
+    preload,
     isDone: () => done,
     isBlocked: () => blocked,
     available: () => useServer() || hasBrowser(),

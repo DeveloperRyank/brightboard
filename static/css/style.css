@@ -14,6 +14,29 @@
   src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
 }
 
+/* The board's hand. Inter is for the interface; everything written on the board is
+   Caveat, so ink and UI can never be mistaken for each other. */
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../fonts/caveat-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+                 U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../fonts/caveat-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+                 U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4,
+                 U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 :root {
   --navy: #0E1F3D;        /* page ground */
   --navy-deep: #0A1730;   /* the board, inputs, wells */
@@ -79,6 +102,11 @@
   --shadow-soft: 0 1px 2px rgba(6, 14, 28, 0.45), 0 10px 30px -12px rgba(6, 14, 28, 0.7);
   --shadow-lift: 0 2px 4px rgba(6, 14, 28, 0.5), 0 18px 44px -14px rgba(6, 14, 28, 0.85);
   --pad-card: clamp(1.125rem, 0.9rem + 1vw, 1.75rem);
+
+  /* The board speaks in two colours: the working, and the one thing to look at. */
+  --wb-ink: var(--cream);
+  --wb-accent: var(--accent);
+  --wb-hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;
 }
 
 * { box-sizing: border-box; }
@@ -605,20 +633,60 @@ label[tabindex]:focus-visible, summary:focus-visible {
 
 .lesson-head { display: flex; align-items: baseline; justify-content: center; text-align: center; gap: 14px; flex-wrap: wrap; }
 .step-counter { color: var(--muted); font-size: 1rem; }
+.lesson-kind {
+  color: var(--muted); font-size: var(--t-micro); letter-spacing: var(--track-micro);
+  text-transform: uppercase; border: 1px solid var(--line); border-radius: var(--radius-pill);
+  padding: 4px 10px;
+}
 
-.board-wrap {
-  background: var(--navy-deep);
+/* The player is one object: board, the line being said, and the controls that move it. */
+.player {
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
   padding: 10px;
   margin: 16px 0;
+}
+
+.board-wrap {
+  background: var(--navy-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0;
+  margin: 16px 0;
   position: relative;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
-canvas#board { width: 100%; min-width: 700px; aspect-ratio: 1000 / 620; display: block; border-radius: var(--radius); }
+.player .board-wrap { margin: 0; border-color: transparent; }
+
+/* Graph paper, not a blackboard: the grid is what makes a worked example line up. */
+#board {
+  width: 100%;
+  min-width: 700px;
+  aspect-ratio: 1000 / 620;
+  display: block;
+  border-radius: var(--radius);
+  background-color: var(--navy-deep);
+  background-image: radial-gradient(circle at 1px 1px, rgba(244, 235, 221, 0.08) 1.2px, transparent 1.3px);
+  background-size: 28px 28px;
+}
 .board-hint { display: none; }
+
+/* The live line: what the tutor is saying at this instant, in words as well as sound. */
+.board-strip {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 12px 12px; min-height: 62px;
+}
+.bs-sheet {
+  font-size: var(--t-micro); letter-spacing: var(--track-micro); text-transform: uppercase;
+  color: var(--accent); min-height: 0;
+}
+.bs-sheet:empty { display: none; }
+.bs-line { color: var(--cream); font-size: 1.0625rem; line-height: 1.5; }
+.bs-line:empty::before { color: var(--muted-2); content: "The board is quiet — press play, or stop and ask."; }
+.bs-note { color: var(--muted); font-size: var(--t-label); }
 
 .narration {
   background: var(--panel);
@@ -632,10 +700,50 @@ canvas#board { width: 100%; min-width: 700px; aspect-ratio: 1000 / 620; display:
   min-height: 54px;
 }
 
-.lesson-controls { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.lesson-controls {
+  display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;
+  padding: 4px 6px 8px;
+}
 .lesson-controls .spacer { margin-left: auto; }
+.wb-time { color: var(--muted); font-size: var(--t-micro); white-space: nowrap; }
+.wb-time b { color: var(--cream); font-weight: 600; }
+.wb-time span { margin: 0 4px; }
+.wb-time i { font-style: normal; }
+.wb-speed { font-size: var(--t-micro); color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.wb-speed select {
+  background: var(--navy-deep); color: var(--cream); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 8px; font-size: var(--t-label);
+}
+.wb-seek { flex: 1 1 220px; min-width: 160px; height: 28px; accent-color: var(--accent); cursor: pointer; }
 
-/* ---------- ask-a-question ---------- */
+/* ---------- the tutor's detour ---------- */
+
+.tutor-card {
+  background: var(--navy-deep);
+  border: 1px solid var(--hairline-2);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  padding: 16px 18px;
+  margin: 14px 0 16px;
+}
+.tc-eyebrow {
+  color: var(--accent); font-size: var(--t-micro); letter-spacing: var(--track-micro);
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.tc-ask { color: var(--muted); font-size: var(--t-label); margin-bottom: 10px; }
+.tc-body { color: var(--cream); font-size: 1rem; line-height: 1.6; margin: 0; }
+.tc-wait { color: var(--muted); font-size: var(--t-label); }
+.tc-notes { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.tc-notes li {
+  color: var(--cream-2); font-size: var(--t-label); line-height: 1.5;
+  padding-left: 18px; position: relative;
+}
+.tc-notes li::before {
+  content: ""; position: absolute; left: 0; top: 0.55em; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--accent);
+}
+.tc-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 
 .ask-panel {
   display: none;
@@ -709,7 +817,7 @@ canvas#board { width: 100%; min-width: 700px; aspect-ratio: 1000 / 620; display:
 
 .overlay {
   position: absolute;
-  inset: 10px;
+  inset: 0;
   border-radius: var(--radius);
   background: rgba(10, 23, 48, 0.96);
   display: flex;
@@ -1238,12 +1346,18 @@ table.history td.bad { color: var(--coral); }
   .load-steps { width: min(260px, 100%); }
   .doodles { height: 84px; }
   .load-sub { max-width: 100%; }
-  .board-wrap { padding: 6px; border-radius: var(--radius); }
+  .board-wrap { padding: 0; border-radius: var(--radius); }
+  .player { padding: 6px; }
+  .board-strip { padding: 8px 6px 10px; min-height: 54px; }
+  .bs-line { font-size: 1rem; }
   .lesson-head { gap: 8px; }
   .step-counter { margin-left: 0; flex-basis: 100%; }
   .lesson-controls { gap: 8px; }
   .lesson-controls .spacer { display: none; }
   .lesson-controls .btn { flex: 1 1 auto; }
+  /* The scrub bar belongs under the board on its own line, at full width — a video
+     control you can only hit with a stylus is not a control. */
+  .wb-seek { order: -1; flex-basis: 100%; }
   .narration { font-size: 0.9375rem; padding: 12px 14px; }
   .create-card, .quiz-card { padding: 20px 16px; }
   .q-card, .wt-qcard { padding: 16px 14px; }

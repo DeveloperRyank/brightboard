@@ -1,111 +1,91 @@
-// Lesson player: the board draws itself stroke by stroke while the narration
-// types and speaks; steps auto-advance. Questions become a board interlude —
-// the board clears to a question frame, the tutor's answer types into the
-// narration strip and is spoken, then the lesson redraws and resumes at the
-// exact character it paused on.
+// The lesson plays as one continuous video.
+//
+// One clock runs from the first stroke to the last, and the spoken line owns it: while the
+// tutor is saying a sentence the clock reads the audio position, so the hand can neither
+// race the words nor lag behind them, and whatever time is left in the sentence belongs to
+// reading. Nothing animates on its own — the board is a pure function of the clock — which
+// is why pause, scrub, replay and an interruption in mid-sentence are all the same three
+// moves: stop the clock, move it, say the line from where it stopped.
 
 const SPEEDS = {
-  slow: { cps: 26, pause: 1600, rate: 0.9, board: 1.0 },
-  normal: { cps: 60, pause: 800, rate: 1.08, board: 1.8 },
-  fast: { cps: 110, pause: 400, rate: 1.25, board: 2.6 },
+  slow: { rate: 0.92, ink: 1.0 },
+  normal: { rate: 1.05, ink: 1.35 },
+  fast: { rate: 1.25, ink: 2.2 },
 };
 const LOAD_MSGS = [
-  "Reading the past papers…",
-  "Sketching the apparatus…",
-  "Sharpening the chalk…",
-  "Planning the worked examples…",
+  "Reading the notes…",
+  "Choosing the worked examples…",
+  "Sharpening the pen…",
+  "Setting out the board…",
   "Rehearsing what to say…",
 ];
+const SEEK_STEP = 0.1;
 
-let lesson = null;
-let step = 0;
-let charPos = 0;
-let playing = true;
+let wb = null;            // the Whiteboard engine
+let plan = null;          // wb.planScript(): scenes, beats and one absolute clock
+let beats = [];           // wb.schedule(): the lines to be spoken, in order
+let lesson = null;        // the script as stored, for questions and for the cache
+let loadSeq = 0;
+
+let t = 0;                // the lesson clock, in seconds of board time
+let playing = false;
 let asking = false;
-let speed = "normal";
-let typingDoneAt = null;
-let timeline = null;
-let boardT = 0;
-let mode = "lesson"; // 'lesson' | 'qa'
-let qaTimeline = null;
-let qaBaseActions = null;
-let qaT = 0;
-let answerText = null;
-let answerPos = 0;
-let canvas, narrationEl;
+let scrubbing = false;
+let speedKey = "normal";
+let spoken = -1;          // index of the last line the voice has started
+let voicing = null;       // {i, base, dur, wall} while a line is driving the clock
+
 let pollTimer = null;
 let msgTimer = null;
+let soundHintTimer = null;
 let startedAt = 0;
 let doneShown = false;
+let lastFrame = null;
+
+let seekEl, nowEl, totalEl, captionEl, sheetEl, noteEl, playBtn;
 
 // The board this tab has already seen for this topic, in this account.
 const LESSON_CACHE = "lesson." + CACHE_SCOPE + "." + SUBJECT + "." + TOPIC;
 let fromCache = null;      // painted from that cache, waiting for the real answer
 
 document.addEventListener("DOMContentLoaded", () => {
-  canvas = document.getElementById("board");
-  narrationEl = document.getElementById("narration");
-  initBoard(canvas);
-
-  document.getElementById("btn-prev").addEventListener("click", () => goto(step - 1));
-  document.getElementById("btn-next").addEventListener("click", onNext);
-  document.getElementById("btn-playpause").addEventListener("click", togglePlay);
-  document.getElementById("speed").addEventListener("change", (e) => { speed = e.target.value; });
-  document.getElementById("btn-ask").addEventListener("click", openAskPanel);
-  document.getElementById("btn-cancel-ask").addEventListener("click", resumeLesson);
-  document.getElementById("btn-resume-bar").addEventListener("click", resumeLesson);
-  document.getElementById("btn-send-ask").addEventListener("click", sendQuestion);
-  document.getElementById("btn-regenerate").addEventListener("click", regenerate);
-  document.getElementById("btn-retry").addEventListener("click", regenerate);
-  document.getElementById("done-replay").addEventListener("click", () => {
-    playing = true;
-    goto(0);
-    document.getElementById("board").scrollIntoView({ behavior: "smooth", block: "center" });
-  });
-  document.getElementById("btn-mic").addEventListener("click", toggleMic);
-  document.getElementById("ask-input").addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
-  });
-  let boardW = canvas.clientWidth;
-  // The board box is fluid, so re-chalk the current frame whenever its real width
-  // changes (rotation, split view, a different monitor's pixel ratio). The width
-  // check stops the mobile URL bar sliding in and out from redrawing every frame.
-  const onBoardResize = () => {
-    if (Math.abs(canvas.clientWidth - boardW) < 2) return;
-    boardW = canvas.clientWidth;
-    initBoard(canvas);
-    redrawCurrent();
-  };
-  if (typeof ResizeObserver !== "undefined") new ResizeObserver(onBoardResize).observe(canvas);
-  window.addEventListener("resize", onBoardResize);
-  window.addEventListener("orientationchange", () => setTimeout(onBoardResize, 250));
-  window.addEventListener("beforeunload", voiceCancel);
+  wb = initBoard(document.getElementById("board"));
+  seekEl = document.getElementById("seek");
+  nowEl = document.getElementById("t-now");
+  totalEl = document.getElementById("t-total");
+  captionEl = document.getElementById("caption");
+  sheetEl = document.getElementById("sheet-title");
+  noteEl = document.getElementById("board-note");
+  playBtn = document.getElementById("btn-playpause");
+  wireControls();
 
   requestAnimationFrame(loop);
 
   const embedded = JSON.parse(document.getElementById("lesson-data").textContent || "null");
   if (INITIAL_STATUS === "ready" && embedded) {
     cacheWrite(LESSON_CACHE, embedded);
-    initPlayer(embedded);
+    loadScript(embedded);
   } else if (INITIAL_STATUS === "error") {
-    // A board from the last visit beats an error box over a blank canvas: the student
-    // can still work, and the reason the refresh failed is said out loud.
-    const remembered = cacheRead(LESSON_CACHE);
+    // A board from the last visit beats an error box over an empty canvas: the student
+    // can still work, and the reason the refresh failed is said out loud. The server
+    // sends its stored lesson here precisely because it is the one it could not improve.
+    const remembered = embedded || cacheRead(LESSON_CACHE);
     if (remembered) {
-      initPlayer(remembered);
-      noteInNarration("A newer version of this lesson could not be drawn — " +
-        "this is the one from your last visit.");
+      if (embedded) cacheWrite(LESSON_CACHE, embedded);
+      loadScript(remembered);
+      showNote("A newer version of this lesson could not be drawn — this is the one from " +
+        "your last visit.");
     } else {
       showError(INITIAL_ERROR);
     }
   } else {
-    // 2.5: a lesson that is still being rebuilt should not leave the student staring at
-    // a chalkboard animation of nothing. The last board for this topic is painted at
-    // once and the fresh one replaces it when it lands.
+    // A lesson that is still being written should not leave the student staring at an
+    // animation of nothing: the last board for this topic plays at once and the fresh
+    // one takes over, but only while they are still on the first line.
     const remembered = cacheRead(LESSON_CACHE);
     if (remembered) {
       fromCache = remembered;
-      initPlayer(remembered);
+      loadScript(remembered);
     } else {
       showLoading();
     }
@@ -122,17 +102,15 @@ function showLoading() {
   const list = document.getElementById("load-steps");
   list.innerHTML = LOAD_MSGS.map((m) => `<li>${m.replace(/…+$/, "")}</li>`).join("");
   const lis = list.children;
-  let t = 0;
+  let n = 0;
   const paint = () => {
-    document.getElementById("load-title").textContent = LOAD_MSGS[t % LOAD_MSGS.length];
-    const i = Math.min(t, lis.length - 1);
-    for (let k = 0; k < lis.length; k++) {
-      lis[k].className = k < i ? "done" : k === i ? "active" : "";
-    }
+    document.getElementById("load-title").textContent = LOAD_MSGS[n % LOAD_MSGS.length];
+    const i = Math.min(n, lis.length - 1);
+    for (let k = 0; k < lis.length; k++) lis[k].className = k < i ? "done" : k === i ? "active" : "";
   };
   paint();
   clearInterval(msgTimer);
-  msgTimer = setInterval(() => { t++; paint(); }, 3000);
+  msgTimer = setInterval(() => { n++; paint(); }, 3000);
 }
 
 function hideLoading() {
@@ -150,6 +128,12 @@ function showError(msg) {
     "The tutor couldn't draw this lesson: " + (msg || "unknown error");
 }
 
+function showNote(text) {
+  if (!noteEl) return;
+  noteEl.textContent = text;
+  noteEl.hidden = false;
+}
+
 function pollStatus() {
   clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
@@ -159,93 +143,62 @@ function pollStatus() {
       if (data.status === "ready") {
         const d = await fetch("/api/lesson/" + encodeURIComponent(SUBJECT) + "/" + encodeURIComponent(TOPIC) + "/data");
         const lessonData = await readJSON(d);
-        // The lesson can vanish between the two answers (a regeneration clears it), and
-        // a 404 here would hand initPlayer an undefined lesson and a permanently blank
-        // board. Leave the poll running instead.
+        // The lesson can vanish between the two answers (a regeneration clears it), and a
+        // 404 here would leave the player with nothing to plan. Leave the poll running.
         if (!lessonData.lesson) return;
         clearInterval(pollTimer);
         cacheWrite(LESSON_CACHE, lessonData.lesson);
-        // 2.5: if a cached board is already playing, the fresh one only takes over
-        // while the student is still on the first line. Yanking a lesson halfway
-        // through is worse than letting them finish the version they started.
         if (fromCache) {
-          const untouched = step === 0 && charPos < 2 && !asking && mode === "lesson";
+          const untouched = t < 1 && !asking;
           fromCache = null;
           if (untouched && JSON.stringify(lessonData.lesson) !== JSON.stringify(lesson)) {
-            initPlayer(lessonData.lesson);
+            loadScript(lessonData.lesson);
           }
           return;
         }
-        hideLoading();
-        initPlayer(lessonData.lesson);
+        loadScript(lessonData.lesson);
       } else if (data.status === "error") {
         clearInterval(pollTimer);
-        // A cached board on screen is better than an error overlay with nothing behind
-        // it; the message goes in the narration strip instead.
-        if (fromCache) { fromCache = null; noteInNarration("The new version of this lesson could not be drawn, so this is the last one."); }
-        else showError(data.error);
+        if (fromCache) {
+          fromCache = null;
+          showNote("The new version of this lesson could not be drawn, so this is the last one.");
+        } else {
+          showError(data.error);
+        }
       }
     } catch (e) { /* server restarting; keep polling */ }
   }, 2500);
 }
 
-function noteInNarration(text) {
-  const el = document.getElementById("narration");
-  if (el) el.textContent = text;
-}
+// ---------- from stored lesson to a playing board ----------
 
-function initPlayer(lessonData) {
-  lesson = lessonData;
-  step = 0;
-  mode = "lesson";
-  asking = false;
+async function loadScript(data) {
+  const seq = ++loadSeq;
+  Voice.cancel();
+  voicing = null;
+  lesson = data;
+  // Glyphs are measured, so the hand has to be on the machine before the plan is made.
+  await Promise.race([wb.ready(), new Promise((r) => setTimeout(r, 1500))]);
+  if (seq !== loadSeq) return;
+  plan = wb.planScript(wbScriptFrom(data));
+  beats = wb.schedule();
+  t = 0;
+  spoken = -1;
+  doneShown = false;
   playing = true;
   startedAt = Date.now();
-  doneShown = false;
-  hideLoading(); // reveal the controls whether we arrived via cache or via polling
-  paintPlayButton();
-  startStep(0);
-}
-
-// ---------- lesson playback ----------
-
-function narrationText() {
-  return lesson.steps[step].narration || "";
-}
-
-function stepConcept() {
-  return lesson.steps[step].concept || null;
-}
-
-function conceptName(slug) {
-  if (!slug) return null;
-  return (typeof CONCEPT_NAMES !== "undefined" && CONCEPT_NAMES[slug]) ||
-    slug.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function startStep(i) {
-  step = Math.max(0, Math.min(lesson.steps.length - 1, i));
-  charPos = 0;
-  typingDoneAt = null;
-  mode = "lesson";
-  timeline = buildTimeline(lesson.steps[step]);
-  boardT = 0;
-  doneShown = false;
   document.getElementById("lesson-done").style.display = "none";
-  paintNarration();
-  drawFrame(timeline, 0);
-  speak(narrationText(), null);
+  seekEl.max = String(plan.total.toFixed(1));
+  seekEl.step = String(SEEK_STEP);
+  totalEl.textContent = fmtTime(plan.total);
+  hideLoading();
+  paintPlay();
+  wb.render(0);
+  beats.slice(0, 3).forEach((b) => Voice.preload(b.text));   // the opening lines, paid for
+  startDue();
 }
 
-function redrawCurrent() {
-  if (mode === "qa" && qaTimeline) drawFrame(qaTimeline, qaT);
-  else if (timeline) drawFrame(timeline, boardT);
-}
-
-// Frames follow the display instead of a 40 ms timer, and move by the time that
-// actually passed: a timer that is throttled behind a long paint makes the drawing
-// stutter, while real elapsed time keeps it at the same speed with fewer frames.
-let lastFrame = null;
+// ---------- the clock ----------
 
 function loop(now) {
   const dt = lastFrame === null ? 0 : Math.min(0.05, (now - lastFrame) / 1000);
@@ -254,95 +207,222 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-function tick(dt) {
-  // Frames start as soon as the page opens, while the lesson is still being written.
-  if (!lesson) return;
-  if (mode === "qa") {
-    qaT += dt * SPEEDS[speed].board;
-    drawFrame(qaTimeline, qaT);
-    if (answerText !== null) {
-      if (answerPos < answerText.length) {
-        answerPos = Math.min(answerText.length, answerPos + SPEEDS[speed].cps * dt);
-        narrationEl.textContent = answerText.slice(0, Math.floor(answerPos)) + "▌";
-      } else {
-        narrationEl.textContent = answerText;
-      }
+function tick(dtWall) {
+  if (!plan) return;
+  if (playing && !asking && !scrubbing) advance(dtWall);
+  wb.render(t);
+  paintChrome();
+}
+
+function advance(dtWall) {
+  if (voicing) {
+    voicing.wall += dtWall;
+    const patience = (voicing.dur + 10) / SPEEDS[speedKey].rate;
+    if (Voice.isDone() || voicing.wall > patience) voicing = null;
+    else {
+      // The voice is the clock: the board sits at the word being said, no further.
+      t = Math.max(t, Math.min(plan.total, voicing.base + Voice.elapsed()));
+      startDue();
+      return;
     }
-    return;
   }
-  if (asking || !playing) return;
-  boardT += dt * SPEEDS[speed].board;
-  drawFrame(timeline, boardT);
-  const text = narrationText();
-  if (charPos < text.length) {
-    charPos = Math.min(text.length, charPos + SPEEDS[speed].cps * dt);
-    if (charPos >= text.length) typingDoneAt = performance.now();
-    paintNarration();
-    return;
-  }
-  if (typingDoneAt === null) typingDoneAt = performance.now();
-  if (!Voice.isDone()) return;
-  if (timeline && boardT < timeline.total) return; // never advance mid-drawing
-  if (performance.now() - typingDoneAt < SPEEDS[speed].pause) return;
-  if (step < lesson.steps.length - 1) {
-    startStep(step + 1);
+  t = Math.min(plan.total, t + dtWall * SPEEDS[speedKey].ink);
+  startDue();
+  if (t >= plan.total - 0.005 && !voicing) finish();
+}
+
+/** The last line that had begun by this instant, or -1 before the first. */
+function beatAt(time) {
+  for (let i = beats.length - 1; i >= 0; i--) if (beats[i].at <= time + 1e-6) return i;
+  return -1;
+}
+
+function startDue() {
+  if (voicing || asking) return;
+  const cur = beatAt(t);
+  if (cur <= spoken) return;
+  spoken = cur;
+  speakBeat(cur, Math.max(0, t - beats[cur].at));
+}
+
+function speakBeat(i, offset) {
+  const b = beats[i];
+  const part = offset > 0.05 ? remainder(b.text, offset / (b.speech || b.dur)) : b.text;
+  voicing = { i, base: b.at + offset, dur: Math.max(0.3, b.dur - offset), wall: 0 };
+  if (!part || !Voice.available()) { voicing = null; return; }
+  Voice.setRate(SPEEDS[speedKey].rate);
+  Voice.speak(part);
+  // Stay three lines ahead of the pen: a line the server has already voiced plays from
+  // cache, and one it hasn't gets begun now while there is still reading time left.
+  for (let k = 1; k <= 3; k++) Voice.preload(beats[i + k] ? beats[i + k].text : "");
+  armSoundHint();
+}
+
+/** The part of a line that has not been said yet, cut at a word. */
+function remainder(text, frac) {
+  const f = Math.min(0.95, Math.max(0, frac));
+  const cut = Math.round(text.length * f);
+  if (cut <= 0) return text;
+  const space = text.indexOf(" ", cut);
+  return text.slice(space > 0 && space < cut + 24 ? space + 1 : cut);
+}
+
+function finish() {
+  playing = false;
+  voicing = null;
+  Voice.cancel();
+  paintPlay();
+  showDone();
+}
+
+// ---------- moving the clock ----------
+
+function seekTo(time, speak) {
+  t = Math.max(0, Math.min(plan ? plan.total : 0, time));
+  voicing = null;
+  Voice.cancel();
+  spoken = beatAt(t) - 1;
+  if (speak !== false && playing && !asking) startDue();
+  if (wb.plan) wb.render(t);
+  paintChrome();
+}
+
+function setPlaying(on) {
+  if (!plan || on === playing) return;
+  // A press of play during a detour means "carry on with the lesson", not "freeze the
+  // board with an answer card open" — the clock cannot advance while asking is set.
+  if (on && asking) closeDetour();
+  if (on && t >= plan.total - 0.005) seekTo(0, false);
+  playing = on;
+  if (on) {
+    doneShown = false;
+    document.getElementById("lesson-done").style.display = "none";
+    Voice.resume();
+    startDue();
   } else {
-    playing = false;
-    paintPlayButton();
-    showDone();
+    Voice.pause();
   }
+  paintPlay();
+}
+
+function lineJump(dir) {
+  if (!plan) return;
+  if (asking) closeDetour();
+  const cur = beatAt(t);
+  let target = 0;
+  if (dir > 0) target = beats[cur + 1] ? beats[cur + 1].at : plan.total;
+  else {
+    // Twice on the same line means "the start of this one", like any video player.
+    const b = beats[cur];
+    if (b && t - b.at > 2) target = b.at;
+    else target = beats[cur - 1] ? beats[cur - 1].at : 0;
+  }
+  seekTo(target, true);
+}
+
+function fmtTime(s) {
+  const secs = Math.max(0, Math.round(s));
+  return Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0");
+}
+
+// ---------- what the student sees ----------
+
+function paintChrome() {
+  if (!plan) return;
+  if (!scrubbing) seekEl.value = t.toFixed(1);
+  nowEl.textContent = fmtTime(t);
+  const cue = wb.cue(t);
+  const line = cue && cue.kind === "say" ? cue.text : "";
+  if (captionEl.textContent !== line) captionEl.textContent = line;
+  const sheet = wb.cue(t, "caption");
+  const title = sheet && sheet.kind === "caption" ? sheet.text : "";
+  if (sheetEl.textContent !== title) sheetEl.textContent = title;
+  if (line && !noteEl.hidden) noteEl.hidden = true;
+}
+
+function paintPlay() {
+  playBtn.innerHTML = iconSvg(playing ? "pause" : "play") + (playing ? " Pause" : " Play");
+  playBtn.setAttribute("aria-pressed", playing ? "true" : "false");
 }
 
 // ---------- the reward for reaching the last line ----------
-//
-// Finishing a board has to feel like something closed, not like a player that ran out
-// of steps. The panel carries what was actually covered, counted off the lesson itself,
-// so it can never claim a number the board did not teach.
+
 function showDone() {
   const panel = document.getElementById("lesson-done");
   if (!panel || doneShown) return;
   doneShown = true;
-  const concepts = new Set(lesson.steps.map((s) => s.concept).filter(Boolean));
   const secs = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
-  document.getElementById("done-steps").textContent = String(lesson.steps.length);
-  document.getElementById("done-concepts").textContent = String(concepts.size || lesson.steps.length);
+  document.getElementById("done-steps").textContent = String(plan ? plan.scenes.length : 0);
+  document.getElementById("done-concepts").textContent = String(beats.length);
   document.getElementById("done-time").textContent =
     secs < 60 ? secs + "s" : Math.round(secs / 60) + " min";
   panel.style.display = "";
   panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-function paintNarration() {
-  const text = narrationText();
-  const shown = text.slice(0, Math.floor(charPos));
-  narrationEl.textContent = charPos < text.length ? shown + "▌" : shown;
-  document.getElementById("step-counter").textContent =
-    `Step ${step + 1} of ${lesson.steps.length}`;
-  const chip = document.getElementById("concept-chip");
-  const name = conceptName(stepConcept());
-  chip.style.display = name ? "" : "none";
-  chip.textContent = name || "";
-  document.getElementById("btn-prev").disabled = step === 0;
-  const next = document.getElementById("btn-next");
-  next.textContent = step === lesson.steps.length - 1 ? "Enter the Exam Center →" : "Next →";
-  next.classList.toggle("gradient", step === lesson.steps.length - 1);
+// ---------- controls ----------
+
+function wireControls() {
+  playBtn.addEventListener("click", () => setPlaying(!playing));
+  document.getElementById("speed").addEventListener("change", (e) => {
+    speedKey = e.target.value;
+    Voice.setRate(SPEEDS[speedKey].rate);
+  });
+  document.getElementById("btn-replay").addEventListener("click", () => {
+    closeDetour();
+    playing = true;
+    paintPlay();
+    seekTo(0, true);
+  });
+  document.getElementById("btn-ask").addEventListener("click", openAskPanel);
+  document.getElementById("btn-cancel-ask").addEventListener("click", resumeLesson);
+  document.getElementById("btn-resume-bar").addEventListener("click", resumeLesson);
+  document.getElementById("btn-send-ask").addEventListener("click", sendQuestion);
+  document.getElementById("btn-regenerate").addEventListener("click", regenerate);
+  document.getElementById("btn-retry").addEventListener("click", regenerate);
+  document.getElementById("done-replay").addEventListener("click", () => {
+    playing = true;
+    paintPlay();
+    seekTo(0, true);
+    document.getElementById("board").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+  document.getElementById("btn-mic").addEventListener("click", toggleMic);
+  document.getElementById("ask-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
+  });
+
+  seekEl.addEventListener("pointerdown", () => { scrubbing = true; Voice.cancel(); voicing = null; });
+  seekEl.addEventListener("input", () => {
+    scrubbing = true;
+    t = Number(seekEl.value) || 0;
+    if (wb.plan) wb.render(t);
+    paintChrome();
+  });
+  ["change", "pointerup", "pointercancel", "keyup", "blur"].forEach((ev) =>
+    seekEl.addEventListener(ev, () => {
+      if (!scrubbing) return;
+      scrubbing = false;
+      // Moving the playhead is leaving the paused instant, so the answer goes with it.
+      if (asking) closeDetour();
+      seekTo(Number(seekEl.value) || 0, true);
+    }));
+
+  document.addEventListener("keydown", (e) => {
+    const tag = (e.target && e.target.tagName) || "";
+    if (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(tag)) return;
+    if (e.code === "Space") { e.preventDefault(); setPlaying(!playing); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); lineJump(1); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); lineJump(-1); }
+    else if (e.key === "?" || e.key.toLowerCase() === "a") { e.preventDefault(); openAskPanel(); }
+  });
+  window.addEventListener("beforeunload", () => Voice.cancel());
 }
 
-// ---------- voice output ----------
-// Narration is delegated to the shared narrator in voice.js so the lesson player
-// and the walkthrough player share one TTS stack (rate, cancellation, done).
-
-let soundHintTimer = null;
-
-function speak(text, onEnd) {
-  Voice.setRate(SPEEDS[speed].rate);
-  Voice.speak(text, onEnd);
-  armSoundHint();
-}
+// ---------- sound ----------
 
 // Browsers refuse to play audio until the visitor has interacted with the page. The
-// lesson must not wait for a button press, so it carries on silently — board drawing
-// and typed narration keep going — and offers the voice back on the first tap.
+// lesson must not wait for a button press, so the hand keeps moving silently — and the
+// sentence the student missed is said again on the first tap.
 function armSoundHint() {
   clearTimeout(soundHintTimer);
   soundHintTimer = setTimeout(() => { if (Voice.isBlocked()) showSoundHint(); }, 2200);
@@ -356,154 +436,150 @@ function showSoundHint() {
     hint.classList.remove("show");
     document.removeEventListener("pointerdown", enable);
     document.removeEventListener("keydown", enable);
-    if (mode === "lesson" && !asking && playing) {
-      speak(narrationText().slice(Math.floor(charPos)), null);
-    }
+    if (playing && !asking) seekTo(t, true);
   };
   document.addEventListener("pointerdown", enable);
   document.addEventListener("keydown", enable);
 }
 
-const voiceCancel = () => Voice.cancel();
+// ---------- stopping to ask ----------
 
-function togglePlay() {
-  playing = !playing;
-  if (playing) Voice.resume();
-  else Voice.pause();
-  paintPlayButton();
-}
-
-function paintPlayButton() {
-  document.getElementById("btn-playpause").innerHTML =
-    iconSvg(playing ? "pause" : "play") + (playing ? " Pause" : " Play");
-}
-
-function onNext() {
-  if (step === lesson.steps.length - 1) window.location.href = EXAM_URL;
-  else goto(step + 1);
-}
-
-function goto(i) {
-  startStep(i);
-  paintPlayButton();
-}
-
-// ---------- question interlude ----------
-
-function wrapText(text, width) {
-  const words = String(text).split(/\s+/);
-  const lines = [];
-  let line = "";
-  for (const w of words) {
-    const test = line ? line + " " + w : w;
-    if (test.length > width && line) { lines.push(line); line = w; }
-    else line = test;
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-// Lay the tutor's explanation on the board: the concept being taught plus the short
-// board notes the model returned. The full spoken answer types into the narration
-// strip, so the board carries the skeleton a student would copy into their exercise
-// book — never a wall of text.
-function buildExplanationActions(answer, points, conceptLabel) {
-  const notes = (points && points.length)
-    ? points.slice(0, 5)
-    : wrapText(String(answer).match(/[^.!?]+[.!?]?/g)?.slice(0, 2).join(" ").trim() || "", 46).slice(0, 4);
-  const title = conceptLabel ? `Tutor explains · ${conceptLabel}` : "Tutor explains";
-  return [
-    { type: "draw", glyph: "bulb", x: 830, y: 40, size: 140 },
-    { type: "label", text: title.slice(0, 46), x: 70, y: 76, color: "#F4EBDD", size: 26 },
-    { type: "draw", shape: "line", x1: 70, y1: 100, x2: 470, y2: 100, color: "#FF6B57" },
-    ...notes.slice(0, 5).map((note, i) => ({
-      type: "label", text: "• " + String(note).slice(0, 52),
-      x: 84, y: 168 + i * 62, color: "#F4EBDD", size: 22,
-    })),
-  ];
+function currentLine() {
+  const cue = wb.cue(t);
+  return cue && cue.kind === "say" ? cue.text : "";
 }
 
 function openAskPanel() {
+  if (!plan) return;
   asking = true;
   playing = false;
-  voiceCancel();
-  paintPlayButton();
+  voicing = null;
+  clearTimeout(answerWait);
+  Voice.cancel();
+  paintPlay();
+  closeAsk();
+  document.getElementById("tutor-card").style.display = "none";
   document.getElementById("ask-bar").classList.remove("open");
   const panel = document.getElementById("ask-panel");
   panel.classList.add("open");
-  document.getElementById("paused-step").textContent = narrationText();
+  document.getElementById("paused-step").textContent = currentLine() || "the board as it stands";
   document.getElementById("ask-input").value = "";
   document.getElementById("ask-input").focus();
   panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+function closeAsk() {
+  document.getElementById("ask-panel").classList.remove("open");
+}
+
 async function sendQuestion() {
-  const input = document.getElementById("ask-input");
-  const question = input.value.trim();
+  const question = document.getElementById("ask-input").value.trim();
   if (!question) return;
   stopMic();
-  asking = true;
-  mode = "qa";
-  const concept = stepConcept();
-  const conceptLabel = conceptName(concept);
-  document.getElementById("ask-panel").classList.remove("open");
+  closeAsk();
   const bar = document.getElementById("ask-bar");
   bar.classList.add("open");
   document.getElementById("ask-bar-q").textContent = "You asked: " + question;
-  document.getElementById("ask-bar-state").textContent = "tutor is thinking…";
-  narrationEl.textContent = "Tutor is thinking about your question…";
-
-  qaBaseActions = [
-    { type: "draw", glyph: "bulb", x: 430, y: 200, size: 180 },
-    { type: "label", text: "Thinking about your question…", x: 300, y: 420, color: "#BFB09C", size: 22 },
-    ...(conceptLabel ? [{ type: "label", text: conceptLabel, x: 300, y: 470, color: "#FF6B57", size: 20 }] : []),
-  ];
-  qaTimeline = buildTimeline({ actions: qaBaseActions });
-  qaT = 0;
-  answerText = null;
-  answerPos = 0;
+  document.getElementById("ask-bar-state").textContent = "the tutor is answering…";
+  const card = document.getElementById("tutor-card");
+  card.style.display = "";
+  card.className = "tutor-card";
+  card.innerHTML = '<div class="tc-eyebrow">Tutor</div><div class="tc-ask">“' +
+    escapeHtml(question) + '”</div><div class="tc-wait">Looking at your board…</div>';
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
   try {
     const resp = await fetch("/api/ask", {
       method: "POST",
       headers: csrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
-        subject: SUBJECT, topic: TOPIC, narration: narrationText(),
-        question, concept,
+        subject: SUBJECT, topic: TOPIC, narration: currentLine(),
+        question, concept: currentConcept(),
       }),
     });
     const data = await readJSON(resp);
     if (!resp.ok) throw new Error(data.error || "Request failed");
-    document.getElementById("ask-bar-state").textContent = "tutor is answering…";
-    // the board now teaches the explanation; the narration strip types + speaks it
-    qaTimeline = buildTimeline({
-      actions: buildExplanationActions(data.answer, data.points, data.concept || conceptLabel),
-    });
-    qaT = 0;
-    answerText = data.answer;
-    answerPos = 0;
-    speak(data.answer, resumeLesson); // when the tutor finishes saying it, the lesson resumes
+    document.getElementById("ask-bar-state").textContent = "";
+    renderAnswer(data, question);
   } catch (err) {
     document.getElementById("ask-bar-state").textContent = "";
-    narrationEl.textContent = "Couldn't reach the tutor: " + err.message + " — resume when ready.";
-    answerText = "";
+    card.innerHTML = '<div class="tc-eyebrow">Tutor</div><div class="tc-ask">“' +
+      escapeHtml(question) + '”</div><div class="tc-body">Couldn’t reach the tutor: ' +
+      escapeHtml(err.message) + "</div>";
   }
 }
 
-// Resume exactly where we paused: same step, same character position.
-function resumeLesson() {
-  if (!asking) return;
+// The answer is a card, not a drawing: what is on the board stays on the board, and the
+// tutor's detour sits under it where it can be read at leisure.
+function renderAnswer(data, question) {
+  const points = (data.points || []).filter(Boolean);
+  const card = document.getElementById("tutor-card");
+  card.className = "tutor-card";
+  card.innerHTML =
+    '<div class="tc-eyebrow">' + (data.concept ? escapeHtml(data.concept) : "Tutor") + "</div>" +
+    '<div class="tc-ask">“' + escapeHtml(question) + '”</div>' +
+    '<p class="tc-body">' + escapeHtml(data.answer || "") + "</p>" +
+    (points.length ? '<ul class="tc-notes">' + points.map((p) =>
+      "<li>" + escapeHtml(p) + "</li>").join("") + "</ul>" : "") +
+    '<div class="tc-actions"><button class="btn" id="tc-resume">Back to the lesson</button>' +
+    '<button class="btn ghost" id="tc-again">Ask something else</button></div>';
+  document.getElementById("tc-resume").addEventListener("click", resumeLesson);
+  document.getElementById("tc-again").addEventListener("click", () => {
+    stopAnswer();
+    card.style.display = "none";
+    openAskPanel();
+  });
+  // Say it, then carry on from the exact word the board stopped on.
+  voicing = null;
+  Voice.setRate(SPEEDS[speedKey].rate);
+  if (data.answer && Voice.available()) Voice.speak(data.answer);
+  // A student who has read the answer should not have to wait for the voice, but the
+  // lesson has to pick up where it left off, so the wait ends with the sentence.
+  waitVoice(() => { if (asking) resumeLesson(); });
+}
+
+let answerWait = null;
+
+function stopAnswer() {
+  clearTimeout(answerWait);
+  answerWait = null;
+  Voice.cancel();
+}
+
+function waitVoice(then) {
+  const deadline = Date.now() + 90000;
+  const poll = () => {
+    if (Voice.isDone() || Date.now() > deadline) { answerWait = null; then(); return; }
+    answerWait = setTimeout(poll, 260);
+  };
+  poll();
+}
+
+function closeDetour() {
+  stopAnswer();
   asking = false;
-  mode = "lesson";
-  document.getElementById("ask-panel").classList.remove("open");
+  closeAsk();
   document.getElementById("ask-bar").classList.remove("open");
+  document.getElementById("tutor-card").style.display = "none";
+}
+
+function resumeLesson() {
+  closeDetour();
   playing = true;
-  paintPlayButton();
-  timeline = buildTimeline(lesson.steps[step]); // board redraws the frame pen-style
-  boardT = 0;
-  paintNarration();
-  const remaining = narrationText().slice(Math.floor(charPos));
-  speak(remaining, null);
+  paintPlay();
+  seekTo(t, true);   // the same instant, the same half-said sentence
+}
+
+function currentConcept() {
+  // Legacy lessons tag steps with a concept slug; scripts name their sheets instead.
+  const steps = (lesson && lesson.steps) || [];
+  for (let i = steps.length - 1; i >= 0; i--) if (steps[i] && steps[i].concept) return steps[i].concept;
+  return null;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 // ---------- voice input ----------
@@ -549,7 +625,8 @@ async function regenerate() {
   const btn = document.getElementById("btn-regenerate");
   btn.disabled = true;
   playing = false;
-  voiceCancel();
+  voicing = null;
+  Voice.cancel();
   // The student has just rejected this board: it must not come back as the cached
   // copy on the next visit, and it must not be swapped in underneath the redraw.
   fromCache = null;

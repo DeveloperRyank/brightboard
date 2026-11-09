@@ -65,12 +65,16 @@ _SHARED_TEMPLATES = """\
 
 _SUBJECT_TEMPLATES = {
     "chemistry": """\
-  distillation    burner + round flask + thermometer + condenser + beaker
+  distillation    one connected train: burner under gauze, flask clamped at the neck, thermometer
+                  bulb level with the side arm, tilted condenser with water in low and out high,
+                  delivery tube hanging above the receiver
                   USE FOR: separating liquids by boiling point, fractional distillation
-  titration       burette over a conical flask
+  titration       burette held by a boss on a retort stand over a conical flask on a white tile
                   USE FOR: acid-base titration, indicator, endpoint, molar calculations
-  filtration      funnel + filter paper over a conical flask
+  filtration      funnel seated on an iron ring, paper folded inside, stem tip against the beaker
+                  wall, pouring down a glass rod
                   USE FOR: separating an insoluble solid from a liquid, residue and filtrate
+                  slots for filtration: residue, filtrate, funnel, paper
   methane         tetrahedral CH4 ball-and-stick
                   USE FOR: the shape of a tetrahedral molecule, bond angle 109.5 degrees
   water           bent H2O with lone pairs
@@ -159,6 +163,170 @@ def _lesson_system(subject):
 You output STRICT JSON only — no prose, no code fences, no commentary before or after the JSON.
 Your reply must begin with the character {{ and end with the character }}.
 {_canvas_rules(subject)}"""
+
+
+# ---------- the lesson SCRIPT: what the generator produces ----------
+#
+# The model writes a lesson the way a teacher plans one — say this, write this, ring the
+# answer — and never touches a coordinate. The whiteboard engine owns the sheet: it
+# measures the real glyphs of every line, lays rows down in order and places every mark on
+# the words it names. A script that tries to do any of that itself is rejected.
+
+SCRIPT_BASE = """THE BOARD IS PLAYED, NOT DRAWN BY YOU. You write a lesson script: a flat list of
+operations the whiteboard engine performs in order, while the same words are spoken out loud.
+You never choose a position, a size, a colour code or a canvas — the engine measures the real
+handwriting and places every line itself. Any coordinate in your JSON is a bug and the script
+is thrown away.
+
+Operations (every one of these keys is exactly as written):
+  {"op":"caption","text":"Title of this sheet of board — at most 6 words"}
+  {"op":"say","text":"One or two spoken sentences. This is also what appears as the caption line."}
+  {"op":"write","text":"What the hand writes on the board","id":"short_snake_id","row":0-4,"color":"accent"}
+  {"op":"ring","target":"id","find":"exact words inside that write"}
+  {"op":"underline","target":"id","find":"exact words inside that write"}
+  {"op":"arrow","target":"id","find":"exact words","from":"another id on the same sheet"}
+  {"op":"tick","target":"id"}
+  {"op":"figure","name":"template","variant":"...","labels":{"slot":"short text"},"row":0-4}
+  {"op":"pause","ms":400}
+
+Hard rules, all of them checked:
+- A caption starts a sheet. Five rows fit on a sheet, so use a new caption before row 0 again.
+- "row" is which line of the sheet, counting from 0 at the top — never a pixel.
+- "write" is what a student would copy into an exercise book: a formula, a substitution, the
+  answer, one short phrase. AT MOST 64 characters, and never a sentence you have also said.
+- "id" is required on any line a later ring / underline / arrow / tick points at, and must be
+  unique within the sheet. "find" must appear character-for-character inside that write's text,
+  so quote the words instead of paraphrasing them.
+- "figure" draws real apparatus, a ray diagram, a molecule or an energy curve. Use it on most
+  sheets that have a physical thing to show. Only names listed below exist, and only the slots
+  listed for that name may be filled.
+- Colour is a word, not a hex: leave "color" out for the working, or "accent" for the one thing
+  on the sheet the student must look at — the answer, the product, the peak. One accent per sheet.
+- Worked examples are written line by line the way a teacher does it: the given data, then the
+  formula, then the substitution, then the answer. Ring or tick the answer after writing it.
+- A sheet holds a thought, so it holds two to five writes. One write per sheet is a slideshow,
+  and the hand would spend half the lesson standing still."""
+
+FIGURE_LETTERS = """FIGURES AVAILABLE TO YOU (name — variants — slots):
+<<figures>>
+A figure you have not been given here does not exist; if none of them fits the idea, teach the
+idea in written lines instead."""
+
+
+def _figure_docs(subject):
+    key = (subject or "").replace("_", " ").strip().lower()
+    block = _SUBJECT_TEMPLATES.get(key, "")
+    return (block + "\n" + _SHARED_TEMPLATES) if block else _SHARED_TEMPLATES
+
+
+def _script_system(subject):
+    return f"""You are a KCSE {_subject_name(subject)} tutor planning one continuous whiteboard
+lesson for a secondary-school student in Kenya, to be played back with your words spoken aloud.
+You output STRICT JSON only — no prose, no code fences, nothing before or after the JSON.
+Your reply must begin with the character {{ and end with the character }}.
+{SCRIPT_BASE}
+{FIGURE_LETTERS.replace("<<figures>>", _figure_docs(subject))}"""
+
+
+def _script_head(topic_name, subject_name):
+    return (f'{{\n  "title": "{topic_name}",\n  "steps": [\n'
+            '    {"op":"caption","text":"What this sheet is about"},\n'
+            '    {"op":"say","text":"The sentence the tutor says out loud."},\n'
+            '    {"op":"write","text":"M = 20 g","id":"given","row":0},\n'
+            '    {"op":"write","text":"n = 20/100 = 0.2 mol","id":"answer","row":1,"color":"accent"},\n'
+            '    {"op":"ring","target":"answer","find":"0.2 mol"}\n'
+            '  ]\n}')
+
+
+SCRIPT_SHAPE_NOTES = """Teach the topic as a teacher would at the board, in this order:
+1. HOOK — one sheet that shows why the topic matters, and the single idea the whole lesson rests on.
+2. RULE — at most ONE short written line for the rule or formula. Everything after that is worked.
+3. FOUR TO SIX WORKED EXAMPLES, easiest first, each on its own sheet. At least 70% of the whole
+   lesson must be examples being worked, not explanations being read out. One idea per example.
+   For each: say what you are doing, write the data, write the substitution, write the answer,
+   then ring or tick the answer and say one sentence about why it came out that way.
+4. TRAPS — the mistakes students actually make, shown by working the wrong way and crossing it out.
+5. YOU TRY — one example where the saying guides but the board only shows the question's own data.
+6. MINI-CHECK then RECAP — two spoken questions and then the three lines worth copying down.
+
+Show, mark, then one short sentence. Never put a paragraph on the board: if it needs reading,
+say it with "say" and write only the skeleton with "write"."""
+
+NOTES_SCRIPT_TEMPLATE = """Plan a complete lesson that teaches the WHOLE topic "{topic}" to a
+KCSE {subject_name} student, as one continuous board rather than a set of slides.
+
+What follows is the class notes this topic is actually taught from — a teacher's pages, in the
+order the student meets them. They are the authority for this lesson: teach what they say, and
+teach nothing they do not cover.
+
+<notes>
+{notes}
+</notes>
+
+Coverage rules — these are checked, and a lesson that breaks them is thrown away:
+- Work through the notes in their own order. Every heading, list and worked example in them has
+  to be taught; give each one at least one sheet.
+- Keep the notes' definitions, formulae, units and constants exactly as written. Where the notes
+  work an example with real numbers, teach that example with those numbers — do not invent a
+  tidier one.
+- The student cannot see the booklet's diagrams. Where the notes say "as shown below" or refer to
+  an arrangement, describe it in "say" and draw it with "figure" if a figure exists for it.
+- Do NOT write exam questions for the student to answer. Practice comes only from the question
+  bank. Use the notes' examples as teaching material.
+{outline}{style}
+{adapt}
+
+{shape}
+
+Output JSON exactly like this shape, with the operations listed in your instructions:
+{shape_example}
+
+Use {lo} to {hi} sheets. Every sheet needs a caption, at least one say, and at least one write
+or figure."""
+
+CONCEPT_SCRIPT_TEMPLATE = """Plan a complete lesson that teaches the WHOLE topic "{topic}" to a
+KCSE {subject_name} student, as one continuous board rather than a set of slides.
+
+The topic is defined by this concept map. These are the concepts you MUST teach, in this order:
+{concept_list}
+
+Coverage rules — these are checked, and a lesson that breaks them is thrown away:
+- Teach EVERY concept listed, in the order given. Do not skip one, do not merge two unless they
+  are genuinely one idea, and do not invent concepts that are not on the list.
+- Put "concept": "<slug>" on the first op of every sheet, copied exactly from the list.
+- Give the bigger concepts more sheets; every concept gets at least one.
+
+These real past-paper questions show the STYLE to teach towards — the command words, the mark
+allocations and the depth KNEC expects. Use them for depth only, never as questions to answer:
+{examples}
+
+{adapt}
+
+{shape}
+
+Output JSON exactly like this shape, with the operations listed in your instructions:
+{shape_example}
+
+Use {lo} to {hi} sheets. Every sheet needs a caption, at least one say, and at least one write
+or figure."""
+
+PLAIN_SCRIPT_TEMPLATE = """Plan a complete lesson that teaches the WHOLE topic "{topic}" to a
+KCSE {subject_name} student, as one continuous board rather than a set of slides. Every concept
+in the topic, in teaching order — a student who finishes it must handle any exam question on it.
+
+The past-paper questions the topic is examined by:
+{examples}
+
+{adapt}
+
+{shape}
+
+Output JSON exactly like this shape, with the operations listed in your instructions:
+{shape_example}
+
+Use {lo} to {hi} sheets. Every sheet needs a caption, at least one say, and at least one write
+or figure."""
+
 
 
 LESSON_USER_TEMPLATE = """Create a complete whiteboard lesson that teaches the WHOLE topic "{topic}" for a KCSE {subject_name} student — every core concept in the topic, in teaching order, not just one worked example. A student who finishes this lesson must understand the entire topic well enough to answer any KCSE question on it.
@@ -272,12 +440,14 @@ You output STRICT JSON only — no prose, no code fences, nothing before or afte
   "points": ["...", "..."]
 }}
 
-"answer" is what you SAY out loud: a clear, COMPLETE, self-contained spoken explanation in plain prose a
-Kenyan secondary-school student understands, grounded in the concept the paused step is teaching.
-Structure it as: (1) a direct one-sentence answer, (2) the WHY — the mechanism or reasoning, walked through
-step by step, (3) the exact keywords, units or step order KNEC marking schemes reward, (4) one line tying it
-back to the concept being taught so the student sees where it fits in the topic. 4 to 6 sentences, at most
-220 words. Teach the idea properly — never just restate the question or give a bare conclusion.
+"answer" is what you SAY out loud while the lesson is paused, so it has to finish before
+the student loses the thread: a clear, self-contained spoken explanation in plain prose a
+Kenyan secondary-school student understands, grounded in the concept the paused step is
+teaching. Structure it as: (1) a direct one-sentence answer, (2) the WHY in one or two
+sentences — the mechanism, not a list of facts, (3) the exact keywords, units or step
+order the marking scheme rewards, tied back to where this sits in the topic.
+3 to 4 sentences, at most 90 words. Teach the idea properly — never just restate the
+question or give a bare conclusion.
 Write flowing sentences only. NEVER output bare numbered lists, marking-scheme fragments, isolated numbers in
 brackets, or disconnected phrases — always full sentences. No markdown headings, no code fences.
 
@@ -354,7 +524,7 @@ BOARD_W, BOARD_H = 1000, 620
 TEMPLATE_CATALOG = {
     "distillation": {"variants": [], "slots": ["mixture", "thermometer", "condenser", "distillate"]},
     "titration": {"variants": [], "slots": ["titrant", "analyte", "endpoint"]},
-    "filtration": {"variants": [], "slots": ["residue", "filtrate"]},
+    "filtration": {"variants": [], "slots": ["residue", "filtrate", "funnel", "paper"]},
     "methane": {"variants": [], "slots": ["name", "geometry"]},
     "water": {"variants": [], "slots": ["angle", "name", "geometry"]},
     "energy_profile": {"variants": ["exo", "endo"], "slots": ["reactants", "products", "ts", "ea", "dh"]},
@@ -722,63 +892,555 @@ def _style_block(example_questions):
             + "\n".join(f"- {q}" for q in example_questions[:8]) + "\n")
 
 
+# ---------- the script's own validator ----------
+#
+# Everything checkable about a script is checked here, before a student ever sees it: that
+# the ops are real, that a mark names a line that exists on the same sheet, that "find" is
+# quoted rather than paraphrased, that no line is a paragraph, that the board is not asked
+# for a sixth row, and above all that the model has kept its hands off the geometry.
+
+SCRIPT_OPS = {"caption", "say", "write", "ring", "underline", "arrow", "tick", "figure", "pause"}
+MARK_OPS = {"ring", "underline", "arrow", "tick"}
+ROW_LIMIT = 5
+LINE_LIMIT = 64
+_SHEET_LIMIT = 26
+# Anything that looks like this in a reply is the model reaching for the canvas, which
+# it does not own. The engine measures every one of these off real glyphs.
+_GEO_KEYS = {"x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "size", "width",
+             "points", "w", "h"}
+
+_FIGURE_NAMES = {
+    "chemistry": {"distillation", "titration", "filtration", "methane", "water", "energy_profile"},
+    "physics": {"spring", "free_body", "lever", "circuit", "wave", "curved_mirror", "thin_lens",
+                "refraction", "magnetism", "vector_triangle", "electroscope", "capacitor"},
+}
+
+
+def _figure_names(subject):
+    key = (subject or "").replace("_", " ").strip().lower()
+    return {"graph_axes"} | _FIGURE_NAMES.get(key, set())
+
+
+def _as_text(v):
+    return str(v if v is not None else "").strip()
+
+
+def validate_script(script, allowed_concepts=None, gate=None, subject=None):
+    """A list of human-readable problems; empty means the engine can play this script."""
+    problems = []
+    if not isinstance(script, dict) or not isinstance(script.get("steps"), list) \
+            or not script["steps"]:
+        return ["the reply must be an object with a non-empty 'steps' list of operations"]
+    if len(script["steps"]) > _SHEET_LIMIT * 3:
+        return ["the script is far too long — keep it to {} to {} sheets".format(3, _SHEET_LIMIT)]
+
+    allowed = set(allowed_concepts or ())
+    figures = _figure_names(subject)
+    sheet = None            # caption text of the sheet being read
+    rows = 0                # rows used on the current sheet
+    ids = {}                # id -> full text, for the current sheet only
+    accents = 0
+    shown = False           # has the current sheet anything on it yet
+    sheets = 0
+    writes = 0
+    say_lines = 0
+
+    for i, op in enumerate(script["steps"]):
+        if not isinstance(op, dict):
+            problems.append(f"step {i}: an operation must be an object")
+            continue
+        kind = op.get("op")
+        if kind not in SCRIPT_OPS:
+            problems.append(f"step {i}: '{kind}' is not an operation the board understands")
+            continue
+        stray = _GEO_KEYS & set(op)
+        if stray:
+            problems.append(f"step {i}: the board owns the geometry — remove {', '.join(sorted(stray))}")
+        if kind == "caption":
+            if not _as_text(op.get("text")):
+                problems.append(f"step {i}: a caption needs the sheet's title")
+            if sheets and not shown:
+                problems.append(f"'{sheet}': a sheet the hand never writes on is not a sheet")
+            sheet = _as_text(op.get("text"))
+            rows, ids, accents, shown = 0, {}, 0, False
+            sheets += 1
+            continue
+        if kind == "say":
+            text = _as_text(op.get("text"))
+            if not text:
+                problems.append(f"step {i}: a spoken line with nothing in it")
+            if len(text) > 320:
+                problems.append(f"step {i}: say at most two sentences before the board moves on")
+            if not text.endswith((".", "!", "?")):
+                problems.append(f"step {i}: 'say' must end in a full stop so the narrator stops cleanly")
+            say_lines += 1
+            continue
+        if kind == "pause":
+            if not (100 <= (op.get("ms") or 0) <= 2000):
+                problems.append(f"step {i}: a pause is between 100 and 2000 milliseconds")
+            continue
+        if kind == "write":
+            text = _as_text(op.get("text"))
+            if not text:
+                problems.append(f"step {i}: a write with nothing in it")
+                continue
+            if len(text) > LINE_LIMIT:
+                problems.append(f"step {i}: '{text[:24]}…' is {len(text)} characters — the board takes "
+                                "one short line at a time; say the rest instead")
+            row = op.get("row")
+            if row is not None and not (isinstance(row, (int, float)) and 0 <= int(row) < ROW_LIMIT):
+                problems.append(f"step {i}: row must be 0 to {ROW_LIMIT - 1}")
+            rows = max(rows, (int(row) + 1) if isinstance(row, (int, float)) else rows + 1)
+            if rows > ROW_LIMIT:
+                problems.append(f"step {i}: sheet '{sheet}' has more than {ROW_LIMIT} rows — start a new caption")
+            if op.get("color") not in (None, "", "accent"):
+                problems.append(f"step {i}: colour is a word, 'accent' or nothing at all")
+            if op.get("color") == "accent":
+                accents += 1
+                if accents > 1:
+                    problems.append(f"step {i}: sheet '{sheet}' has two things in accent — only one may stand out")
+            wid = _as_text(op.get("id"))
+            if wid:
+                if wid in ids:
+                    problems.append(f"step {i}: id '{wid}' is used twice on sheet '{sheet}'")
+                ids[wid] = text
+            shown = True
+            writes += 1
+            continue
+        if kind == "figure":
+            name = _as_text(op.get("name"))
+            if name not in figures:
+                problems.append(f"step {i}: there is no figure called '{name}' for {subject or 'this subject'} "
+                                f"(available: {', '.join(sorted(figures))})")
+            if gate and gate.get("allowed") and name in _TEMPLATE_TRIGGERS and name not in gate["allowed"]:
+                problems.append(f"step {i}: '{name}' is not the apparatus these notes describe — "
+                                f"use one of {', '.join(sorted(gate['allowed']))}")
+            if not isinstance(op.get("labels"), dict) and op.get("labels") is not None:
+                problems.append(f"step {i}: a figure's labels must be an object of slot to text")
+            for slot, value in (op.get("labels") or {}).items():
+                if len(_as_text(value)) > 48:
+                    problems.append(f"step {i}: label '{slot}' is a sentence — the notes beside a diagram "
+                                    "are a few words")
+            row = op.get("row")
+            if isinstance(row, (int, float)):
+                rows = max(rows, int(row) + 1)
+            else:
+                rows += 1
+            if rows > ROW_LIMIT:
+                problems.append(f"step {i}: sheet '{sheet}' has more than {ROW_LIMIT} rows — start a new caption")
+            shown = True
+            continue
+        # marks
+        target = _as_text(op.get("target"))
+        if not target or target not in ids:
+            problems.append(f"step {i}: '{kind}' points at '{target}', which no write on "
+                            "this sheet has an id of")
+            continue
+        find = op.get("find")
+        if find is not None and _as_text(find) not in ids[target]:
+            problems.append(f"step {i}: '{_as_text(find)}' is not written inside '{ids[target]}' — "
+                            "quote the board's own words in 'find'")
+        if kind == "tick" and find is not None:
+            problems.append(f"step {i}: a tick marks a whole line, so it takes no 'find'")
+
+    if sheets and not shown:
+        problems.append(f"'{sheet}': a sheet the hand never writes on is not a sheet")
+    if not say_lines:
+        problems.append("nothing is spoken: a lesson is the tutor talking while the hand moves")
+    if not writes:
+        problems.append("no sheet has anything written on it")
+    if len(script["steps"]) < 6:
+        problems.append("six operations at the very least — this is a whole topic, not one example")
+    # A reply that ran out of output tokens leaves exactly this shape behind: one sheet and
+    # a couple of lines. Shipping it as the cached lesson would quietly replace a real one.
+    if sheets < 4:
+        problems.append(f"only {sheets} sheet(s): a lesson runs hook, rule, worked examples, "
+                        "a trap, you-try and recap — at least four sheets")
+    if say_lines < 6:
+        problems.append(f"only {say_lines} spoken line(s): the tutor talks through every sheet")
+    if allowed:
+        used = {_as_text(o.get("concept")) for o in script["steps"] if isinstance(o, dict)}
+        missing = sorted(allowed - used)
+        if missing:
+            problems.append("the concept map asks for concepts this script never teaches: "
+                            + ", ".join(missing))
+    return problems
+
+
+def normalize_script(script, allowed_concepts=None, durations=None, subject=None,
+                     gate=None, repairs=None):
+    """Repair the script down to what the engine can actually play, and stamp spoken time.
+
+    Most of what a model gets wrong about this contract is mechanical — a coordinate it
+    has no business choosing, a ring aimed at a line that does not exist, a row past the
+    bottom of the sheet. Those are cut out here rather than thrown the lesson away for.
+    What is NOT repairable is a script with nothing to say or nothing to show, and that
+    is what validate_script() reports back after this has run.
+
+    A mark whose line is missing is dropped instead of re-pointed: a ring around the
+    wrong number teaches the wrong number. A mark whose "find" is paraphrased keeps its
+    target and loses the phrase, which rings the whole line — honest, if less tidy."""
+    note = repairs if repairs is not None else []
+    figures = _figure_names(subject)
+    allowed = set(allowed_concepts or ())
+    steps = []
+    sheets = 0
+    used = set()          # rows taken on the current sheet
+    ids = {}
+    accents = 0
+    shown = False
+
+    def flush_sheet():
+        """An empty sheet is a board wipe for no reason: drop its caption."""
+        if not shown and steps and steps[-1]["op"] == "caption":
+            note.append(f"dropped the empty sheet '{steps[-1]['text']}'")
+            steps.pop()
+
+    def place(wanted):
+        """A row on this sheet that nothing else is standing on. Two items given the same
+        row write one over the other, which is the one overlap the engine cannot fix."""
+        want = _num(wanted)
+        if want is None:
+            order = range(ROW_LIMIT)                      # no row asked for: go in order
+        else:
+            start = max(0, min(int(want), ROW_LIMIT - 1))
+            order = list(range(start, ROW_LIMIT)) + list(range(0, start))
+        for row in order:
+            if row not in used:
+                return row
+        return None
+
+    def wipe_sheet():
+        """A full sheet is not the end of the lesson — the board wipes and the work goes
+        on, exactly as it does in class. The engine already does this on its own, so the
+        generator has to as well, or it drops content the board has room to show."""
+        nonlocal sheets, shown, accents
+        if sheets >= _SHEET_LIMIT:
+            return False
+        sheets += 1
+        used.clear()
+        ids.clear()
+        shown, accents = False, 0
+        return True
+
+    for i, op in enumerate((script or {}).get("steps") or []):
+        if not isinstance(op, dict) or op.get("op") not in SCRIPT_OPS:
+            note.append(f"step {i}: not an operation the board understands")
+            continue
+        kind = op["op"]
+        geo = _GEO_KEYS & set(op)
+        if geo:
+            note.append(f"step {i}: the board chose its own {', '.join(sorted(geo))}")
+            op = {k: v for k, v in op.items() if k not in _GEO_KEYS}
+        concept = op.get("concept") if op.get("concept") in allowed else None
+
+        if kind == "caption":
+            text = _as_text(op.get("text"))[:48]
+            if not text:
+                note.append(f"step {i}: a caption with no title")
+                continue
+            flush_sheet()
+            if sheets >= _SHEET_LIMIT:
+                note.append(f"step {i} and after: the board only holds {_SHEET_LIMIT} "
+                            "sheets, so the rest of the lesson was left out")
+                break
+            sheets += 1
+            used, ids, accents, shown = set(), {}, 0, False
+            steps.append({"op": "caption", "text": text})
+            continue
+
+        if kind == "say":
+            line = _say(op.get("text"), concept, durations, _as_text(op.get("text")))
+            if line:
+                steps.append(line)
+            continue
+
+        if kind == "pause":
+            # A beat's gap is reading time, not dead air: whatever the model asked for,
+            # the lesson waits between a quarter of a second and seven tenths.
+            steps.append({"op": "pause", "ms": int(min(700, max(250, _num(op.get("ms")) or 400)))})
+            continue
+
+        if kind == "write":
+            text, rest = _split_line(_as_text(op.get("text")))
+            if not text:
+                note.append(f"step {i}: a write with nothing in it")
+                continue
+            row = place(op.get("row"))
+            if row is None:
+                if not wipe_sheet():
+                    note.append(f"step {i}: the board is out of sheets, so '{text[:24]}' "
+                                "was left out")
+                    continue
+                row = place(op.get("row"))
+            used.add(row)
+            line = {"op": "write", "text": text, "row": row}
+            wid = _as_text(op.get("id"))[:28].replace(" ", "_")
+            if wid and wid not in ids:
+                line["id"] = wid
+                ids[wid] = text
+            elif wid:
+                note.append(f"step {i}: id '{wid}' was already used on this sheet")
+            if op.get("color") == "accent" and accents < 1:
+                line["color"] = "accent"
+                accents += 1
+            elif op.get("color") == "accent":
+                note.append(f"step {i}: a second thing in accent — only one may stand out")
+            if concept:
+                line["concept"] = concept
+            shown = True
+            steps.append(line)
+            # The part that would not fit still has to reach the student: it goes on the
+            # next free row, and whatever is left after the rows run out is spoken.
+            while rest:
+                spot = place(None)
+                if spot is None:
+                    break
+                more, rest = _split_line(rest)
+                if not more:
+                    break
+                used.add(spot)
+                steps.append({"op": "write", "text": more, "row": spot,
+                              **({"concept": concept} if concept else {})})
+                shown = True
+            if rest:
+                note.append(f"step {i}: '{text[:18]}…' went over the row, so the rest is said")
+                steps.append(_say(rest, concept, durations))
+            continue
+
+        if kind == "figure":
+            name = _as_text(op.get("name"))
+            if name not in figures:
+                note.append(f"step {i}: there is no figure called '{name}'")
+                continue
+            if gate and gate.get("allowed") and name in _TEMPLATE_TRIGGERS \
+                    and name not in gate["allowed"]:
+                note.append(f"step {i}: '{name}' is not the apparatus these notes describe")
+                continue
+            row = place(op.get("row"))
+            if row is None:
+                if not wipe_sheet():
+                    note.append(f"step {i}: the board is out of sheets, so the {name} "
+                                "diagram was left out")
+                    continue
+                row = place(op.get("row"))
+            # A drawing fills the sheet from its row to the bench, so it claims every row
+            # below it; the next line of working belongs on a fresh sheet.
+            used.update(range(row, ROW_LIMIT))
+            line = {"op": "figure", "name": name, "row": row}
+            variant = _as_text(op.get("variant"))
+            if variant:
+                line["variant"] = variant[:28]
+            labels = {}
+            for slot, value in (op.get("labels") or {}).items():
+                text = _short_line(_as_text(value), 48)
+                if text:
+                    labels[str(slot)[:24]] = text
+            if labels:
+                line["labels"] = labels
+            if concept:
+                line["concept"] = concept
+            shown = True
+            steps.append(line)
+            continue
+
+        # marks
+        target = _as_text(op.get("target"))
+        if target not in ids:
+            note.append(f"step {i}: '{kind}' pointed at '{target}', which was never written here")
+            continue
+        line = {"op": kind, "target": target}
+        find = _as_text(op.get("find"))
+        if kind != "tick" and find:
+            if find in ids[target]:
+                line["find"] = find
+            else:
+                note.append(f"step {i}: '{find}' is not written inside that line, so "
+                            "the mark rings the whole of it")
+        origin = _as_text(op.get("from"))
+        if kind == "arrow" and origin in ids:
+            line["from"] = origin
+        steps.append(line)
+    flush_sheet()
+    if steps and steps[0]["op"] != "caption":
+        title = _as_text((script or {}).get("title")) or "This lesson"
+        steps.insert(0, {"op": "caption", "text": title[:48]})
+    return {"title": _as_text((script or {}).get("title")) or "Lesson", "steps": steps}
+
+
+def _short_line(text, limit=LINE_LIMIT):
+    """A board line, cut at a word — never in the middle of a formula."""
+    text = " ".join(str(text or "").split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0] if " " in text[:limit] else text[:limit - 1]
+    return cut.rstrip(" ,;:+-=")
+
+
+def _split_line(text, limit=LINE_LIMIT):
+    """Cut an over-long board line where a reader would breathe, and hand back the rest.
+
+    A model that wants to write a paragraph on one row is really writing two rows. The
+    break looks for punctuation or the start of a numbered item — the places a hand
+    would lift — rather than stopping at whatever character lands on column 64."""
+    text = " ".join(str(text or "").split())
+    if len(text) <= limit:
+        return text, ""
+    window = text[:limit]
+    # (?<![\d.]) keeps a list marker ("4. ") and a decimal ("24.0 cm3") from looking like
+    # the end of a sentence — the break must fall after words, not after a number.
+    breaths = [m.end() for m in re.finditer(r"(?<![\d.])[.;:!,]\s|\s[-–—]{1,2}\s"
+                                            r"|\s(?=\d+[.)]\s)|\s(?=[a-z][.)]\s)"
+                                            r"|\s(?=[A-Z][a-z])", window)]
+    cut = max([b for b in breaths if b >= 24] or [window.rfind(" ") + 1])
+    # A break taken just AFTER a list marker strands the number at the end of the row
+    # ("…whenever working 4"). Move it in front of the marker, where the item starts.
+    marker = re.search(r"(\d{1,3}[.)]|[a-z][.)])\s*$", text[:cut])
+    if marker and marker.start() >= 12 and text[marker.start() - 1] in " -:—–":
+        cut = marker.start()
+    head, tail = text[:cut].strip(" ,;:.-="), text[cut:].strip(" ,;:.-=")
+    if len(head) < 12:
+        trimmed = _short_line(text)
+        return trimmed, text[len(trimmed):].strip(" ,;:.-=")
+    return head, tail
+
+
+def _say(text, concept=None, durations=None, raw=None):
+    """A spoken line, stamped with the seconds the narrator measured for it."""
+    spoken = _spoken_line(text)
+    if not spoken:
+        return None
+    line = {"op": "say", "text": spoken}
+    secs = (durations or {}).get(spoken) or (durations or {}).get(raw or "")
+    line["dur"] = round(secs, 2) if secs else max(1.0, round(len(spoken) / 14.5, 2))
+    if concept:
+        line["concept"] = concept
+    return line
+
+
+def _spoken_line(text):
+    """A sentence the narrator can finish: whole sentences only, and a stop at the end."""
+    text = " ".join(str(text or "").split())
+    if len(text) <= 320:
+        return text if text.endswith((".", "!", "?")) else (text + "." if text else "")
+    head = text[:320]
+    cut = max(head.rfind(". "), head.rfind("! "), head.rfind("? "), head.rfind(". "))
+    if cut < 60:
+        cut = head.rfind(" ")
+    trimmed = text[:cut + 1].strip() if cut > 0 else head
+    return _spoken_line(trimmed)
+
+
+def narration_lines(lesson):
+    """Every spoken line of a stored lesson, in order, in either schema.
+
+    Old lessons put one narration string on each step; a script says things with "say"
+    operations. The narrator and the player both need the same list, so only this
+    function knows about both shapes."""
+    out = []
+    for step in (lesson or {}).get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        text = _as_text(step.get("text")) if step.get("op") == "say" \
+            else _as_text(step.get("narration"))
+        if text:
+            out.append(text)
+    return out
+
+
+def speech_durations(lines):
+    """Seconds each line will take to say, measured off the narrator's own audio when that
+    line has already been generated.
+
+    A line that has not been heard yet is estimated at 14.5 characters a second — the rate
+    the engine's own fallback uses, measured here off 23 real Kokoro recordings — so the
+    server and the board never disagree about how long a sentence lasts. The player reads
+    the clock from the voice every frame regardless, so an estimate buys a slightly wrong
+    reading pause; it cannot desynchronise anything."""
+    out = {}
+    for text in lines:
+        secs = llm.narration_seconds(text)
+        if not secs:
+            secs = max(1.0, len(str(text)) / 14.5)
+        out[text] = round(secs, 2)
+    return out
+
+
 def generate_lesson(subject, topic, example_questions, adapt_context, concept_list=None,
                     notes=None):
-    """Build a lesson.
+    """Build a lesson SCRIPT, and only a script.
 
     Supplied notes outrank everything else: they are the content, so the lesson walks
     through them in their own order. Next comes the hand-authored concept map, which
-    fixes the concepts and their teaching order and tags every step; without either,
-    the past-paper questions define the scope, as they did before any of this existed.
-    A concept map that arrives alongside notes only adds step tags to the notes."""
+    fixes the concepts and their teaching order and tags every sheet; without either,
+    the past-paper questions define the scope. A concept map that arrives alongside
+    notes only adds sheet tags to the notes.
+
+    The model is given the operation vocabulary, never the canvas. Its reply is first
+    repaired — a stray coordinate, a full sheet or a ring aimed at nothing is cut, not
+    fatal — and only what is left standing is validated. Problems that survive are the
+    ones only the model can fix, so they go back into the prompt once. A second failure
+    raises and the caller keeps the lesson it already had: the board never renders a
+    script it cannot play."""
     subject_name = _subject_name(subject)
     topic_name = curriculum.topic_name(subject, topic)
-    system = _lesson_system(subject)
-    slugs = [c["slug"] for c in (concept_list or [])]
+    system = _script_system(subject)
+    slugs = {c["slug"] for c in (concept_list or [])}
     gate = template_gate(subject, notes)
+    shape = _script_head(topic_name, subject_name)
     if notes:
-        lo = max(8, min(20, len(notes.split()) // 160))
-        user = NOTES_LESSON_TEMPLATE.format(
+        lo = max(9, min(20, len(notes.split()) // 130))
+        user = NOTES_SCRIPT_TEMPLATE.format(
             topic=topic_name, subject_name=subject_name, notes=notes,
-            outline=("\nThis topic also has a concept map. Tag every step with the concept "
-                     "it teaches — \"concept\": \"<slug>\", copied exactly from this list — "
-                     "and keep this teaching order:\n"
+            outline=("\nThis topic also has a concept map. Tag the first operation of every "
+                     "sheet with \"concept\": \"<slug>\", copied exactly from this list, and "
+                     "keep this teaching order:\n"
                      + "\n".join(f"{i}. {c['slug']} — {c['name']}"
                                  for i, c in enumerate(concept_list or [], 1)) + "\n"
-                     if slugs else ""),
+                     if concept_list else ""),
             style=_style_block(example_questions), adapt=adapt_context,
-            lo=lo, hi=min(24, lo + 5),
-            step_shape=_annotated_step_shape() if slugs else _plain_step_shape(),
+            lo=lo, hi=min(24, lo + 6), shape=SCRIPT_SHAPE_NOTES, shape_example=shape,
         )
     elif slugs:
         examples = "\n".join(f"- {q}" for q in example_questions[:12])
-        lo = max(8, len(slugs) + 1)
-        user = CONCEPT_LESSON_TEMPLATE.format(
+        lo = max(9, len(slugs) + 3)
+        user = CONCEPT_SCRIPT_TEMPLATE.format(
             topic=topic_name, subject_name=subject_name,
             concept_list="\n".join(
                 f"{i}. {c['slug']} — {c['name']}" for i, c in enumerate(concept_list, 1)),
-            examples=examples, adapt=adapt_context, lo=lo, hi=min(20, lo + 6),
+            examples=examples, adapt=adapt_context, lo=lo, hi=min(24, lo + 8),
+            shape=SCRIPT_SHAPE_NOTES, shape_example=shape,
         )
     else:
-        examples = "\n".join(f"- {q}" for q in example_questions)
-        user = LESSON_USER_TEMPLATE.format(
-            topic=topic_name, subject_name=subject_name, examples=examples, adapt=adapt_context
+        examples = "\n".join(f"- {q}" for q in example_questions[:14])
+        user = PLAIN_SCRIPT_TEMPLATE.format(
+            topic=topic_name, subject_name=subject_name, examples=examples,
+            adapt=adapt_context, lo=12, hi=22,
+            shape=SCRIPT_SHAPE_NOTES, shape_example=shape,
         )
-    last_raw, last_err = None, None
-    for _ in range(2):  # reject-and-retry: burn-up, invalid geometry or a skipped concept
+
+    last_err = None
+    for _ in range(2):
         try:
-            raw = llm.chat_json(system, user, temperature=0.5, max_tokens=9000)
+            raw = llm.chat_json(system, user, temperature=0.5, max_tokens=12000)
         except ValueError as exc:
             last_err = exc
             continue
-        last_raw = raw
-        problems = validate_lesson(raw, slugs)
+        script = normalize_script(raw, slugs, speech_durations(narration_lines(raw)),
+                                  subject, gate)
+        problems = validate_script(script, slugs, gate, subject)
         if not problems:
-            return normalize_lesson(raw, slugs, gate)
-        last_err = ValueError("invalid lesson: " + "; ".join(problems[:5]))
-    if last_raw is not None:
-        # Never dead-end the student: sanitize the best attempt instead of failing outright.
-        return normalize_lesson(last_raw, slugs, gate)
+            return script
+        # Say exactly what is still wrong after the repairs, to the same prompt that
+        # produced it. Anything normalize_script could fix silently is not worth a round trip.
+        last_err = ValueError("unplayable lesson script: " + "; ".join(problems[:6]))
+        short = any("sheet(s)" in p or "spoken line" in p for p in problems)
+        user += ("\n\nThe board engine cannot play your script because:\n- "
+                 + "\n- ".join(problems[:8])
+                 + ("\n\nYour last reply ran out of room before it finished. Write a tighter "
+                    "script: 8 to 10 sheets, one spoken line each, and reach the recap."
+                    if short else "")
+                 + "\nOutput the whole script again as JSON.")
     raise last_err or ValueError("lesson generation failed")
 
 
@@ -811,6 +1473,28 @@ def _looks_degenerate(text):
     return alnum / max(1, len(t)) < 0.5  # mostly digits/punctuation => not prose
 
 
+def _trim_spoken(text, limit=560):
+    """An interruption must end so the lesson can carry on.
+
+    The model is asked for 90 words and usually obliges; when it does not, the surplus is
+    cut at a sentence boundary rather than left to run for another forty seconds of
+    speech. Half a sentence is never spoken aloud."""
+    text = " ".join(str(text or "").split())
+    if len(text) <= limit:
+        return text
+    keep, rest = "", text
+    while rest:
+        m = re.search(r"[.!?](?=\s|$)", rest)
+        if not m:
+            break
+        sentence = rest[:m.end()]
+        if len(keep) + len(sentence) > limit:
+            break
+        keep = (keep + " " + sentence).strip()
+        rest = rest[m.end():].strip()
+    return keep or text[:limit].rsplit(" ", 1)[0] + "…"
+
+
 def ask_question(subject, topic, step_narration, question, concept=None):
     """Spoken answer plus the short board notes that go with it."""
     system = ASK_SYSTEM.format(subject_name=_subject_name(subject))
@@ -825,7 +1509,7 @@ def ask_question(subject, topic, step_narration, question, concept=None):
     best = {"answer": "", "points": [], "concept": concept_name}
     for temperature in (0.4, 0.2):
         raw = llm.chat_json(system, user, temperature=temperature, max_tokens=1200)
-        answer = str(raw.get("answer") or "").strip()
+        answer = _trim_spoken(str(raw.get("answer") or ""))
         points = [str(p).strip()[:60] for p in (raw.get("points") or []) if str(p).strip()][:5]
         candidate = {"answer": answer, "points": points, "concept": concept_name}
         if len(answer) > len(best["answer"]):

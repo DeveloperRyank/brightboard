@@ -1,0 +1,398 @@
+{
+ "title": "Introduction to Physics",
+ "steps": [
+  {
+   "op": "caption",
+   "text": "Why physics matters in daily life"
+  },
+  {
+   "op": "say",
+   "text": "Physics is the study of matter and energy. It explains how the world works from the smallest particle to the largest star.",
+   "dur": 8.41
+  },
+  {
+   "op": "write",
+   "text": "Physics deals with natural phenomena and matter interactions",
+   "row": 0,
+   "id": "intro_def"
+  },
+  {
+   "op": "say",
+   "text": "A resultant force is the single force that has the same effect as all the forces acting together.",
+   "dur": 6.69
+  },
+  {
+   "op": "caption",
+   "text": "Scientific method steps"
+  },
+  {
+   "op": "say",
+   "text": "The scientific method is a systematic way of asking questions and testing ideas.",
+   "dur": 5.52
+  },
+  {
+   "op": "write",
+   "text": "1. Observation 2. Hypothesis 3. Experiment 4. Conclusion",
+   "row": 0,
+   "id": "method_steps"
+  },
+  {
+   "op": "caption",
+   "text": "Branches of physics"
+  },
+  {
+   "op": "say",
+   "text": "Physics is divided into branches. Each branch studies a different type of physical phenomenon.",
+   "dur": 6.48
+  },
+  {
+   "op": "write",
+   "text": "Mechanics: motion and forces Electricity: flow of charge",
+   "row": 0,
+   "id": "branches"
+  },
+  {
+   "op": "caption",
+   "text": "Relation of physics to other subjects"
+  },
+  {
+   "op": "say",
+   "text": "Physics provides the foundation for biology, chemistry and other sciences.",
+   "dur": 5.1
+  },
+  {
+   "op": "write",
+   "text": "Biology and chemistry use physics techniques Physics applies in",
+   "row": 0,
+   "id": "relation"
+  },
+  {
+   "op": "caption",
+   "text": "Career opportunities in physics"
+  },
+  {
+   "op": "say",
+   "text": "Physics opens doors to many careers. Engineering is the most direct path.",
+   "dur": 5.03
+  },
+  {
+   "op": "write",
+   "text": "Engineering fields: Civil, Electrical, Mechanical",
+   "row": 0,
+   "id": "careers"
+  },
+  {
+   "op": "caption",
+   "text": "Basic laboratory safety rules"
+  },
+  {
+   "op": "say",
+   "text": "Safety is the first concern in any laboratory. These rules protect you and others.",
+   "dur": 5.66
+  },
+  {
+   "op": "write",
+   "text": "1. Proper dressing: no loose clothing, hair covered, closed",
+   "row": 0,
+   "id": "safety1"
+  },
+  {
+   "op": "write",
+   "text": "3. Keep windows open whenever working 4. Follow all",
+   "row": 1,
+   "id": "safety2"
+  },
+  {
+   "op": "write",
+   "text": "5. No eating or drinking in the laboratory 6. Turn off all",
+   "row": 2,
+   "id": "safety3"
+  },
+  {
+   "op": "write",
+   "text": "8. Clean and return all apparatus to correct storage after use",
+   "row": 3,
+   "id": "safety4"
+  },
+  {
+   "op": "caption",
+   "text": "What is physics? definition"
+  },
+  {
+   "op": "say",
+   "text": "The word physics comes from Greek meaning nature. It deals with natural phenomena.",
+   "dur": 5.66
+  },
+  {
+   "op": "write",
+   "text": "Physics is the study of matter and its relation to energy. A",
+   "row": 0,
+   "id": "physics_def"
+  },
+  {
+   "op": "caption",
+   "text": "Branches of physics continued"
+  },
+  {
+   "op": "say",
+   "text": "The remaining branches complete the picture of physics.",
+   "dur": 3.79
+  },
+  {
+   "op": "write",
+   "text": "Particle physics, Nuclear physics, Plasma physics",
+   "row": 0,
+   "id": "more_branches"
+  },
+  {
+   "op": "caption",
+   "text": "Worked example: identifying a branch"
+  },
+  {
+   "op": "say",
+   "text": "Let us look at a worked example. We identify which branch of physics applies to a given situation.",
+   "dur": 6.76
+  },
+  {
+   "op": "write",
+   "text": "Example: A car moving along a straight road Which branch of",
+   "row": 0,
+   "id": "ex1_q"
+  },
+  {
+   "op": "write",
+   "text": "Answer: Mechanics - the study of motion of bodies under the",
+   "row": 1,
+   "id": "ex1_ans",
+   "color": "accent"
+  },
+  {
+   "op": "tick",
+   "target": "ex1_ans"
+  },
+  {
+   "op": "say",
+   "text": "We chose Mechanics because the example involves motion.",
+   "dur": 3.79
+  },
+  {
+   "op": "caption",
+   "text": "Worked example: laboratory safety check"
+  },
+  {
+   "op": "say",
+   "text": "Now we apply the safety rules. This is a practical check.",
+   "dur": 3.93
+  },
+  {
+   "op": "write",
+   "text": "Situation: A student is doing an experiment with a Bunsen",
+   "row": 0,
+   "id": "ex2_q"
+  },
+  {
+   "op": "write",
+   "text": "Rule 3: Keep windows open whenever working in the laboratory",
+   "row": 1,
+   "id": "ex2_ans",
+   "color": "accent"
+  },
+  {
+   "op": "tick",
+   "target": "ex2_ans"
+  },
+  {
+   "op": "say",
+   "text": "Both rules are important. The windows provide ventilation and the gas tap must be off for safety.",
+   "dur": 6.69
+  },
+  {
+   "op": "caption",
+   "text": "Worked example: career paths"
+  },
+  {
+   "op": "say",
+   "text": "Let us look at career paths. This shows how physics connects to jobs.",
+   "dur": 4.76
+  },
+  {
+   "op": "write",
+   "text": "Example: A student wants to be an electrical engineer. Which",
+   "row": 0,
+   "id": "ex3_q"
+  },
+  {
+   "op": "write",
+   "text": "Physics is a true foundation. Mathematics and Chemistry are",
+   "row": 1,
+   "id": "ex3_ans",
+   "color": "accent"
+  },
+  {
+   "op": "tick",
+   "target": "ex3_ans"
+  },
+  {
+   "op": "say",
+   "text": "Physics is the foundation. An electrical engineer needs physics for circuits and electricity.",
+   "dur": 6.41
+  },
+  {
+   "op": "caption",
+   "text": "Traps: common mistakes"
+  },
+  {
+   "op": "say",
+   "text": "Now we look at traps. These are mistakes students often make.",
+   "dur": 4.21
+  },
+  {
+   "op": "write",
+   "text": "Mistake: Saying physics is only about equations Correct",
+   "row": 0,
+   "id": "trap1"
+  },
+  {
+   "op": "underline",
+   "target": "trap1",
+   "find": "only about equations"
+  },
+  {
+   "op": "write",
+   "text": "(crossed out: physics is only about equations)",
+   "row": 1,
+   "id": "trap1_corrected"
+  },
+  {
+   "op": "say",
+   "text": "Another mistake: Confusing a hypothesis with a law. A hypothesis is unproven. A law has been proven.",
+   "dur": 6.9
+  },
+  {
+   "op": "write",
+   "text": "Mistake: Confusing hypothesis and law Correct: Hypothesis",
+   "row": 2,
+   "id": "trap2"
+  },
+  {
+   "op": "underline",
+   "target": "trap2",
+   "find": "hypothesis and law"
+  },
+  {
+   "op": "write",
+   "text": "(crossed out: hypothesis is the same as law)",
+   "row": 3,
+   "id": "trap2_corrected"
+  },
+  {
+   "op": "caption",
+   "text": "You try: identify the branch"
+  },
+  {
+   "op": "say",
+   "text": "Here is an example for you to try. Use what you have learned.",
+   "dur": 4.21
+  },
+  {
+   "op": "write",
+   "text": "Situation: A doctor uses an X-ray machine to look at a broken",
+   "row": 0,
+   "id": "yt_q"
+  },
+  {
+   "op": "say",
+   "text": "Think about it. The answer is on the next sheet.",
+   "dur": 3.31
+  },
+  {
+   "op": "caption",
+   "text": "You try: answer"
+  },
+  {
+   "op": "say",
+   "text": "The answer is Optics. X-rays are a form of light, and the study of light is Optics.",
+   "dur": 5.72
+  },
+  {
+   "op": "write",
+   "text": "Answer: Optics - the study of light as it travels from one",
+   "row": 1,
+   "id": "yt_ans",
+   "color": "accent"
+  },
+  {
+   "op": "tick",
+   "target": "yt_ans"
+  },
+  {
+   "op": "caption",
+   "text": "Mini-check: two questions"
+  },
+  {
+   "op": "say",
+   "text": "Let us check what we have learned. I will ask two quick questions.",
+   "dur": 4.55
+  },
+  {
+   "op": "write",
+   "text": "Question 1: What is the scientific method?",
+   "row": 0,
+   "id": "q1"
+  },
+  {
+   "op": "say",
+   "text": "The scientific method is a systematic way of asking questions and testing ideas.",
+   "dur": 5.52
+  },
+  {
+   "op": "write",
+   "text": "Question 2: Name two branches of physics.",
+   "row": 1,
+   "id": "q2"
+  },
+  {
+   "op": "say",
+   "text": "Any two from Mechanics, Electricity, Magnetism, Thermodynamics, Optics, Waves.",
+   "dur": 5.38
+  },
+  {
+   "op": "write",
+   "text": "Answer 2: Mechanics and Electricity (or any two valid branches)",
+   "row": 2,
+   "id": "q2_ans",
+   "color": "accent"
+  },
+  {
+   "op": "tick",
+   "target": "q2_ans"
+  },
+  {
+   "op": "caption",
+   "text": "Recap: three lines to copy"
+  },
+  {
+   "op": "say",
+   "text": "For your notes, copy these three lines.",
+   "dur": 2.69
+  },
+  {
+   "op": "write",
+   "text": "1. Physics is the study of matter and energy",
+   "row": 0,
+   "id": "recap1"
+  },
+  {
+   "op": "write",
+   "text": "2. The scientific method involves observation, hypothesis",
+   "row": 1,
+   "id": "recap2"
+  },
+  {
+   "op": "write",
+   "text": "3. Laboratory safety: proper dressing, locate equipment, no",
+   "row": 2,
+   "id": "recap3"
+  }
+ ]
+}

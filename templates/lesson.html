@@ -4,75 +4,83 @@
 {% block content %}
 <div class="lesson-head">
   <h1>{{ name }}</h1>
-  <span class="concept-chip" id="concept-chip" style="display: none;"></span>
-  <span class="step-counter mono" id="step-counter"></span>
+  <span class="lesson-kind mono">One continuous board</span>
 </div>
-<p class="sub">The lesson draws itself like a teacher at the board — watch, listen, and let it flow. Stuck? Pause and ask, by typing or by voice.</p>
+<p class="sub">The tutor writes and speaks the same sentence at the same moment — it is one
+  video, not slides. Scrub it, slow it down, or stop it on any word and ask.</p>
 
-<div class="board-wrap">
-  <canvas id="board"></canvas>
-  <div class="overlay" id="loading" style="display: none;">
-    <div class="load-board">
-      <svg class="doodles" viewBox="0 0 340 110" aria-hidden="true">
-        <path class="doodle d1" pathLength="1"
-              d="M62 12 v26 l-17 40 a11 11 0 0 0 10 15 h24 a11 11 0 0 0 10 -15 l-17 -40 v-26 z M54 12 h22" />
-        <ellipse class="doodle d2" pathLength="1" cx="170" cy="55" rx="34" ry="13" />
-        <ellipse class="doodle d2" pathLength="1" cx="170" cy="55" rx="34" ry="13" transform="rotate(60 170 55)" />
-        <ellipse class="doodle d2" pathLength="1" cx="170" cy="55" rx="34" ry="13" transform="rotate(-60 170 55)" />
-        <circle class="doodle d2" pathLength="1" cx="170" cy="55" r="4" />
-        <path class="doodle d3" pathLength="1" d="M248 94 h84 M248 94 v-72" />
-        <path class="doodle d4" pathLength="1" d="M256 84 q14 -6 22 -20 t26 -26 t20 -12" />
-      </svg>
-      <div class="load-title" id="load-title">Drawing your lesson…</div>
-      <ul class="load-steps" id="load-steps"></ul>
-      <div class="load-bar"><i></i></div>
-      <div class="load-sub" id="load-sub">The board is being chalked stroke by stroke — the first draw of a topic takes up to a minute.</div>
+<div class="player">
+  <div class="board-wrap">
+    <svg id="board" role="img" aria-label="The whiteboard, written as the lesson plays"></svg>
+    <div class="overlay" id="loading" style="display: none;">
+      <div class="load-board">
+        <svg class="doodles" viewBox="0 0 340 110" aria-hidden="true">
+          <path class="doodle d1" pathLength="1"
+                d="M62 12 v26 l-17 40 a11 11 0 0 0 10 15 h24 a11 11 0 0 0 10 -15 l-17 -40 v-26 z M54 12 h22" />
+          <ellipse class="doodle d2" pathLength="1" cx="170" cy="55" rx="34" ry="13" />
+          <ellipse class="doodle d2" pathLength="1" cx="170" cy="55" rx="34" ry="13" transform="rotate(60 170 55)" />
+          <ellipse class="doodle d2" pathLength="1" cx="170" cy="55" rx="34" ry="13" transform="rotate(-60 170 55)" />
+          <circle class="doodle d2" pathLength="1" cx="170" cy="55" r="4" />
+          <path class="doodle d3" pathLength="1" d="M248 94 h84 M248 94 v-72" />
+          <path class="doodle d4" pathLength="1" d="M256 84 q14 -6 22 -20 t26 -26 t20 -12" />
+        </svg>
+        <div class="load-title" id="load-title">Drawing your lesson…</div>
+        <ul class="load-steps" id="load-steps"></ul>
+        <div class="load-bar"><i></i></div>
+        <div class="load-sub" id="load-sub">The board is being written stroke by stroke — the first draw of a topic takes up to a minute.</div>
+      </div>
+    </div>
+    <div class="overlay" id="load-error" style="display: none;">
+      <div class="error-box" style="max-width: 560px;">
+        <pre id="load-error-text"></pre>
+        <button class="btn" id="btn-retry" style="margin-top: 10px;">↻ Try again</button>
+        <a class="btn ghost" href="{{ url_for('subject', subject=subject) }}" style="margin-top: 10px;">Back to topics</a>
+      </div>
     </div>
   </div>
-  <div class="overlay" id="load-error" style="display: none;">
-    <div class="error-box" style="max-width: 560px;">
-      <pre id="load-error-text"></pre>
-      <button class="btn" id="btn-retry" style="margin-top: 10px;">↻ Try again</button>
-      <a class="btn ghost" href="{{ url_for('subject', subject=subject) }}" style="margin-top: 10px;">Back to topics</a>
-    </div>
+
+  <div class="board-strip">
+    <div class="bs-sheet" id="sheet-title"></div>
+    <div class="bs-line" id="caption" aria-live="polite"></div>
+    <div class="bs-note" id="board-note" hidden></div>
+  </div>
+
+  <div class="lesson-controls" id="lesson-controls" style="visibility: hidden;">
+    <button class="btn ghost" id="btn-playpause">{{ icon("pause") }} Pause</button>
+    <span class="wb-time mono"><b id="t-now">0:00</b><span>/</span><i id="t-total">0:00</i></span>
+    <input type="range" id="seek" class="wb-seek" min="0" max="10" step="0.1" value="0"
+           aria-label="Scrub the lesson">
+    <label class="wb-speed mono" for="speed">Speed
+      <select id="speed" class="mono">
+        <option value="slow">slow</option>
+        <option value="normal" selected>normal</option>
+        <option value="fast">fast</option>
+      </select>
+    </label>
+    <button class="btn warn" id="btn-ask">{{ icon("hand") }} Stop and ask a question</button>
+    <button class="btn ghost small" id="btn-replay">{{ icon("restart") }} Replay</button>
+    <span class="spacer"></span>
+    <button class="btn ghost small" id="btn-regenerate">↻ Redraw lesson</button>
   </div>
 </div>
 
 <p class="board-hint">The board keeps its real size on small screens — swipe it sideways, or turn your phone to landscape, to read the whole thing.</p>
 
-<div class="narration" id="narration"></div>
-
 <div class="sound-hint" id="sound-hint">
   {{ icon("mute") }} Your browser is blocking sound — the lesson is playing silently. Tap anywhere to hear the tutor.
-</div>
-
-<div class="lesson-controls" id="lesson-controls" style="visibility: hidden;">
-  <button class="btn ghost" id="btn-playpause">{{ icon("pause") }} Pause</button>
-  <label class="mono" style="font-size: 13px; color: var(--muted);">Speed
-    <select id="speed" class="mono" style="background: var(--panel); color: var(--cream); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;">
-      <option value="slow">slow</option>
-      <option value="normal" selected>normal</option>
-      <option value="fast">fast</option>
-    </select>
-  </label>
-  <button class="btn ghost" id="btn-prev">← Previous</button>
-  <button class="btn" id="btn-next">Next →</button>
-  <button class="btn warn" id="btn-ask">{{ icon("hand") }} Stop and ask a question</button>
-  <span class="spacer"></span>
-  <button class="btn ghost small" id="btn-regenerate">↻ Redraw lesson</button>
 </div>
 
 <div class="done-panel" id="lesson-done" style="display: none;">
   <div class="done-badge">{{ icon("check") }}</div>
   <div class="done-eyebrow">Board complete</div>
   <h2 class="done-title">You worked through {{ topic_name(subject, topic) }}</h2>
-  <p class="done-sub">The board stays yours to revisit — every step is still drawn.
+  <p class="done-sub">The board stays yours to revisit — scrub back to any line of it.
     {%- if practicable %} Now take it somewhere it counts.
     {%- else %} No practice paper on it is open yet — so the next move is a paper of
     your own.{% endif -%}</p>
   <ul class="done-stats">
-    <li><b id="done-steps">—</b><span>steps drawn</span></li>
-    <li><b id="done-concepts">—</b><span>concepts covered</span></li>
+    <li><b id="done-steps">—</b><span>sheets of board</span></li>
+    <li><b id="done-concepts">—</b><span>lines worked through</span></li>
     <li><b id="done-time">—</b><span>on the board</span></li>
   </ul>
   <div class="done-actions">
@@ -87,8 +95,9 @@
 </div>
 
 <div class="ask-panel" id="ask-panel">
-  <h3>Lesson paused — ask the tutor anything</h3>
-  <div class="paused-note">Board, text and voice are frozen. You paused on: <em id="paused-step"></em></div>
+  <h3>Board stopped — ask the tutor anything</h3>
+  <div class="paused-note">It will start again on the exact word it stopped on. You stopped on:
+    <em id="paused-step"></em></div>
   <textarea id="ask-input" rows="3" placeholder="Type your question, or tap the mic and say it…"></textarea>
   <div style="margin-top: 12px; display: flex; gap: 10px; align-items: center;">
     <button class="btn mic-btn" id="btn-mic" title="Ask by voice">{{ icon("mic") }}</button>
@@ -106,6 +115,8 @@
   <button class="btn small ghost" id="btn-resume-bar">Resume lesson</button>
 </div>
 
+<div class="tutor-card" id="tutor-card" style="display: none;"></div>
+
 <script id="lesson-data" type="application/json">{{ lesson | tojson }}</script>
 <script nonce="{{ csp_nonce() }}">
   const SUBJECT = {{ subject | tojson }};
@@ -117,6 +128,7 @@
   const CONCEPT_NAMES = {{ concept_names | tojson }};
   const CACHE_SCOPE = {{ (student.id if student else 0) | tojson }};
 </script>
+<script src="{{ url_for('static', filename='js/diagrams.js') }}"></script>
 <script src="{{ url_for('static', filename='js/whiteboard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/voice.js') }}"></script>
 <script src="{{ url_for('static', filename='js/lesson.js') }}"></script>

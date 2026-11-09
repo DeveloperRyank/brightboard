@@ -24,7 +24,7 @@
 </div>
 
 <div class="board-wrap">
-  <canvas id="board"></canvas>
+  <svg id="board" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet"></svg>
   <div class="overlay" id="loading" style="display:none;">
     <div class="load-board">
       <div class="load-title" id="load-title">Reading the question on your paper…</div>
@@ -84,6 +84,7 @@
   const SERVER_TTS = {{ server_tts | tojson }};
   const TOTAL = {{ questions | length | tojson }};
 </script>
+<script src="{{ url_for('static', filename='js/diagrams.js') }}"></script>
 <script src="{{ url_for('static', filename='js/whiteboard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/voice.js') }}"></script>
 <script src="{{ url_for('static', filename='js/walkthrough.js') }}"></script>
