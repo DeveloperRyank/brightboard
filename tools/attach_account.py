@@ -3,7 +3,7 @@
     python tools/attach_account.py                          # list the accounts at risk
     python tools/attach_account.py --sid 1 --email you@example.com
 
-The password is typed at the prompt, or read from BRIGHTBOARD_ATTACH_PASSWORD when nobody
+The password is typed at the prompt, or read from CONCEPTLY_ATTACH_PASSWORD when nobody
 is at the keyboard, so it never ends up in a file, a URL or the shell history. It is hashed
 with scrypt on the way in, exactly like a sign-up, and the tool signs in with it once to
 prove the account is reachable before it reports success.
@@ -65,9 +65,9 @@ def main():
     # A password on the command line would sit in the shell history; the environment
     # variable is there for runs with no one at the keyboard, and typing it twice is
     # for the ones with someone at the keyboard.
-    from_env = os.environ.get("BRIGHTBOARD_ATTACH_PASSWORD")
+    from_env = os.environ.get("CONCEPTLY_ATTACH_PASSWORD")
     if from_env:
-        print("Using the password in BRIGHTBOARD_ATTACH_PASSWORD.")
+        print("Using the password in CONCEPTLY_ATTACH_PASSWORD.")
         return attach(a.sid, a.email, from_env)
     password = getpass.getpass("Password for %s: " % a.email)
     if getpass.getpass("Type it again to be sure: ") != password:

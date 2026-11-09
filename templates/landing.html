@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% from "icons.html" import icon %}
 {% from "_qual_picker.html" import qual_picker %}
-{% block title %}Brightboard — find the concept behind the lost marks{% endblock %}
+{% block title %}Conceptly — find the concept behind the lost marks{% endblock %}
 {% block content %}
 <section class="landing">
-  <p class="landing-eyebrow">{{ icon("board") }} Brightboard</p>
+  <p class="landing-eyebrow">{{ icon("board") }} Conceptly</p>
 
   <h1 class="landing-hero">
     <span class="lh-quiet">You already know</span>
     <span class="lh-loud">where you lost marks.</span>
   </h1>
 
-  <p class="lh-sub">Mark a real past paper and Brightboard names the one concept behind the
+  <p class="lh-sub">Mark a real past paper and Conceptly names the one concept behind the
     loss — then teaches exactly that.</p>
 
   {% if notice %}<div class="banner good" role="status">{{ icon("check") }} {{ notice }}</div>{% endif %}

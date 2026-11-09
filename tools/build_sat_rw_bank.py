@@ -1,6 +1,6 @@
 """Build data/sat_rw/questions.csv from the authored item files in research/sat_authored/.
 
-Every item here is original writing made for Brightboard: the passages, prompts, data
+Every item here is original writing made for Conceptly: the passages, prompts, data
 and options are invented, and only the question TYPES follow the published SAT
 Reading and Writing specification. Nothing is copied out of a College Board or Khan
 Academy paper, and nothing from the scanned PDF in Downloads is shipped as an item —

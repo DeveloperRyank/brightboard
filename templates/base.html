@@ -6,7 +6,7 @@
        layout instead of floating over the field you are typing in (2.3). -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   {% if student %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
-  <title>{% block title %}Brightboard{% endblock %}</title>
+  <title>{% block title %}Conceptly{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preload" href="{{ url_for('static', filename='fonts/inter-latin-wght-normal.woff2') }}"
         as="font" type="font/woff2" crossorigin>
@@ -21,7 +21,7 @@
   <a class="skip" href="#main">Skip to content</a>
 
   <nav>
-    <a class="brand mono" href="{{ url_for('index') }}">BRIGHT<span>·</span>BOARD</a>
+    <a class="brand mono" href="{{ url_for('index') }}">CONCEPT<span>·</span>LY</a>
     <div class="links">
       {% if student %}
         <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">Subjects</a>
@@ -51,7 +51,7 @@
 
   <footer class="site-foot">
     <div class="foot-inner">
-      <p class="foot-brand">Brightboard<span>·</span></p>
+      <p class="foot-brand">Conceptly<span>·</span></p>
       <nav class="foot-links" aria-label="Site">
         <a href="{{ url_for('privacy') }}">Privacy</a>
         <a href="{{ url_for('terms') }}">Terms</a>

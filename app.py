@@ -1,4 +1,4 @@
-"""Brightboard — AI diagnostic tutor.
+"""Conceptly — AI diagnostic tutor.
 
 Flow: sign in -> pick curriculum/subject -> pick topic -> Lesson | Test | Upload.
 Chemistry is live on its real past-paper bank; other KCSE subjects are content-gated
@@ -819,7 +819,7 @@ def account_export():
     body = json.dumps(dump, indent=2, default=str).encode("utf-8")
     stamp = datetime.date.today().isoformat()
     response = app.response_class(body, mimetype="application/json")
-    response.headers["Content-Disposition"] = f"attachment; filename=brightboard-{stamp}.json"
+    response.headers["Content-Disposition"] = f"attachment; filename=conceptly-{stamp}.json"
     response.headers["Cache-Control"] = "no-store"   # a copy of your data, on a shared machine
     return response
 

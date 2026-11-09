@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "icons.html" import icon %}
 {% from "_qual_picker.html" import qual_picker %}
-{% block title %}Your account · Brightboard{% endblock %}
+{% block title %}Your account · Conceptly{% endblock %}
 {% block content %}
 <div class="acct">
   <div class="acct-head">
@@ -52,13 +52,13 @@
           <label>Email</label>
           <p class="acct-static" id="email">{{ email or 'No email on this account — you cannot sign in with it yet.' }}</p>
           <p class="fld-hint">The address is the key to the account, so it cannot be edited
-            from here. <a href="mailto:{{ support_email }}?subject=Brightboard%20email%20change">Ask us</a>
+            from here. <a href="mailto:{{ support_email }}?subject=Conceptly%20email%20change">Ask us</a>
             and we will move your account for you.</p>
         </div>
       </div>
       {{ qual_picker(qualifications, chosen, grade) }}
       <p class="fld-hint">Changing your qualification changes which years you can pick, and the
-        subjects and papers Brightboard shows you.</p>
+        subjects and papers Conceptly shows you.</p>
       <button class="btn gradient" type="submit" data-once>Save changes</button>
     </form>
   </section>

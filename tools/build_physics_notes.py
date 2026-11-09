@@ -232,7 +232,7 @@ def build(subject, raw, source_label):
         pages = ch["pages"]
         for part_slug, name, part_blocks, span_note in parts:
             body = "\n\n".join(part_blocks)
-            head = (f"<!-- Brightboard subject notes. {source_label}\n"
+            head = (f"<!-- Conceptly subject notes. {source_label}\n"
                     f"     Form {ch['form']}, chapter {ch['number']}"
                     + (f", pages {pages[0]}-{pages[-1]}" if pages else "")
                     + f"{span_note}.\n"
