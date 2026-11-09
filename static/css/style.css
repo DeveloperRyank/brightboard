@@ -813,13 +813,35 @@ canvas#board { width: 100%; min-width: 700px; aspect-ratio: 1000 / 620; display:
   border-radius: 999px; padding: 3px 11px;
 }
 .q-tag.mono { color: var(--muted-2); background: transparent; border-color: var(--line); }
-.q-body { font-size: clamp(1rem, 4.4vw, 1.125rem); line-height: 1.65; color: var(--cream); margin-bottom: 8px; }
+.q-body { font-size: clamp(1rem, 4.4vw, 1.125rem); line-height: 1.65; color: var(--cream); margin-bottom: 8px; white-space: pre-line; }
 .q-answer { display: flex; flex-direction: column; gap: 8px; }
 .q-answer textarea, .q-answer input { width: 100%; resize: none; font-size: 0.9688rem; line-height: 1.6; }
 .q-answer textarea.ans-text { min-height: 92px; }
 .q-answer .ans-work { min-height: 108px; font-size: 0.9062rem; }
 .ans-label { font-size: 0.75rem; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted-2); margin-top: 4px; }
 .ans-final { color: var(--cream); }
+/* Multiple choice: the four options are the answer widget. */
+.choice-group { display: flex; flex-direction: column; gap: 10px; }
+.choice {
+  display: flex; align-items: flex-start; gap: 12px; text-align: left; width: 100%;
+  min-height: 48px; padding: 12px 14px; border-radius: 12px; cursor: pointer;
+  background: var(--panel-2, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--line); color: var(--cream);
+  font: inherit; font-size: 0.9688rem; line-height: 1.55;
+  transition: border-color .16s, background .16s, transform .12s;
+}
+.choice:hover { border-color: var(--coral); }
+.choice:active { transform: translateY(1px); }
+.choice:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.choice .ch-letter {
+  flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line);
+  font-size: 0.8125rem; color: var(--muted);
+}
+.choice.selected { border-color: var(--coral); background: rgba(232, 118, 96, 0.12); }
+.choice.selected .ch-letter { background: var(--coral); border-color: var(--coral); color: #10182b; }
+.choice .ch-text { font-family: var(--sans, inherit); }
+@media (max-width: 640px) { .choice { font-size: 1rem; } }
 .q-foot { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 .q-meta { font-size: 1rem; color: var(--muted); }
 

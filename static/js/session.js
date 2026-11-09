@@ -82,13 +82,16 @@
         ? '<span class="chip correct">✓ Correct</span>'
         : '<span class="chip incorrect">✗ Not correct</span>';
       const concept = r.concept_name ? `<span class="mini-chip">${esc(r.concept_name)}</span>` : "";
+      // Key-marked rows show the letter the paper wanted, so the mistake is nameable.
+      const keyed = r.key
+        ? `<span class="mini-chip${r.correct ? " ok" : ""}">answer ${esc(r.key)}</span>` : "";
       const moved = r.p === null || r.p === undefined
         ? "" : `<span class="mini-chip ok">mastery ${pct(r.p)}</span>`;
       html += `
         <div class="result-row rise" style="animation-delay: ${350 + i * 110}ms">
           <div class="r-q">
             ${esc(r.question)}
-            <div class="r-tags">${concept}${moved}</div>
+            <div class="r-tags">${keyed}${concept}${moved}</div>
             <div class="r-fb">${esc(r.teacher_note || "")}</div>
           </div>
           <div>${chip}</div>

@@ -1,8 +1,11 @@
-// Exam Center: real past-paper questions, one at a time. The answer widget adapts to
-// the question's command word (a calculation gets a working box plus a final answer,
-// a "state" question gets a single line), drafts autosave to this device, and marking
-// happens in the background on /results/<job_id>.
+// Exam Center: real past-paper questions, one at a time. A bank row that carries four
+// options gets the choice widget and is marked against the answer key the moment the
+// paper is handed in; anything else uses the working box for its command word (a
+// calculation gets a working area plus a final answer, a "state" question one line).
+// Drafts autosave to this device.
 
+const MCQ_TYPE = { id: "mcq", widget: "mcq", label: "Multiple choice",
+  hint: "Choose the single best answer, then move on — a stuck question costs more time than a wrong one." };
 const TYPES = [
   { id: "calc", widget: "calc", label: "Calculation",
     re: /^(calculate|determine|work\s*out|compute|evaluate|find\s+(the|out))\b/i,
@@ -34,7 +37,7 @@ const storageKey = () => `bb.exam.${SUBJECT}.${TOPIC}`;
 
 document.addEventListener("DOMContentLoaded", () => {
   questions = JSON.parse(document.getElementById("questions-data").textContent || "[]");
-  types = questions.map((q) => typeOf(q.question));
+  types = questions.map((q) => (q.options && q.options.length === 4 ? MCQ_TYPE : typeOf(q.question)));
   loadDraft();
 
   document.getElementById("btn-next").addEventListener("click", () => move(1));
@@ -44,6 +47,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("keydown", (e) => {
     if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); move(1); }
     if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); move(-1); }
+    if (types[idx] && types[idx].widget === "mcq" && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      const k = e.key.toUpperCase();
+      if ("ABCD".includes(k)) { e.preventDefault(); pick(k); }
+    }
   });
 
   renderRail();
@@ -123,6 +130,7 @@ function readWidget() {
   const slot = document.getElementById("answer-slot");
   if (!slot.children.length) return;
   const kind = slot.dataset.kind;
+  if (kind === "mcq") return;  // a choice is saved the moment it is clicked
   if (kind === "calc") {
     draft.answers[idx] = {
       working: slot.querySelector(".ans-work").value,
@@ -139,6 +147,22 @@ function clearAnswer() {
   delete draft.answers[idx];
   showQuestion();
   saveDraft();
+}
+
+function pick(letter) {
+  draft.answers[idx] = letter;
+  paintChoices(letter);
+  saveDraft(true);
+  paintMeta();
+  renderRail();
+}
+
+function paintChoices(letter) {
+  document.querySelectorAll("#answer-slot .choice").forEach((btn) => {
+    const on = btn.dataset.letter === letter;
+    btn.classList.toggle("selected", on);
+    btn.setAttribute("aria-checked", on ? "true" : "false");
+  });
 }
 
 // ---------- rendering ----------
@@ -199,6 +223,32 @@ function buildWidget(type) {
   const stored = draft.answers[idx] || {};
   slot.innerHTML = "";
 
+  if (type.widget === "mcq") {
+    const group = document.createElement("div");
+    group.className = "choice-group";
+    group.setAttribute("role", "radiogroup");
+    group.setAttribute("aria-label", "Answer choices");
+    questions[idx].options.forEach((text, i) => {
+      const letter = "ABCD"[i];
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "choice";
+      btn.dataset.letter = letter;
+      const badge = document.createElement("span");
+      badge.className = "ch-letter mono";
+      badge.textContent = letter;
+      const body = document.createElement("span");
+      body.className = "ch-text";
+      body.textContent = text;
+      btn.append(badge, body);
+      btn.addEventListener("click", () => pick(letter));
+      group.appendChild(btn);
+    });
+    slot.append(group);
+    if (typeof stored === "string") paintChoices(stored.toUpperCase().slice(0, 1));
+    return;
+  }
+
   if (type.widget === "calc") {
     const work = document.createElement("textarea");
     work.className = "ans-work mono";
@@ -244,6 +294,12 @@ function autogrow(el) {
 }
 
 function paintMeta() {
+  if (types[idx].widget === "mcq") {
+    const chosen = String(draft.answers[idx] || "").toUpperCase();
+    document.getElementById("q-meta").textContent =
+      chosen.length === 1 && "ABCD".includes(chosen) ? `Option ${chosen} chosen` : "not answered yet";
+    return;
+  }
   const words = composed(idx).split(/\s+/).filter(Boolean).length;
   document.getElementById("q-meta").textContent =
     words ? `${words} word${words === 1 ? "" : "s"} written` : "not answered yet";
@@ -285,7 +341,7 @@ function startClock() {
 async function submitExam() {
   readWidget();
   const payload = questions
-    .map((q, i) => ({ question: q.question, concept: q.concept, answer: composed(i) }))
+    .map((q, i) => ({ uid: q.uid, question: q.question, concept: q.concept, answer: composed(i) }))
     .filter((a) => a.answer);
   if (!payload.length) return;
 

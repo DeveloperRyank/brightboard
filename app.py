@@ -1035,15 +1035,21 @@ def exam(subject, topic):
     if not curriculum.get_subject(subject) or not topic_practicable(subject, topic):
         return redirect(url_for("subject", subject=subject))
     available = classifier.questions_for_topic(subject, topic)
-    n = min(5, max(3, len(available)))
+    # A multiple-choice paper can be marked instantly, so it is worth a longer set:
+    # ten items is a real SAT module's worth of work instead of a five-question taste.
+    n = min(10, len(available)) if classifier.is_mcq(subject, topic) \
+        else min(5, max(3, len(available)))
     picked = classifier.questions_for_topic(subject, topic, limit=n)
     return render_template(
         "exam.html",
         subject=subject,
         topic=topic,
         name=curriculum.topic_name(subject, topic),
+        mcq=classifier.is_mcq(subject, topic),
         questions=[{
+            "uid": q["uid"],
             "question": q["question"],
+            "options": q["options"],
             "concept": q.get("concept"),
             "concept_name": (concepts.concept_name(subject, topic, q["concept"])
                              if q.get("concept") else None),
@@ -1267,12 +1273,23 @@ def submit_test():
     for item in (data.get("answers") or [])[:12]:
         if not isinstance(item, dict):
             continue
-        question = str(item.get("question", ""))[:4000].strip()
         answer = str(item.get("answer", ""))[:4000].strip()
-        concept = str(item.get("concept") or "").strip().lower() or None
-        if not question or not answer:
+        if not answer:
             continue
-        answers.append({"question": question, "answer": answer,
+        # A keyed row is trusted for its own text and concept tag: the browser only ever
+        # sends the reference, so an edited paper can't smuggle in a different question.
+        uid = str(item.get("uid") or "")[:16]
+        row = classifier.question_by_uid(subject, uid)
+        if row is not None and row["topic"] != topic:
+            row = None
+        if row is None:
+            question = str(item.get("question", ""))[:4000].strip()
+            concept = str(item.get("concept") or "").strip().lower() or None
+        else:
+            question, concept = row["question"], row["concept"]
+        if not question:
+            continue
+        answers.append({"question": question, "answer": answer, "uid": uid if row else None,
                         "concept": concept if concept in valid_concepts else None})
     if not answers:
         return jsonify({"error": "No answers to mark"}), 400
@@ -1281,19 +1298,48 @@ def submit_test():
     return jsonify({"job_id": job_id})
 
 
+LETTERS = "ABCD"
+
+
+def _grade_keyed(row, answer):
+    """Mark a multiple-choice answer against the bank key: no model call, no cost."""
+    chosen = answer.strip().upper()[:1]
+    key = row["key"]
+    correct = chosen == key
+    text = (f"{chosen}. {row['options'][LETTERS.index(chosen)]}"
+            if chosen in LETTERS and len(row["options"]) == 4 else answer)
+    why = row["explanation"] or f"The correct choice is {key}."
+    note = why if correct else f"The correct choice is {key}, not {chosen or 'nothing'}. {why}"
+    return {"correct": correct, "error_type": None if correct else "conceptual_gap",
+            "teacher_note": note, "answer_text": text, "key": key}
+
+
 def run_grading(job_id, sid, subject, topic, answers, valid_keys=None):
-    """Mark the whole set in one LLM call and store the verdicts on the job."""
+    """Mark the set: answer-key rows are checked on the spot, free-response ones in one
+    LLM call for the whole group. Verdicts are stored on the job in paper order."""
     try:
-        verdicts = tutor.grade_answers(
-            subject, topic,
-            [{"question": a["question"], "answer": a["answer"]} for a in answers],
-        )
+        verdicts = [None] * len(answers)
+        open_items = []
+        for pos, a in enumerate(answers):
+            row = classifier.question_by_uid(subject, a["uid"]) if a.get("uid") else None
+            if row is not None and len(row["options"]) == 4 and row["key"]:
+                verdicts[pos] = _grade_keyed(row, a["answer"])
+            else:
+                open_items.append((pos, a))
+        if open_items:
+            marked = tutor.grade_answers(
+                subject, topic,
+                [{"question": a["question"], "answer": a["answer"]} for _, a in open_items],
+            )
+            for (pos, _), verdict in zip(open_items, marked):
+                verdicts[pos] = verdict
         results = []
         for a, verdict in zip(answers, verdicts):
             p = profile.record_answer(
                 subject, topic, verdict["correct"], verdict["error_type"],
-                concept=a["concept"], question=a["question"], answer=a["answer"],
-                feedback=verdict["teacher_note"], sid=sid,
+                concept=a["concept"], question=a["question"],
+                answer=verdict.get("answer_text", a["answer"]), feedback=verdict["teacher_note"],
+                sid=sid,
             )
             results.append({
                 **a, **verdict, "p": p,

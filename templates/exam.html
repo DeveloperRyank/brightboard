@@ -7,7 +7,7 @@
     <h1>Exam Center</h1>
     <div class="exam-clock mono" id="exam-clock" title="Time on this paper">00:00</div>
   </div>
-  <p class="sub">{{ name }} · {{ questions | length }} real {{ cur_name }} past-paper questions. Answer them all, hand the paper in, and marking runs in the background — you can leave the page and come back to your results.</p>
+  <p class="sub">{{ name }} · {{ questions | length }} {% if mcq %}SAT-style practice questions, each marked instantly against the answer key{% else %}real {{ cur_name }} past-paper questions{% endif %}. Answer them all, hand the paper in, and marking runs in the background — you can leave the page and come back to your results.</p>
 </div>
 
 <div class="exam-shell">

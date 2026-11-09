@@ -1,0 +1,26 @@
+{
+  "sat_information_ideas": [
+    {"slug": "central_idea", "name": "Main idea and primary purpose"},
+    {"slug": "supporting_detail", "name": "Selecting the detail that supports a claim"},
+    {"slug": "text_inference", "name": "Logical completion of a text"},
+    {"slug": "quant_table", "name": "Inference from a data table"},
+    {"slug": "quant_graph", "name": "Inference from a graph or chart"},
+    {"slug": "evidence_evaluation", "name": "Which finding supports or weakens a claim"}
+  ],
+  "sat_craft_structure": [
+    {"slug": "words_context", "name": "Words and phrases in context"},
+    {"slug": "text_structure_purpose", "name": "Function of a part, or of the whole structure"},
+    {"slug": "cross_text_connections", "name": "Relationship between two texts"},
+    {"slug": "viewpoint_positioning", "name": "Point of view and how it is represented"}
+  ],
+  "sat_expression_ideas": [
+    {"slug": "transitions", "name": "Connecting words and transitions"},
+    {"slug": "rhetorical_synthesis", "name": "Rhetorical synthesis from notes"}
+  ],
+  "sat_standard_english": [
+    {"slug": "sentence_boundaries", "name": "Sentence boundaries and punctuation"},
+    {"slug": "clause_structure", "name": "Clauses, fragments and run-ons"},
+    {"slug": "agreement_and_tense", "name": "Subject-verb agreement and verb tense"},
+    {"slug": "reference_and_modifier", "name": "Pronouns, modifiers and parallel structure"}
+  ]
+}

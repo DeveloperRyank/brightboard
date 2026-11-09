@@ -1,9 +1,11 @@
 """Subject-aware question data layer.
 
 Each subject's past-paper bank lives at data/<subject_slug>/questions.csv with
-columns: question,topic[,concept]  (topic = a canonical syllabus slug for that
-subject; concept = an optional slug from that topic's concept map, which is what
-mastery is tracked against).
+columns: question,topic[,concept][,options,answer,explanation]
+ (topic = a canonical syllabus slug for that subject; concept = an optional slug from
+ that topic's concept map, which is what mastery is tracked against;
+ options = the four A-D choices separated by " | ", answer = the key letter A-D,
+ explanation = the teacher note recorded instead of an LLM mark).
 Chemistry also falls back to the legacy data/questions.csv, whose older topic
 slugs are remapped to canonical ones via curriculum.LEGACY_TOPIC_MAP.
 
@@ -13,6 +15,7 @@ is kept per-subject for labelling ad-hoc text (e.g. uploaded papers), but the
 main flow picks topics straight from the CSV.
 """
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -27,6 +30,7 @@ DATA_DIR = Path(__file__).parent / "data"
 
 _frames = {}       # subject -> DataFrame (question, topic[canonical])
 _classifiers = {}  # subject -> (vectorizer, clf)
+_uids = {}         # subject -> {item id -> row}
 
 
 def _csv_path(subject):
@@ -61,8 +65,56 @@ def load_subject(subject):
         df["concept"] = tags.where(tags != "", None)
     else:
         df["concept"] = None
+    # Multiple-choice items carry four options, a key letter and a written explanation.
+    # Items without them stay free-response and are marked by the LLM as before.
+    if "options" in df.columns:
+        df["options"] = df["options"].fillna("").astype(str).map(parse_options)
+    else:
+        df["options"] = [[] for _ in range(len(df))]
+    if "answer" in df.columns:
+        keys = df["answer"].fillna("").astype(str).str.strip().str.upper().str[:1]
+        df["key"] = keys.where(keys.isin(list("ABCD")), None)
+    else:
+        df["key"] = None
+    df["explanation"] = (df["explanation"].fillna("").astype(str).str.strip()
+                         if "explanation" in df.columns else "")
+    for i, row in enumerate(df.itertuples()):
+        # Free-response rows carry neither column. A row that carries one but not the
+        # other would silently stop being marked, so fail loudly at load time instead.
+        if (row.options or row.key) and (len(row.options) != 4 or not row.key):
+            raise ValueError(
+                f"{path} row {i}: multiple-choice rows need exactly four options in "
+                f"'options' and one of A-D in 'answer'")
+    df["uid"] = [item_id(q) for q in df["question"].astype(str)]
+    _uids[subject] = {r["uid"]: r for r in df.to_dict("records")}
     _frames[subject] = df
     return df
+
+
+def parse_options(cell):
+    """'A text | B text | C text | D text' -> the four choice strings."""
+    parts = [p.strip() for p in str(cell).split("|")]
+    return [p for p in parts if p] if len(parts) == 4 and all(p.strip() for p in parts) else []
+
+
+def item_id(question):
+    """Stable reference for a bank row, so the answer key never leaves the server."""
+    return hashlib.sha256(question.encode("utf-8")).hexdigest()[:16]
+
+
+def question_by_uid(subject, uid):
+    """The bank row behind an exam question, or None if it isn't from this subject."""
+    load_subject(subject)
+    return _uids.get(subject, {}).get(uid)
+
+
+def is_mcq(subject, topic):
+    """True when this topic's bank is multiple-choice (so papers get a longer default)."""
+    df = load_subject(subject)
+    if df is None:
+        return False
+    rows = df[df["topic"] == topic]
+    return len(rows) > 0 and bool(rows["options"].map(len).eq(4).all())
 
 
 def subject_has_data(subject):

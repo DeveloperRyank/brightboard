@@ -709,7 +709,7 @@ SUBJECTS = [
 
 SAT_SUBJECTS = [
     {"slug": "sat_math", "name": "SAT Math", "icon": "sigma", "accent": "#74A98D", "live": False, "topics": SAT_MATH_TOPICS},
-    {"slug": "sat_rw", "name": "SAT Reading & Writing", "icon": "book", "accent": "#E2492F", "live": False, "topics": SAT_RW_TOPICS},
+    {"slug": "sat_rw", "name": "SAT Reading & Writing", "icon": "book", "accent": "#E2492F", "live": True, "topics": SAT_RW_TOPICS},
 ]
 
 
