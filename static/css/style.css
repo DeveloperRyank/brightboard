@@ -81,6 +81,17 @@
   --track-hero: -0.03em;
   --track-micro: 0.08em;
 
+  /* The hand's own scale. Caveat is drawn on a slant with a small cap height, so at the
+     same px as Inter it reads a fifth smaller and much lighter. Every hand size below is
+     the Inter size it replaces, scaled up — that is why the two can sit in one sentence
+     and look like one voice at two volumes, rather than a font swap. */
+  --th-hero: clamp(2.625rem, 1.75rem + 3.6vw, 4.25rem);
+  --th-h1: clamp(2rem, 1.5rem + 1.7vw, 2.75rem);
+  --th-h2: 1.75rem;
+  --th-h3: 1.375rem;
+  --lh-hand: 1.3;
+  --track-hand: 0.005em;
+
   /* Spacing: one 4/8 scale, nothing outside it. */
   --sp-1: 0.25rem; --sp-2: 0.5rem;  --sp-3: 0.75rem; --sp-4: 1rem;
   --sp-5: 1.5rem;  --sp-6: 2rem;    --sp-7: 3rem;    --sp-8: 4rem;
@@ -107,6 +118,10 @@
   --wb-ink: var(--cream);
   --wb-accent: var(--accent);
   --wb-hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;
+  /* The same hand, named for what it is in the interface rather than on the board. */
+  --hand: var(--wb-hand);
+  /* The other voice, named so a rule can say which one it is borrowing. */
+  --type: "Inter var", "Inter", system-ui, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -124,7 +139,7 @@ body {
   margin: 0;
   background: var(--navy);
   color: var(--cream);
-  font-family: "Inter var", "Inter", system-ui, "Segoe UI", sans-serif;
+  font-family: var(--type);
   font-size: var(--t-body);
   line-height: var(--lh-body);
   min-height: 100vh;
@@ -137,9 +152,44 @@ body {
 a { color: var(--coral); text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-h1 { font-size: var(--t-h1); font-weight: 650; letter-spacing: -0.02em; margin: 6px 0 4px; }
-h2 { font-size: var(--t-h2); font-weight: 650; letter-spacing: -0.015em; margin: var(--sp-6) 0 var(--sp-3); }
-h3 { letter-spacing: -0.01em; }
+/* ---------- the two voices ----------
+   The site is written by a tutor who writes on a board, so the hand that writes the
+   board is the face of the product. It is used the way a person would use it: for the
+   name, the headline of a screen, the title of a section, and the one line the tutor
+   says about you. Everything a student reads in order to *do* something — a paragraph,
+   a question, a choice, a field, a number in a table — stays in Inter, because
+   handwriting is tiring to read in quantity and a site that is hard to read has not
+   been designed, only decorated. Two rules make the split hold:
+     1. hand text is never uppercase and never carries numbers that must be compared;
+     2. type text never plays the role of a title, so the two never compete mid-line. */
+h1 {
+  font-family: var(--hand);
+  font-size: var(--th-h1);
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: var(--track-hand);
+  line-height: var(--lh-hand);
+  margin: 4px 0 6px;
+}
+h2 {
+  font-family: var(--hand);
+  font-size: var(--th-h2);
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: var(--track-hand);
+  line-height: 1.22;
+  margin: var(--sp-6) 0 var(--sp-3);
+}
+h3 {
+  font-family: var(--hand);
+  font-size: var(--th-h3);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: var(--track-hand);
+  line-height: 1.25;
+}
+/* Anything that must read as handwriting without being a heading. */
+.hand { font-family: var(--hand); font-weight: 600; letter-spacing: var(--track-hand); }
 .sub { color: var(--muted); font-size: var(--t-body); margin-bottom: var(--sp-6); }
 
 /* ---------- nav: one centred line of text on a blurred rule ---------- */
@@ -414,7 +464,7 @@ nav .links a:active, .seg-btn:active, .tab:active, .pill-btn:active,
 .tgroup > summary::-webkit-details-marker { display: none; }
 .tgroup > summary:hover { background: var(--panel-2); }
 .tgroup > summary:active { transform: scale(0.995); }
-.tg-label { font-size: var(--t-h3); font-weight: 650; color: var(--cream); }
+.tg-label { font-family: var(--hand); font-size: var(--th-h3); font-weight: 600; letter-spacing: var(--track-hand); color: var(--cream); }
 .tg-count { margin-left: auto; font-size: var(--t-label); color: var(--muted-2); }
 .tg-arrow { color: var(--muted-2); font-size: var(--t-h3); transition: transform 220ms var(--ease); }
 .tgroup[open] > summary .tg-arrow { transform: rotate(90deg); }
@@ -462,7 +512,7 @@ nav .links a:active, .seg-btn:active, .tab:active, .pill-btn:active,
   color: var(--accent);
   font-size: 1.25rem;
 }
-.subject-card .s-title { font-size: var(--t-h3); font-weight: 650; margin-bottom: 3px; }
+.subject-card .s-title { font-family: var(--hand); font-size: var(--th-h3); font-weight: 700; letter-spacing: var(--track-hand); margin-bottom: 1px; }
 .subject-card .s-meta { color: var(--muted); font-size: var(--t-label); }
 .subject-card .s-bar { margin-top: var(--sp-3); width: 100%; }
 .subject-card .s-bar > div { background: var(--accent); }
@@ -486,7 +536,9 @@ nav .links a:active, .seg-btn:active, .tab:active, .pill-btn:active,
 .topic-row:hover { border-color: var(--hairline-2); box-shadow: var(--shadow-lift); transform: translateY(-1px); }
 .topic-row.locked { opacity: 0.5; }
 .topic-row .tr-main { flex: 1; min-width: 0; }
-.topic-row .tr-name { font-weight: 600; font-size: 0.9375rem; }
+/* The topic's name is written; what it gives you is typeset. The name used to be 15px,
+   under the body floor, which handwriting fixes by needing to be larger to read. */
+.topic-row .tr-name { font-family: var(--hand); font-weight: 600; font-size: 1.375rem; letter-spacing: var(--track-hand); line-height: 1.2; }
 .topic-row .tr-sub { color: var(--muted); font-size: 1rem; margin-top: 3px; }
 .topic-row .tr-form {
   font-size: var(--t-label); color: var(--muted); border: 1px solid var(--line);
@@ -516,8 +568,19 @@ nav .links a:active, .seg-btn:active, .tab:active, .pill-btn:active,
   color: var(--accent);
   font-size: 1.25rem;
 }
-.rec-card .rec-text { flex: 1 1 min(220px, 100%); min-width: 0; text-align: left; }
-.rec-card .rec-text strong { color: var(--coral); font-weight: 650; }
+/* The one place the two voices share a line: the sentence is read, the concept it names
+   is written. This is how a person marks a word in a note — and it is why the hand is
+   not simply a bigger font, it is the tutor's own emphasis. */
+.rec-card .rec-text {
+  flex: 1 1 min(220px, 100%); min-width: 0; text-align: left; line-height: 1.75;
+}
+.rec-card .rec-text strong {
+  color: var(--coral);
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 1.24em;
+  letter-spacing: var(--track-hand);
+}
 
 /* ---------- meters ---------- */
 
@@ -634,8 +697,11 @@ label[tabindex]:focus-visible, summary:focus-visible {
 
 .quiz-card { max-width: 680px; padding: 26px 28px; margin: var(--sp-2) auto 0; }
 .q-step { margin-bottom: 26px; border: 0; padding: 0; }
-.q-step > legend, .q-legend { font-size: 0.9375rem; font-weight: 650; margin-bottom: 12px; display: block; }
-.q-hint { color: var(--muted); font-size: 1rem; font-weight: 400; }
+.q-step > legend, .q-legend { margin-bottom: 12px; display: block; }
+/* The hint is about the mechanics of the field, not the tutor speaking, so it is the one
+   word inside a handwritten question that stays typeset. */
+.q-hint { font-family: var(--type); color: var(--muted); font-size: 1rem; font-weight: 400;
+  margin-left: 0.4em; }   /* the hand slants, so the typed hint needs its own breath */
 .quiz-empty { color: var(--muted); font-size: 1rem; padding: 10px 0; }
 
 /* Upload setup: the two questions above the dropzone, centred like every other head. */
@@ -766,7 +832,10 @@ label[tabindex]:focus-visible, summary:focus-visible {
   color: var(--accent); font-size: var(--t-micro); letter-spacing: var(--track-micro);
   text-transform: uppercase; margin-bottom: 6px;
 }
-.tc-ask { color: var(--muted); font-size: var(--t-label); margin-bottom: 10px; }
+.tc-ask {
+  color: var(--muted); font-family: var(--hand); font-size: 1.25rem; font-weight: 600;
+  letter-spacing: var(--track-hand); margin-bottom: 8px;
+}
 .tc-body { color: var(--cream); font-size: 1rem; line-height: 1.6; margin: 0; }
 .tc-wait { color: var(--muted); font-size: var(--t-label); }
 .tc-notes { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
@@ -790,7 +859,7 @@ label[tabindex]:focus-visible, summary:focus-visible {
   margin: 16px 0;
 }
 .ask-panel.open { display: block; }
-.ask-panel h3 { margin: 0 0 6px; font-size: 0.9375rem; color: var(--cream); }
+.ask-panel h3 { margin: 0 0 6px; font-size: var(--th-h3); color: var(--cream); }
 .ask-panel .paused-note { color: var(--muted); font-size: 1rem; margin-bottom: 12px; }
 .ask-panel textarea { width: 100%; }
 
@@ -864,7 +933,7 @@ label[tabindex]:focus-visible, summary:focus-visible {
   padding: 20px;
   z-index: 5;
 }
-.load-title { font-size: 1.125rem; font-weight: 650; color: var(--cream); }
+.load-title { font-family: var(--hand); font-size: 1.75rem; font-weight: 700; letter-spacing: var(--track-hand); color: var(--cream); }
 .load-sub { font-size: 1rem; color: var(--muted); max-width: 42ch; }
 
 #loading { background: var(--navy-deep); }
@@ -1026,7 +1095,7 @@ label[tabindex]:focus-visible, summary:focus-visible {
 
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; }
 .chart-card { padding: 18px 20px 22px; }
-.chart-card h3 { margin: 0 0 4px; font-size: 0.9375rem; font-weight: 650; }
+.chart-card h3 { margin: 0 0 4px; font-size: var(--th-h3); font-weight: 600; }
 .chart-card .c-sub { color: var(--muted); font-size: 0.875rem; margin: 0 0 14px; }
 .chart-box { position: relative; height: clamp(210px, 62vw, 280px); }
 
@@ -1040,7 +1109,12 @@ table.history td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft);
 table.history td.ok { color: var(--sage); }
 table.history td.bad { color: var(--coral); }
 
-.empty { color: var(--muted); font-size: 0.875rem; padding: 24px; text-align: center; }
+/* An empty panel is the tutor saying there is nothing here yet — hand, and comfortably
+   above the 14px it used to be. */
+.empty {
+  color: var(--muted); font-family: var(--hand); font-size: 1.3125rem; font-weight: 500;
+  letter-spacing: var(--track-hand); line-height: 1.45; padding: 24px; text-align: center;
+}
 
 .session-panel { padding: var(--sp-6) var(--pad-card); margin-bottom: var(--sp-6); text-align: center; }
 .sess-head { display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; }
@@ -1121,7 +1195,7 @@ table.history td.bad { color: var(--coral); }
   font-size: var(--t-micro); letter-spacing: var(--track-micro); text-transform: uppercase;
   color: var(--sage); margin-bottom: var(--sp-2);
 }
-.done-title { font-size: var(--t-h2); font-weight: 650; letter-spacing: -0.015em; margin: 0 0 var(--sp-2); }
+.done-title { font-size: var(--th-h2); font-weight: 700; letter-spacing: var(--track-hand); line-height: 1.22; margin: 0 0 var(--sp-2); }
 .done-sub { color: var(--muted); font-size: var(--t-body); line-height: 1.6; max-width: 46ch; margin: 0 auto var(--sp-4); }
 .done-sub strong { color: var(--cream); font-weight: 650; }
 
@@ -1139,7 +1213,10 @@ table.history td.bad { color: var(--coral); }
 
 /* The line above a marked paper changes with the score: a bad paper is still progress,
    and saying so is the whole point of a diagnostic tutor. */
-.sess-verdict { font-size: var(--t-lede); font-weight: 600; letter-spacing: -0.01em; margin: var(--sp-2) 0 0; }
+.sess-verdict {
+  font-family: var(--hand); font-size: 1.625rem; font-weight: 700;
+  letter-spacing: var(--track-hand); line-height: 1.3; margin: var(--sp-2) 0 0;
+}
 .sess-verdict.mid { color: var(--ochre); }
 .sess-verdict.low { color: var(--cream-2); }
 .sess-gain {
@@ -1194,7 +1271,7 @@ table.history td.bad { color: var(--coral); }
   85% { opacity: 1; transform: scale(1) rotate(0); }
   100% { opacity: 0.25; }
 }
-.marking-panel .load-title { font-size: 1.1875rem; }
+.marking-panel .load-title { font-size: 1.625rem; }
 .marking-panel .load-sub { max-width: 46ch; margin: 8px auto 0; }
 
 /* ---------- marking job list ---------- */
@@ -1458,18 +1535,22 @@ main:has(.landing) { padding-top: var(--sp-4); }
   margin: 0 0 var(--sp-2);
 }
 
+/* The sentence the whole product is built around, written rather than set. The quiet
+   line is the same hand at a lighter weight, not a different face — one person, two
+   volumes. Handwriting needs the extra line-height because its ascenders are long. */
 .landing-hero {
-  font-size: clamp(2rem, 1.3rem + 2.4vw, 3.25rem);
-  line-height: var(--lh-hero);
-  letter-spacing: var(--track-hero);
-  font-weight: 400;
+  font-family: var(--hand);
+  font-size: var(--th-hero);
+  line-height: 1.24;
+  letter-spacing: var(--track-hand);
+  font-weight: 600;
   margin: 0 auto var(--sp-2);
-  max-width: 18ch;
+  max-width: 30ch;   /* each half of the sentence is one line, at every width down to a phone */
   display: flex;
   flex-direction: column;
 }
-.lh-quiet { color: var(--muted-2); font-weight: 350; }
-.lh-loud  { color: #F5F1EA; font-weight: 600; }
+.lh-quiet { color: var(--muted-2); font-weight: 500; }
+.lh-loud  { color: #F5F1EA; font-weight: 700; }
 
 .lh-sub {
   font-size: var(--t-lede);
@@ -1489,7 +1570,7 @@ main:has(.landing) { padding-top: var(--sp-4); }
   border-radius: var(--radius-lg);
   padding: var(--sp-4) var(--sp-5);
 }
-.su-head h2 { margin: 0 0 var(--sp-1); font-size: var(--t-h2); }
+.su-head h2 { margin: 0 0 var(--sp-1); font-size: var(--th-h2); }
 .su-head p  { margin: 0 0 var(--sp-4); color: var(--muted); font-size: var(--t-body); }
 .su-grid {
   display: grid;
@@ -1527,7 +1608,15 @@ main:has(.landing) { padding-top: var(--sp-4); }
   animation: wizIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .su-step { border: 0; padding: 0; margin: 0 0 var(--sp-2); min-inline-size: 0; }
-.su-step > legend { padding: 0; margin-bottom: var(--sp-2); font-size: var(--t-h3); font-weight: 650; }
+/* The question the tutor asks, in the hand, wherever it appears: the sign-up steps and the
+   starter-quiz intake are the same act — a person asking one thing at a time — and a
+   worksheet reads exactly like this. The fields underneath are filled in by the student, so
+   they stay typed. A past-paper question is quoted text and is handwritten nowhere. */
+.su-step > legend, .q-step > legend, .q-legend {
+  font-family: var(--hand); font-size: var(--th-h3); font-weight: 600;
+  letter-spacing: var(--track-hand); line-height: 1.25;
+}
+.su-step > legend { padding: 0; margin-bottom: var(--sp-2); }
 .su-step .fld { margin-bottom: var(--sp-3); }
 @keyframes wizIn {
   from { opacity: 0; transform: translateY(10px); }
@@ -1686,9 +1775,18 @@ nav .links .who:hover { color: var(--cream); text-decoration: none; background: 
 
 .doc { max-width: 68ch; margin: 0 auto; }
 .doc-head { border-bottom: 1px solid var(--line); padding-bottom: var(--sp-4); margin-bottom: var(--sp-5); }
-.doc-head h1 { font-size: var(--t-h1); font-weight: 600; letter-spacing: -0.02em; margin: var(--sp-2) 0; }
+/* A document a student might have to read carefully, or show to a parent or a teacher,
+   is typeset rather than handwritten — the hand is the tutor's voice, and these two pages
+   are not the tutor speaking. They are the one place the rule is deliberately broken. */
+.doc-head h1 {
+  font-family: inherit; font-size: var(--t-h1); font-weight: 600;
+  letter-spacing: -0.02em; line-height: var(--lh-body); margin: var(--sp-2) 0;
+}
 .doc-meta { color: var(--muted); font-size: var(--t-body); margin: 0; }
-.doc h2 { margin: var(--sp-6) 0 var(--sp-2); font-size: var(--t-h2); }
+.doc h2 {
+  font-family: inherit; margin: var(--sp-6) 0 var(--sp-2); font-size: var(--t-h2);
+  font-weight: 650; letter-spacing: -0.015em; line-height: var(--lh-body);
+}
 .doc p, .doc li { font-size: var(--t-body); color: var(--cream-2); line-height: 1.65; }
 .doc-list { padding-left: var(--sp-5); margin: 0; display: grid; gap: var(--sp-2); }
 .doc-table td, .doc-table th { vertical-align: top; }
@@ -1728,7 +1826,7 @@ nav .links .who:hover { color: var(--cream); text-decoration: none; background: 
 .acct-head h1 { margin-bottom: var(--sp-2); }
 .acct .card { padding: var(--sp-5); margin-bottom: var(--sp-4); }
 .acct .card > h2 {
-  margin: 0 0 var(--sp-2); font-size: var(--t-h2);
+  margin: 0 0 var(--sp-2); font-size: var(--th-h3);
   display: flex; align-items: center; gap: var(--sp-2);
 }
 .acct .card > h2 .ico { color: var(--accent); }
