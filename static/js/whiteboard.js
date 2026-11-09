@@ -144,6 +144,32 @@ function rulerOps(x, y0, y1, step, len) {
   return ops;
 }
 
+// Two facing plates of a capacitor, centred on x and spanning y .. y+h with a gap
+// between them. Wires meet the plates on the centre line, so h/2 straddles that line.
+function capPlateOps(x, y, h, gap, opts) {
+  const o = opts || {}, color = o.color || CHALK, width = o.width || 6;
+  return [
+    { p: [[x - gap / 2, y], [x - gap / 2, y + h]], color, width },
+    { p: [[x + gap / 2, y], [x + gap / 2, y + h]], color, width },
+  ];
+}
+
+// The plates of a capacitor wired to a cell: the long thin line of the cell is its +
+// terminal, so the plate joined to it is the one that ends up positive.
+function capacitorFrameOps() {
+  return [
+    ...capPlateOps(480, 200, 150, 160, { width: 7 }),
+    { p: [[400, 350], [400, 470]], width: 3 },
+    { p: [[560, 350], [560, 470]], width: 3 },
+    { p: [[400, 470], [470, 470]], width: 3 },
+    { p: [[470, 447], [470, 493]], width: 4 },
+    { p: [[500, 457], [500, 483]], width: 7 },
+    { p: [[500, 470], [560, 470]], width: 3 },
+    { text: "+", x: 455, y: 432, size: 17, color: "#D9A648" },
+    { text: "−", x: 506, y: 432, size: 17, color: "#74A98D" },
+  ];
+}
+
 // A rectangle whose base lies along a slope through (x, y), the base rising at `deg`
 // (canvas degrees, so a plane going up to the right is negative). The block has to sit
 // OUTSIDE the wedge, so the normal points away from the body of the slope: for a plane
@@ -997,6 +1023,90 @@ const TEMPLATES = {
         { p: [[500, 320], [530, 425]], width: 3 },
         ...arrowOps(300, 210, 432, 192, { color: "#D9A648" }),
         { slot: "observation", x: 650, y: 380, size: 16, def: "A charged body near the disc: leaves spread further" },
+      ],
+    },
+  },
+
+  // Two facing plates and the cell that charges them is what a capacitor IS, so the frame
+  // is drawn once and each variant only adds what it teaches: the field across the gap,
+  // the dielectric in it, or the way several are wired together.
+  capacitor: {
+    ops: [],
+    variants: {
+      air_gap: [
+        ...capacitorFrameOps(),
+        ...arrowOps(414, 238, 546, 238, { color: "#D9A648", width: 2, head: 11 }),
+        ...arrowOps(414, 278, 546, 278, { color: "#D9A648", width: 2, head: 11 }),
+        ...arrowOps(414, 318, 546, 318, { color: "#D9A648", width: 2, head: 11 }),
+        { slot: "title", x: 120, y: 132, size: 18, def: "Parallel-plate capacitor" },
+        ...callout("Plate on the + terminal holds +Q", 620, 210, 566, 232, { maxRight: 930 }),
+        ...callout("Facing plate holds the same charge, minus", 620, 348, 566, 330, { maxRight: 930 }),
+        { slot: "gap", x: 640, y: 420, size: 15, color: "#BFB09C", def: "Field runs across the air gap d" },
+        { slot: "note", x: 150, y: 545, size: 16, def: "C = Q / V, in farads" },
+      ],
+      dielectric: [
+        ...capacitorFrameOps(),
+        { p: [[412, 206], [548, 206], [548, 344], [412, 344], [412, 206]], width: 2, color: "#BFB09C" },
+        ...arrowOps(414, 278, 546, 278, { color: "#74A98D", width: 2, head: 11 }),
+        { slot: "title", x: 120, y: 132, size: 18, def: "Capacitor with a dielectric" },
+        ...callout("Mica, paper or oil between the plates", 150, 178, 420, 212, { maxRight: 620 }),
+        { slot: "effect", x: 640, y: 300, size: 16, def: "The same charge, a lower p.d: C rises" },
+        { slot: "note", x: 150, y: 545, size: 16, def: "C = k A / d for a parallel-plate capacitor" },
+      ],
+      series: [
+        { p: [[140, 300], [330, 300]], width: 3 },
+        ...capPlateOps(360, 255, 90, 60, { width: 5 }),
+        { p: [[390, 300], [470, 300]], width: 3 },
+        ...capPlateOps(500, 255, 90, 60, { width: 5 }),
+        { p: [[530, 300], [610, 300]], width: 3 },
+        ...capPlateOps(640, 255, 90, 60, { width: 5 }),
+        { p: [[670, 300], [860, 300]], width: 3 },
+        { text: "C1", x: 340, y: 372, size: 16, color: "#BFB09C" },
+        { text: "C2", x: 480, y: 372, size: 16, color: "#BFB09C" },
+        { text: "C3", x: 620, y: 372, size: 16, color: "#BFB09C" },
+        { slot: "title", x: 150, y: 140, size: 18, def: "Capacitors in series" },
+        ...callout("One charge, shared by all three", 150, 200, 350, 250, { maxRight: 620 }),
+        { slot: "rule", x: 150, y: 470, size: 16, def: "1/C = 1/C1 + 1/C2 + 1/C3" },
+        { slot: "pds", x: 150, y: 512, size: 15, color: "#BFB09C", def: "V = V1 + V2 + V3" },
+      ],
+      parallel: [
+        { p: [[220, 170], [220, 450]], width: 3 },
+        { p: [[760, 170], [760, 450]], width: 3 },
+        { p: [[220, 170], [150, 170]], width: 3 },
+        { p: [[760, 170], [830, 170]], width: 3 },
+        { p: [[220, 200], [460, 200]], width: 3 },
+        ...capPlateOps(480, 170, 60, 40, { width: 5 }),
+        { p: [[500, 200], [760, 200]], width: 3 },
+        { p: [[220, 310], [460, 310]], width: 3 },
+        ...capPlateOps(480, 280, 60, 40, { width: 5 }),
+        { p: [[500, 310], [760, 310]], width: 3 },
+        { p: [[220, 420], [460, 420]], width: 3 },
+        ...capPlateOps(480, 390, 60, 40, { width: 5 }),
+        { p: [[500, 420], [760, 420]], width: 3 },
+        { text: "C1", x: 520, y: 178, size: 15, color: "#BFB09C" },
+        { text: "C2", x: 520, y: 288, size: 15, color: "#BFB09C" },
+        { text: "C3", x: 520, y: 398, size: 15, color: "#BFB09C" },
+        { slot: "title", x: 120, y: 120, size: 18, def: "Capacitors in parallel" },
+        { slot: "rule", x: 120, y: 510, size: 16, def: "C = C1 + C2 + C3" },
+        { slot: "pds", x: 560, y: 510, size: 15, color: "#BFB09C", def: "Each branch sees the same V" },
+      ],
+      variable: [
+        { p: [[410, 205], [550, 205]], width: 5 },
+        { p: [[420, 205], [420, 315]], width: 4 },
+        { p: [[480, 205], [480, 315]], width: 4 },
+        { p: [[540, 205], [540, 315]], width: 4 },
+        { p: [[550, 205], [680, 205]], width: 3 },
+        { p: [[440, 345], [580, 345]], width: 5 },
+        { p: [[450, 235], [450, 345]], width: 4, color: "#74A98D" },
+        { p: [[510, 235], [510, 345]], width: 4, color: "#74A98D" },
+        { p: [[570, 235], [570, 345]], width: 4, color: "#74A98D" },
+        { p: [[440, 345], [330, 345]], width: 3 },
+        ...arrowOps(700, 360, 700, 240, { color: "#FF6B57", width: 2, head: 11 }),
+        { arc: { cx: 660, cy: 300, r: 44, a0: -60, a1: 60 }, color: "#FF6B57", width: 2 },
+        { slot: "title", x: 120, y: 132, size: 18, def: "Variable capacitor" },
+        ...callout("Fixed plates", 700, 168, 552, 206, { maxRight: 930 }),
+        ...callout("Plates that turn", 700, 380, 586, 348, { maxRight: 930 }),
+        { slot: "note", x: 150, y: 470, size: 16, def: "Turning meshes the plates: area and C change" },
       ],
     },
   },

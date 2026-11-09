@@ -116,6 +116,9 @@ _SUBJECT_TEMPLATES = {
   electroscope    gold-leaf electroscope: disc, rod, leaves inside a jar
                   variant: "uncharged", "charged", "positive", "negative", "discharge"
                   slots: observation
+  capacitor       two facing plates wired to a cell, or several capacitors wired together
+                  variant REQUIRED: "air_gap", "dielectric", "series", "parallel", "variable"
+                  slots: title, gap, note, effect, rule, pds
 
 Pick by the physics, not the picture:
   Hooke's law, spring balance, elastic limit ......... spring
@@ -131,6 +134,8 @@ Pick by the physics, not the picture:
   magnets, field lines, electromagnet, solenoid, force between wires ... magnetism
   adding forces, resolving into components, equilibrium of forces ... vector_triangle
   static charges, charging by induction, leaking charge ... electroscope
+  capacitors, capacitance, dielectric in a gap, charging and discharging, capacitors in series or
+    parallel, variable capacitor ........................ capacitor
   any quantity plotted against another (a = Ft, V = IR, T vs L) ... graph_axes
 A correct pick looks like: {"type":"template","template":"refraction","variant":"glass_block",
 "labels":{"law":"n = sin i / sin r","emerge":"Parallel ray, displaced sideways"}}
@@ -376,6 +381,8 @@ TEMPLATE_CATALOG = {
                         "slots": ["resultant", "angle", "rule", "equilibrant"]},
     "electroscope": {"variants": ["uncharged", "charged", "positive", "negative", "discharge"],
                      "slots": ["observation"]},
+    "capacitor": {"variants": ["air_gap", "dielectric", "series", "parallel", "variable"],
+                  "slots": ["title", "gap", "note", "effect", "rule", "pds"]},
 }
 
 # Most physics variants are the meaningful half of the diagram — a template drawn without
@@ -394,6 +401,7 @@ DEFAULT_VARIANT = {
     "circuit": "switch_closed",
     "graph_axes": "empty",
     "electroscope": "uncharged",
+    "capacitor": "air_gap",
 }
 
 # What the model picks a diagram by is its eye, not the physics: given a refraction lesson it
@@ -429,7 +437,9 @@ _TEMPLATE_TRIGGERS = {
                         "triangle of forces", "equilibrant", "vectors in equilibrium",
                         "perpendicular components"),
     "electroscope": ("electroscope", "gold leaf", "leaf diverge", "leaves diverge",
-                     "electrostatic", "charging by", "coulomb", "discharge", "capacitor"),
+                     "electrostatic", "charging by", "coulomb", "discharge"),
+    "capacitor": ("capacitor", "capacitance", "farad", "dielectric", "parallel plate",
+                  "mica", "ceramic", "electrolytic", "variable capacitor"),
 }
 
 _GATE_MATCHES = {
@@ -461,6 +471,10 @@ _VARIANT_HINTS = {
                ("spring_balance", ("spring balance", "newton meter", "force meter"))),
     "lever": (("second_class", ("wheelbarrow", "second class")),
               ("third_class", ("tongs", "fishing rod", "third class"))),
+    "capacitor": (("dielectric", ("dielectric", "mica", "ceramic", "electrolytic", "oil")),
+                  ("series", ("in series", "series combination", "series arrangement")),
+                  ("parallel", ("in parallel", "parallel combination", "parallel arrangement")),
+                  ("variable", ("variable capacitor", "tuning", "trimmer", "mesh"))),
 }
 
 
@@ -659,9 +673,10 @@ def _sanitize_actions(actions, gate=None):
                 variant = a.get("variant")
                 if variant and variant not in spec["variants"]:
                     variant = None
-                if not variant:
-                    variant = (gate.get("hint") if judged and gate["primary"] == name else None) \
-                        or DEFAULT_VARIANT.get(name)
+                # Which drawing of the apparatus a step wants is better read from that step's
+                # own words than from the guess the model made for the lesson as a whole.
+                hint = gate.get("hint") if judged and gate["primary"] == name else None
+                variant = hint or variant or DEFAULT_VARIANT.get(name)
                 kept.append({**a, "variant": variant} if variant else a)
             continue
         if t == "label":
