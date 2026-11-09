@@ -16,9 +16,10 @@
     const total = results.length;
     const right = results.filter((r) => r.correct).length;
     const ratio = total ? right / total : 0;
-    // Mastery only exists once answers are tagged to a concept, so don't show a bare dash.
-    const masteryText = s.mastery === null || s.mastery === undefined
-      ? "" : ` · topic mastery now <strong>${pct(s.mastery)}</strong>`;
+    // Before a concept map exists the topic only has an accuracy, not a BKT estimate, so
+    // the word comes from the server rather than being hardcoded here.
+    const scoreText = s.topic_score === null || s.topic_score === undefined
+      ? "" : ` · topic ${s.score_word || "accuracy"} now <strong>${pct(s.topic_score)}</strong>`;
     const ringColor = ratio < 0.4 ? "var(--brick)" : ratio < 0.7 ? "var(--ochre)" : "var(--sage)";
     const C = 2 * Math.PI * 52;
 
@@ -52,7 +53,7 @@
           <h2>${esc(s.topic_name || pretty(s.topic))}</h2>
           <p class="sess-verdict ${verdict.cls}">${verdict.text}</p>
           <p class="sub" style="margin: 6px 0 0;">
-            ${right} of ${total} correct${masteryText}
+            ${right} of ${total} correct${scoreText}
           </p>
           ${gain}
         </div>
@@ -102,7 +103,7 @@
         : esc(rec.topic_name || pretty(rec.topic));
       const scoreText = rec.score === null || rec.score === undefined
         ? "you told us this one troubles you"
-        : `mastery ${pct(rec.score)}`;
+        : `${rec.score_word || "accuracy"} ${pct(rec.score)}`;
       html += `
       <div class="rec-card rise" style="animation-delay: ${480 + total * 110}ms">
         <div class="target">${iconSvg("target")}</div>

@@ -584,11 +584,65 @@ def get_concepts(subject=None, topic=None, sid=None):
     return out
 
 
+def get_topic_stats(subject=None, sid=None):
+    """Per-topic answer counts straight from history, keyed by 'subject:topic'.
+
+    history is the event log of every answer a student has given, tagged or not, so it is
+    the only place Exam Center papers show up before a subject has an approved concept map.
+    Errors come from here too: error_tally only ever receives concept-tagged answers.
+    """
+    sid = _sid(sid)
+    if not sid:
+        return {}
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT topic, count(*) AS answers, sum(correct) AS correct FROM history "
+            "WHERE student_id = ? GROUP BY topic", (sid,),
+        ).fetchall()
+        errs = c.execute(
+            "SELECT topic, error_type, count(*) AS n FROM history "
+            "WHERE student_id = ? AND correct = 0 AND error_type IS NOT NULL "
+            "GROUP BY topic, error_type", (sid,),
+        ).fetchall()
+    out = {}
+    for r in rows:
+        subj, top = _split(r["topic"])
+        if subject and subj != subject:
+            continue
+        answers = int(r["answers"] or 0)
+        correct = int(r["correct"] or 0)
+        out[r["topic"]] = {
+            "key": r["topic"], "subject": subj, "topic": top,
+            "answers": answers, "correct": correct,
+            "accuracy": round(correct / answers, 3) if answers else None,
+            "errors": {},
+        }
+    for e in errs:
+        if e["topic"] in out:
+            out[e["topic"]]["errors"][e["error_type"]] = int(e["n"])
+    return out
+
+
 def topic_mean_p(subject, topic, sid=None):
     rows = get_concepts(subject, topic, sid)
     if not rows:
         return None
     return round(sum(r["p"] for r in rows) / len(rows), 3)
+
+
+def topic_score(subject, topic, sid=None):
+    """The topic's headline number, and what it was computed from.
+
+    'bkt' while the topic has concept-tagged evidence; 'accuracy' when it only has
+    answers that no concept map could yet classify.
+    """
+    mean = topic_mean_p(subject, topic, sid)
+    if mean is not None:
+        return {"score": mean, "basis": "bkt"}
+    st = get_topic_stats(subject, sid=sid).get(_key(subject, topic))
+    if st and st["accuracy"] is not None:
+        return {"score": st["accuracy"], "basis": "accuracy"}
+    return {"score": None, "basis": None}
 
 
 def get_error_tally(subject=None, topic=None, concept=None, sid=None):
@@ -647,17 +701,31 @@ def topic_signature(subject, topic, sid=None):
             "SELECT concept, error_type, count FROM error_tally WHERE student_id = ? AND topic = ? "
             "ORDER BY concept, error_type", (sid, key),
         ).fetchall()
+        # Untagged answers (every Exam Center paper before a concept map) are adaptation
+        # input too, and belong in the signature so a new mark busts the cached lesson.
+        raw = c.execute(
+            "SELECT count(*) AS answers, sum(correct) AS correct FROM history "
+            "WHERE student_id = ? AND topic = ? AND concept IS NULL", (sid, key),
+        ).fetchone()
+        raw_errs = c.execute(
+            "SELECT error_type, count(*) AS n FROM history WHERE student_id = ? AND topic = ? "
+            "AND concept IS NULL AND correct = 0 AND error_type IS NOT NULL "
+            "GROUP BY error_type ORDER BY error_type", (sid, key),
+        ).fetchall()
     return json.dumps(
         [
             [[r["concept"], r["p"], r["answers"]] for r in rows],
             [[e["concept"], e["error_type"], e["count"]] for e in errs],
+            [int(raw["answers"] or 0), int(raw["correct"] or 0)],
+            [[e["error_type"], int(e["n"])] for e in raw_errs],
         ]
     )
 
 
 def recommend_next(subject=None, valid_keys=None, sid=None):
-    """Weakest concept by BKT. Before any practice data, fall back to what the
-    student said they struggle with. Keys are 'subject:topic'."""
+    """Weakest concept by BKT. With no concept map yet, fall back to the topic with the
+    weakest answer accuracy — real marks, not a guess. Only when there is no evidence at
+    all does it fall back to what the student said they struggle with."""
     concepts = get_concepts(subject, sid=sid)
     if concepts:
         weakest = concepts[0]
@@ -666,7 +734,16 @@ def recommend_next(subject=None, valid_keys=None, sid=None):
             (weakest["key"], weakest["concept"]), {})
         top_error = max(errors.items(), key=lambda x: x[1])[0] if errors else None
         return {"key": weakest["key"], "subject": weakest["subject"], "topic": weakest["topic"],
-                "concept": weakest["concept"], "score": weakest["p"],
+                "concept": weakest["concept"], "score": weakest["p"], "score_basis": "bkt",
+                "error_type": top_error, "self_reported": False}
+    answered = [t for t in get_topic_stats(subject, sid=sid).values()
+                if t["accuracy"] is not None
+                and (valid_keys is None or t["key"] in valid_keys)]
+    if answered:
+        weakest = min(answered, key=lambda t: (t["accuracy"], -t["answers"]))
+        top_error = max(weakest["errors"].items(), key=lambda x: x[1])[0] if weakest["errors"] else None
+        return {"key": weakest["key"], "subject": weakest["subject"], "topic": weakest["topic"],
+                "concept": None, "score": weakest["accuracy"], "score_basis": "accuracy",
                 "error_type": top_error, "self_reported": False}
     student = get_student(sid)
     if student and valid_keys:
@@ -675,7 +752,8 @@ def recommend_next(subject=None, valid_keys=None, sid=None):
                 if subject and not key.startswith(subject + ":"):
                     continue
                 return {"key": key, "subject": _split(key)[0], "topic": _split(key)[1],
-                        "concept": None, "score": None, "error_type": None, "self_reported": True}
+                        "concept": None, "score": None, "score_basis": None,
+                        "error_type": None, "self_reported": True}
     return None
 
 

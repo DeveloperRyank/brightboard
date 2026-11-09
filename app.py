@@ -348,6 +348,29 @@ def adapt_context(subject, topic, sid=None):
     """Profile-aware instructions for the lesson generator, aimed at specific concepts."""
     concepts = profile.get_concepts(subject, topic, sid)
     if not concepts:
+        # No concept map yet, but the Exam Center may still have marked papers for this
+        # topic — a student who scored 0% on one is not starting from nothing.
+        answered = profile.get_topic_stats(subject, sid=sid).get(profile._key(subject, topic))
+        if answered and answered["answers"]:
+            acc = answered["accuracy"] or 0.0
+            top = max(answered["errors"].items(), key=lambda x: x[1])[0] if answered["errors"] else None
+            err_note = (f" Their most repeated mistake: {profile.ERROR_LABELS.get(top, top)}."
+                        if top else "")
+            if acc < 0.4:
+                mode = ("Simplify from the basics: short sentences, everyday language, a worked "
+                        "example for every step, and repeat the exam keywords they are missing.")
+            elif acc < 0.7:
+                mode = ("Teach the whole topic, but build the steps around the parts they lost "
+                        "marks on — extra steps and a labelled diagram there.")
+            else:
+                mode = ("Move briskly past the basics and spend the steps on exam traps, harder "
+                        "applications and marking-scheme precision.")
+            return (
+                f"STUDENT CONTEXT: this is NOT a first lesson. The student has answered "
+                f"{answered['answers']} exam question(s) on this topic and got {answered['correct']} "
+                f"right ({round(acc * 100)}%).{err_note} Those answers are not split by concept yet, "
+                f"so teach from the overall mark. {mode}"
+            )
         confidence = (profile.get_student(sid) or {}).get("confidence")
         if confidence == "pretty_strong":
             return (
@@ -408,32 +431,37 @@ def adapt_context(subject, topic, sid=None):
 
 
 def _topic_rows(subject=None, sid=None):
-    """Topic-level rollup of per-concept BKT: mean P(L), answers, weakest concept."""
+    """Topic-level rollup, weakest first. A topic with concept-tagged answers is scored by
+    mean BKT P(L); one the student has only answered untagged questions (every Exam Center
+    paper until a concept map exists) is scored by its answer accuracy. The answer count and
+    the mistake pattern always come from history, so nothing a student did is invisible."""
     by_topic = {}
     for c in profile.get_concepts(subject, sid=sid):
         by_topic.setdefault(c["key"], []).append(c)
-    tally = profile.get_error_tally(subject, sid=sid)
+    stats = profile.get_topic_stats(subject, sid=sid)
     rows = []
-    for key, cs in by_topic.items():
+    for key in list(stats) + [k for k in by_topic if k not in stats]:
         subj, _, topic = key.partition(":")
-        errors = {}
-        for c in cs:
-            for err, n in tally.get((key, c["concept"]), {}).items():
-                errors[err] = errors.get(err, 0) + n
-        weakest = cs[0]  # get_concepts sorts weakest first
+        cs = by_topic.get(key, [])
+        st = stats.get(key) or {}
+        weakest = cs[0] if cs else None  # get_concepts sorts weakest first
         rows.append({
             "key": key, "subject": subj, "topic": topic,
             "name": curriculum.topic_name(subj, topic),
             "subject_name": (curriculum.get_subject(subj) or {}).get("name", subj),
-            "score": round(sum(c["p"] for c in cs) / len(cs), 3),
-            "answers": sum(c["answers"] for c in cs),
+            "score": (round(sum(c["p"] for c in cs) / len(cs), 3) if cs
+                      else st.get("accuracy")),
+            "basis": "bkt" if cs else "accuracy",
+            "answers": st.get("answers", sum(c["answers"] for c in cs)),
+            "correct": st.get("correct"),
             "concepts": len(cs),
-            "weakest": weakest["concept"],
-            "weakest_name": concepts.concept_name(subj, topic, weakest["concept"]),
-            "weakest_p": weakest["p"],
-            "errors": errors,
+            "weakest": weakest["concept"] if weakest else None,
+            "weakest_name": (concepts.concept_name(subj, topic, weakest["concept"])
+                             if weakest else None),
+            "weakest_p": weakest["p"] if weakest else None,
+            "errors": st.get("errors", {}),
         })
-    rows.sort(key=lambda r: r["score"])
+    rows.sort(key=lambda r: r["score"] if r["score"] is not None else 1.0)
     return rows
 
 
@@ -464,6 +492,9 @@ def _named_rec(rec):
     rec["concept_name"] = (concepts.concept_name(rec["subject"], rec["topic"], rec["concept"])
                            if rec.get("concept") else None)
     rec["error_label"] = profile.ERROR_LABELS.get(rec.get("error_type"))
+    # A number off untagged answers is a mark sheet, not a Bayesian estimate — the cards
+    # that show it must not call it mastery.
+    rec["score_word"] = "mastery" if rec.get("score_basis") == "bkt" else "accuracy"
     # A student who learns from papers gets sent to the Exam Center only if that topic
     # has papers in it — a topic unlocked by notes alone has a lesson and no exam.
     rec["practicable"] = topic_practicable(rec["subject"], rec["topic"])
@@ -561,11 +592,13 @@ def set_curriculum():
 
 
 def _all_valid_keys(cur=None):
+    # profile._key, not _gkey: the recommender compares these against mastery and
+    # self-reported-struggle keys, neither of which carries the lesson cache's sid prefix.
     keys = set()
     for s in curriculum.subjects(cur or current_curriculum()):
         for t in curriculum.topics(s["slug"]):
             if topic_ready(s["slug"], t["slug"]):
-                keys.add(_gkey(s["slug"], t["slug"]))
+                keys.add(profile._key(s["slug"], t["slug"]))
     return keys
 
 
@@ -1267,11 +1300,13 @@ def run_grading(job_id, sid, subject, topic, answers, valid_keys=None):
                 "concept_name": (concepts.concept_name(subject, topic, a["concept"])
                                  if a["concept"] else None),
             })
+        scored = profile.topic_score(subject, topic, sid)
         profile.finish_grading_job(job_id, {
             "subject": subject,
             "topic": topic,
             "topic_name": curriculum.topic_name(subject, topic),
-            "mastery": profile.topic_mean_p(subject, topic, sid),
+            "topic_score": scored["score"],
+            "score_word": "mastery" if scored["basis"] == "bkt" else "accuracy",
             "results": results,
             "concepts": [c for c in _concept_rows(subject, sid) if c["topic"] == topic],
             "recommendation": _named_rec(

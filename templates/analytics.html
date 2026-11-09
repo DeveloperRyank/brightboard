@@ -16,7 +16,7 @@
   <div class="tile"><div class="t-label">Topics studied</div><div class="t-value">{{ studied }}</div></div>
   <div class="tile"><div class="t-label">Concepts tracked</div><div class="t-value">{{ concepts | length }}</div></div>
   <div class="tile"><div class="t-label">Questions answered</div><div class="t-value">{{ total_answers }}</div></div>
-  <div class="tile"><div class="t-label">Avg mastery</div>
+  <div class="tile"><div class="t-label">Avg score</div>
     <div class="t-value">{% if avg is not none %}{{ (avg * 100) | round | int }}<small>%</small>{% else %}—{% endif %}</div></div>
   <div class="tile"><div class="t-label">Papers analysed</div><div class="t-value">{{ documents | length }}</div></div>
 </div>
@@ -31,7 +31,7 @@
     {% else %}
       <strong>{{ recommendation.topic_name }}</strong>
     {% endif %}
-    {% if recommendation.score is not none %} — mastery {{ (recommendation.score * 100) | round | int }}%{% endif %}
+    {% if recommendation.score is not none %} — {{ recommendation.score_word }} {{ (recommendation.score * 100) | round | int }}%{% endif %}
     {% if recommendation.error_label %} · watch for <strong>{{ recommendation.error_label }}</strong>{% endif %}
   </div>
   <a class="btn gradient" href="{{ url_for('lesson', subject=recommendation.subject, topic=recommendation.topic) }}">Study it</a>
@@ -62,8 +62,8 @@
     <div class="chart-box"><canvas id="chart-concepts"></canvas></div>
   </div>
   <div class="chart-card">
-    <h3>Mastery by topic</h3>
-    <p class="c-sub">Average of the concepts inside each topic.</p>
+    <h3>Topic scores</h3>
+    <p class="c-sub">Bayesian mastery once a topic has concept-tagged answers, answer accuracy until then.</p>
     <div class="chart-box"><canvas id="chart-topics"></canvas></div>
   </div>
   <div class="chart-card">
@@ -72,7 +72,7 @@
     <div class="chart-box"><canvas id="chart-errors"></canvas></div>
   </div>
   <div class="chart-card">
-    <h3>Mastery by subject</h3>
+    <h3>Score by subject</h3>
     <p class="c-sub">Average score per subject you've studied.</p>
     <div class="chart-box"><canvas id="chart-subjects"></canvas></div>
   </div>
@@ -83,6 +83,7 @@
   </div>
 </div>
 
+{% if concepts %}
 <div class="section-head">
   <h2>Concept mastery</h2>
   <span class="tag">Every concept the tutor is tracking for you</span>
@@ -98,6 +99,9 @@
   </div>
   {% endfor %}
 </div>
+{% else %}
+<div class="empty">Topic scores cover every answer you have given. Concept-by-concept tracking starts as soon as the questions you answer carry concept tags.</div>
+{% endif %}
 {% endif %}
 
 <div class="section-head">
@@ -160,6 +164,9 @@
         scales: { x: { min: 0, max: 100, grid }, y: { grid: { display: false } } },
       },
     });
+  } else {
+    document.getElementById("chart-concepts").parentElement.innerHTML =
+      '<div class="empty">No concepts tracked for you yet — this fills in as questions get tagged.</div>';
   }
 
   if (D.mastery.length) {
@@ -169,7 +176,7 @@
       data: {
         labels: rows.map(r => r.name || r.topic),
         datasets: [{
-          label: "Mastery %",
+          label: "Score %",
           data: rows.map(r => Math.round(r.score * 100)),
           backgroundColor: rows.map(r => colour(r.score)),
           borderRadius: 6,

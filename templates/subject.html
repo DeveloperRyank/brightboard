@@ -50,7 +50,7 @@
       <strong>{{ recommendation.topic_name }}</strong>
     {% endif %}
     {% if recommendation.score is not none %}
-      — mastery {{ (recommendation.score * 100) | round | int }}%
+      — {{ recommendation.score_word }} {{ (recommendation.score * 100) | round | int }}%
     {% endif %}
   </div>
   <a class="btn gradient" href="{{ url_for('lesson', subject=subject.slug, topic=recommendation.topic) }}">Study it now</a>
