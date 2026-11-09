@@ -14,21 +14,6 @@
   transcribed from the KICD design yet, so there is nothing to open. They appear here as
   soon as they are added.
 </div>
-{% elif has_notes %}
-<div class="gate-note">
-  The lessons here are taught from the {{ subject.name }} notes in
-  <code>data/{{ subject.slug }}/notes/</code> — each topic's lesson draws and speaks that
-  topic's own pages and does not go past them. The Exam Center is a separate door: it
-  opens a topic only when its real past-paper questions are in
-  <code>data/{{ subject.slug }}/questions.csv</code>.
-</div>
-{% elif not has_data %}
-<div class="gate-note">
-  Nothing has been supplied for this subject yet, so lessons and the Exam Center are
-  locked. Notes at <code>data/{{ subject.slug }}/notes/&lt;topic&gt;.md</code> open the
-  lessons; real questions at <code>data/{{ subject.slug }}/questions.csv</code> (columns
-  <code>question,topic</code>) open the Exam Center too.
-</div>
 {% endif %}
 
 {% if pending_years %}
@@ -59,7 +44,7 @@
 
 <div class="section-head">
   <h2>Topics</h2>
-  <span class="tag">Lesson = animated whiteboard · Exam Center = real past-paper questions</span>
+  <span class="tag">Lesson = animated whiteboard · Exam Center = a marked practice paper</span>
 </div>
 
 {# One list of every topic is what turned this page into a scroll. Grouped by the year it
@@ -102,15 +87,12 @@
             <div class="tr-name">{{ t.name }}</div>
             <div class="tr-sub">
               {%- if t.ready -%}
-                {%- if t.from_notes -%}
-                  Taught from the {{ subject.name }} notes
-                {%- endif -%}
-                {%- if t.count %}{{ ' · ' if t.from_notes }}{{ t.count }} question{{ '' if t.count == 1 else 's' }}{% endif %}
+                {%- if t.count %}{{ t.count }} question{{ '' if t.count == 1 else 's' }}{% else %}Lesson ready{% endif %}
                 {%- if t.answers %} · {{ t.answers }} answered{% endif %}
                 {%- if t.concepts %} · {{ t.concepts }} concept{{ '' if t.concepts == 1 else 's' }} tracked{% endif %}
                 {%- if t.weakest %} · weakest: {{ t.weakest }} ({{ (t.weakest_p * 100) | round | int }}%){% endif %}
               {%- else -%}
-                No questions and no notes yet
+                Not open yet
               {%- endif -%}
             </div>
           </div>

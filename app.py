@@ -955,7 +955,6 @@ def subject(subject):
             # Two different doors. Notes make a topic teachable; only past papers make it
             # something a student can be marked on, and the page has to say which is shut.
             "ready": t["slug"] in with_notes or count > 0,
-            "from_notes": t["slug"] in with_notes,
             "practicable": count > 0,
             "score": r["score"] if r else None,
             "answers": r["answers"] if r else 0,
@@ -973,8 +972,6 @@ def subject(subject):
                       if curriculum.year_number(g) not in have]
                      if s["topics"] and None not in have else [])
     return render_template("subject.html", subject=s, topics=topics,
-                           has_data=classifier.subject_has_data(subject),
-                           has_notes=bool(with_notes),
                            recommendation=recommendation,
                            groups=_topic_groups(subject, topics),
                            pending_years=pending_years,
@@ -999,7 +996,6 @@ def lesson(subject, topic):
         error=error,
         server_tts=llm.tts_available(),
         practicable=topic_practicable(subject, topic),
-        from_notes=notes.has_notes(subject, topic),
         concept_names={c["slug"]: c["name"] for c in concepts.concepts_for(subject, topic)},
     )
 
