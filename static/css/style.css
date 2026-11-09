@@ -162,11 +162,46 @@ nav {
 }
 
 nav .brand {
-  font-weight: 700;
-  font-size: 0.875rem;
-  letter-spacing: 2.2px;
+  position: relative;
+  display: inline-block;
+  padding: 6px 2px 10px;
+  font-size: 1.875rem;
 }
-nav .brand span { color: var(--coral); }
+nav .brand:hover, nav .brand:focus-visible { text-decoration: none; }
+
+/* ---------- the name: written in the hand that writes the board ---------- */
+/* One wordmark for the whole product, in Caveat, so the name and the working on the
+   board are obviously the same tutor. It stays one word: a dot or a dash inside it
+   would read as two names, and handwriting does not use them. */
+.wordmark {
+  font-family: var(--wb-hand);
+  font-weight: 700;
+  font-size: 1.375rem;
+  letter-spacing: 0;
+  line-height: 1.1;
+  text-transform: none;
+  color: var(--cream);
+}
+/* In a label chip the name sits beside 12px uppercase text, so it takes the chip's
+   scale rather than the nav's — Caveat is small on its cap height, and this is the
+   size at which it reads as the same weight of type as the words around it. */
+.landing-eyebrow .wordmark, .hero .eyebrow .wordmark { font-size: 1.0625rem; }
+
+/* A single underline, the way a teacher rules the title of a sheet. It is one stroke,
+   so it can be drawn rather than switched on: hovering arrives from the left. */
+.brand-line { position: absolute; left: 0; bottom: 0; width: 100%; height: 6px; overflow: visible; }
+.brand-line path {
+  fill: none;
+  stroke: var(--coral);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 104;
+}
+@media (prefers-reduced-motion: no-preference) {
+  nav .brand:hover .brand-line path,
+  nav .brand:focus-visible .brand-line path { animation: brand-drawn 380ms var(--ease) both; }
+}
+@keyframes brand-drawn { from { stroke-dashoffset: 104; } to { stroke-dashoffset: 0; } }
 
 nav .links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 1rem; }
 nav .links.account { margin-left: 0; }
@@ -1293,7 +1328,7 @@ table.history td.bad { color: var(--coral); }
   .btn { padding: 12px 18px; min-height: 44px; }
   .btn.small { padding: 10px 14px; min-height: 40px; }
   nav .links a, nav .links .who { padding: 11px 12px; }
-  nav .brand { padding: 12px 2px; }
+  nav .brand { padding: 12px 2px 10px; }   /* the tap floor, with the underline's room kept */
   .quiet-link, .eyebrow a, .link-btn { display: inline-block; padding: 12px 4px; }
   select.field, input.field { min-height: 46px; font-size: 1rem; }
   #speed { min-height: 42px; }
@@ -1617,7 +1652,6 @@ main:has(.landing) { padding-top: var(--sp-4); }
 
 /* ================= shell: brand, skip link, footer ================= */
 
-nav .brand { color: var(--cream); font-size: var(--t-label); }
 nav .links .who:hover { color: var(--cream); text-decoration: none; background: var(--panel); }
 
 .skip {
@@ -1641,8 +1675,8 @@ nav .links .who:hover { color: var(--cream); text-decoration: none; background: 
   padding: 0 var(--sp-4);
   display: grid; gap: var(--sp-2);
 }
-.foot-brand { margin: 0; font-size: var(--t-label); letter-spacing: 0.14em; color: var(--muted-2); }
-.foot-brand span { color: var(--accent); }
+.foot-brand { margin: 0; color: var(--muted); }
+.foot-brand:hover, .foot-brand:focus-visible { color: var(--muted); text-decoration: none; }
 .foot-links { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); font-size: var(--t-label); }
 .foot-links a { color: var(--muted); }
 .foot-links a:hover { color: var(--cream); }
