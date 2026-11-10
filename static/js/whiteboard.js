@@ -15,18 +15,20 @@
 const WB_NS = "http://www.w3.org/2000/svg";
 const WB_ENGINE = 2;
 
-// A row of board is 46 units of hand and 72 units of standing room. Both numbers come
-// from the glyphs themselves: measured at weight 600, Caveat runs 15.7 units a character,
-// so a row between the margins holds fifty-six of them — and a row of working, which is a
-// formula and not a sentence, holds forty-nine.
+// A row of board is 40 units of hand and 72 units of standing room. Both numbers come
+// from the glyphs themselves: Caveat runs about a third of its size per character, so a
+// row between the margins holds sixty-four of them — and a row of working, which is a
+// formula and not a sentence, holds fifty-six. The hand used to be forty-six, which read
+// well and filled a sheet with four lines of working, and a worked example needs room for
+// its question, its data, its substitution and its answer on the one board.
 const WB_LAYOUT = {
   left: 60,
   right: 940,
   rowTop: 104,
   rowGap: 72,
   rows: 7,
-  size: 46,
-  noteSize: 30,
+  size: 40,
+  noteSize: 27,
   sheetGap: 0.6,          // seconds of quiet reading time between sheets
 };
 
@@ -35,7 +37,7 @@ const WB_LAYOUT = {
 // wider than the screen — the student slides the board sideways to finish a sentence.
 // There the hand grows, the lines it writes stay shorter, and the sheet keeps just as many
 // of them as it can before the next one is put up.
-const WB_SMALL = { size: 70, noteSize: 46, rowTop: 96, rowGap: 104, rows: 5 };
+const WB_SMALL = { size: 62, noteSize: 40, rowTop: 92, rowGap: 94, rows: 6 };
 
 // The same 15.7 units of Caveat per character, written down as a fraction of the size, so
 // an unmeasured line can still be given room.

@@ -286,12 +286,14 @@ def current_curriculum():
 
 
 def _lesson_sig(subject, topic, sid=None):
-    """What a cached lesson was built from: the student's concept state, the concept map
-    and the notes page behind the topic. Rebuild any of the three and every cached
-    lesson for that topic is stale — a lesson generated from notes the student no longer
-    has is worse than no lesson at all."""
+    """What a cached lesson was built from: the student's concept state, the concept map,
+    the notes page behind the topic and the shape a lesson is asked to have. Rebuild any
+    of the four and every cached lesson for that topic is stale — a lesson generated from
+    notes the student no longer has is worse than no lesson at all, and a lesson written
+    under an older brief keeps teaching the way that brief said to."""
     return (profile.topic_signature(subject, topic, sid) + "|"
-            + concepts.fingerprint(subject, topic) + "|" + notes.fingerprint(subject, topic))
+            + concepts.fingerprint(subject, topic) + "|" + notes.fingerprint(subject, topic)
+            + "|" + tutor.SCRIPT_VERSION)
 
 
 def _prefetch_narration(lesson):

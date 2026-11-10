@@ -174,6 +174,11 @@ Your reply must begin with the character {{ and end with the character }}.
 # measures the real glyphs of every line, lays rows down in order and places every mark on
 # the words it names. A script that tries to do any of that itself is rejected.
 
+# What a good lesson is asked to look like, as a version. It rides in the cached lesson's
+# signature, so changing the shape below — not only the notes or the concept map behind a
+# topic — retires the lessons written under the old one instead of serving them forever.
+SCRIPT_VERSION = "question-before-answer-1"
+
 SCRIPT_BASE = """THE BOARD IS PLAYED, NOT DRAWN BY YOU. You write a lesson script: operations the
 whiteboard engine performs in order, while the same words are spoken out loud. One operation per
 line, and nothing else on the line.
@@ -204,6 +209,8 @@ Hard rules, all of them checked:
   and an arrow drawn back to it. Reading a question out and then writing only the answer leaves
   the student with a board that only makes sense to someone who happened to remember being told.
   The question is the one thing on the board you also say aloud: say it while the hand writes it.
+  Name that write's id "question" and the answer's id "answer" — a sheet that writes an answer it
+  never asked is thrown away, and the engine is the one that checks.
 - "say" is heard once, by someone meeting the idea for the first time. Short sentences, plain
   words, one idea in each — and talk about the line the hand is writing at that moment, not the
   one it finished two sheets ago.
@@ -1081,13 +1088,51 @@ def parse_script(text, title=None, repairs=None):
     return {"title": _as_text(title) or "Lesson", "steps": steps}
 
 
+_QUESTION_LEADS = ("determine", "find", "calculate", "compute", "state", "explain", "define",
+                   "name", "what", "how", "why", "which", "work out", "give", "show", "write")
+# These ask wherever they sit in a sentence, because a line of working does not use them
+# any other way.
+_QUESTION_MIDS = ("what ", "how ", "why ", "which ")
+_ANSWER_LEADS = ("answer", "ans", "solution", "solve")
+
+
+def _lead_of(text):
+    """A line's own words with the labels a teacher puts in front of them taken off:
+    "a) ", "1. ", "Example:", "Q3." — the question is the sentence underneath."""
+    return re.sub(r"^\s*(?:example|question|q\s*\d+|[a-h]\s*[\.\)]|\d+\s*[\.\)])\s*[:\-]?\s*",
+                  "", text, flags=re.I).lower()
+
+
+def _writes_a_question(wid, text):
+    """A line that puts an example's question on the board: it asks in its own words, or the
+    model titled the write as the question."""
+    lead = _lead_of(text)
+    return ("?" in text or (wid or "").lower().startswith("question")
+            or any(lead.startswith(w) for w in _QUESTION_LEADS)
+            or any(w in lead for w in _QUESTION_MIDS))
+
+
+def _is_answer_line(wid, text):
+    """A line that finishes an example with its answer — named as one, or written as one.
+    Only these two shapes are counted: an accented number can be a formula a rule sheet is
+    standing out, and calling that an answer would fault a sheet that never claimed to be
+    worked example."""
+    lead = _lead_of(text)
+    return ((wid or "").lower().startswith(("answer", "result", "final"))
+            or any(lead.startswith(w) for w in _ANSWER_LEADS))
+
+
 def validate_script(script, allowed_concepts=None, gate=None, subject=None):
     """A list of human-readable problems; empty means the engine can play this script."""
     problems = []
     if not isinstance(script, dict) or not isinstance(script.get("steps"), list) \
             or not script["steps"]:
         return ["the reply must be an object with a non-empty 'steps' list of operations"]
-    if len(script["steps"]) > _SHEET_LIMIT * 3:
+    # A runaway reply, not a full lesson. A sheet of worked example is a caption, a spoken
+    # line, the question and the working under it and a mark on the answer — so eight
+    # operations is the honest ceiling per sheet, and anything past that is the model
+    # writing past its own lesson.
+    if len(script["steps"]) > _SHEET_LIMIT * 8:
         return ["the script is far too long — keep it to {} to {} sheets".format(3, _SHEET_LIMIT)]
 
     allowed = set(allowed_concepts or ())
@@ -1097,6 +1142,8 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
     ids = {}                # id -> full text, for the current sheet only
     accents = 0
     shown = False           # has the current sheet anything on it yet
+    asked = False           # has this sheet's question been written
+    asked_faulted = False   # ... and has the missing one been said once already
     sheets = 0
     writes = 0
     say_lines = 0
@@ -1108,6 +1155,8 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
         honest reading of the same script."""
         nonlocal sheet, rows, ids, accents, shown, sheets
         sheet = f"{sheet} (continued)" if sheet else "Untitled sheet"
+        # The question the hand put up belongs to the work, not to the piece of board it
+        # was written on, so a continuation sheet starts out having asked it.
         rows, ids, accents, shown = 0, {}, 0, False
         sheets += 1
 
@@ -1128,7 +1177,7 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
             if sheets and not shown:
                 problems.append(f"'{sheet}': a sheet the hand never writes on is not a sheet")
             sheet = _as_text(op.get("text"))
-            rows, ids, accents, shown = 0, {}, 0, False
+            rows, ids, accents, shown, asked, asked_faulted = 0, {}, 0, False, False, False
             sheets += 1
             continue
         if kind == "say":
@@ -1180,6 +1229,15 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
                 if wid in ids:
                     problems.append(f"step {i}: id '{wid}' is used twice on sheet '{sheet}'")
                 ids[wid] = text
+            # A board that ends an example with nothing but its answer is a board that only
+            # makes sense to someone who happened to remember being told the question.
+            if _writes_a_question(wid, text):
+                asked = True
+            elif _is_answer_line(wid, text) and not asked and not asked_faulted:
+                asked_faulted = True
+                problems.append(f"sheet '{sheet}' writes its answer without its "
+                                "question — the WHOLE question goes on the board first, the way "
+                                "a teacher writes it up before working underneath it")
             shown = True
             writes += 1
             continue
