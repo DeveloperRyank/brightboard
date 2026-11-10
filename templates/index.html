@@ -3,14 +3,12 @@
 {% block title %}Conceptly — Subjects{% endblock %}
 {% block content %}
 <div class="hero">
-  <div class="eyebrow">{{ cur_name }} · {{ cur_country }}</div>
   <h1>What do you want to master today{{ ', ' + student.name if student else '' }}?</h1>
   <p>Pick a subject, then choose a whiteboard lesson, answer real past-paper questions in the Exam Center, or upload a paper for the AI to analyse and fold into your profile.</p>
 </div>
 
 {% if welcome %}
 <div class="done-panel">
-  <div class="done-badge">{{ icon("spark") }}</div>
   <div class="done-eyebrow">Signed in</div>
   <h2 class="done-title">Welcome back{{ ', ' + student.name if student else '' }}.</h2>
   <p class="done-sub">

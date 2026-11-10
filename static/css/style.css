@@ -734,11 +734,6 @@ label[tabindex]:focus-visible, summary:focus-visible {
 
 .lesson-head { display: flex; align-items: baseline; justify-content: center; text-align: center; gap: 14px; flex-wrap: wrap; }
 .step-counter { color: var(--muted); font-size: 1rem; }
-.lesson-kind {
-  color: var(--muted); font-size: var(--t-micro); letter-spacing: var(--track-micro);
-  text-transform: uppercase; border: 1px solid var(--line); border-radius: var(--radius-pill);
-  padding: 4px 10px;
-}
 
 /* The player is one object: board, the line being said, and the controls that move it. */
 .player {
