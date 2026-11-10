@@ -7,10 +7,16 @@
 // is why pause, scrub, replay and an interruption in mid-sentence are all the same three
 // moves: stop the clock, move it, say the line from where it stopped.
 
+// One number per setting: how fast the narrator speaks. The board is told in the same
+// breath — the clock it runs on is the audio's own position, and the free-running seconds
+// between sentences are converted at the same rate — so changing the speed moves the hand
+// and the voice together and they cannot come apart. There is deliberately no separate ink
+// multiplier: a lesson that would rather be written quickly is a lesson that was planned
+// with too little to say.
 const SPEEDS = {
-  slow: { rate: 0.92, ink: 1.0 },
-  normal: { rate: 1.05, ink: 1.35 },
-  fast: { rate: 1.25, ink: 2.2 },
+  slow: 0.82,
+  normal: 1.0,
+  fast: 1.25,
 };
 const LOAD_MSGS = [
   "Reading the notes…",
@@ -20,6 +26,9 @@ const LOAD_MSGS = [
   "Rehearsing what to say…",
 ];
 const SEEK_STEP = 0.1;
+// The width below which the board writes itself for the screen it is on rather than
+// the wide sheet a desk gets. It is the breakpoint the layout of the page already moves at.
+const SMALL_BOARD = window.matchMedia ? window.matchMedia("(max-width: 720px)") : null;
 
 let wb = null;            // the Whiteboard engine
 let plan = null;          // wb.planScript(): scenes, beats and one absolute clock
@@ -172,13 +181,33 @@ function pollStatus() {
 
 // ---------- from stored lesson to a playing board ----------
 
+/**
+ * Plan the stored script again without losing the student's place. Which rows a line
+ * takes up is decided by the size of the hand, so a plan made before the hand arrived —
+ * or before the screen was known — is worth making again rather than living with.
+ */
+function replan() {
+  const at = t;
+  plan = wb.planScript(wbScriptFrom(lesson));
+  beats = wb.schedule();
+  seekEl.max = String(plan.total.toFixed(1));
+  totalEl.textContent = fmtTime(plan.total);
+  seekTo(at, true);
+}
+
 async function loadScript(data) {
   const seq = ++loadSeq;
   Voice.cancel();
   voicing = null;
   lesson = data;
+  wb.narrow(!!(SMALL_BOARD && SMALL_BOARD.matches));
   // Glyphs are measured, so the hand has to be on the machine before the plan is made.
-  await Promise.race([wb.ready(), new Promise((r) => setTimeout(r, 1500))]);
+  // The wait is capped because a font can fail to arrive at all, but a hand that lands
+  // after the cap leaves a plan built on the fallback's widths, and lines that should
+  // have wrapped are laid out as if they had room they do not have.
+  let landed = false;
+  const hand = wb.ready().then(() => { landed = true; });
+  await Promise.race([hand, new Promise((r) => setTimeout(r, 1500))]);
   if (seq !== loadSeq) return;
   plan = wb.planScript(wbScriptFrom(data));
   beats = wb.schedule();
@@ -196,6 +225,10 @@ async function loadScript(data) {
   wb.render(0);
   beats.slice(0, 3).forEach((b) => Voice.preload(b.text));   // the opening lines, paid for
   startDue();
+  if (!landed) hand.then(() => {
+    if (seq !== loadSeq) return;
+    replan();
+  });
 }
 
 // ---------- the clock ----------
@@ -217,7 +250,7 @@ function tick(dtWall) {
 function advance(dtWall) {
   if (voicing) {
     voicing.wall += dtWall;
-    const patience = (voicing.dur + 10) / SPEEDS[speedKey].rate;
+    const patience = (voicing.dur + 10) / SPEEDS[speedKey];
     if (Voice.isDone() || voicing.wall > patience) voicing = null;
     else {
       // The voice is the clock: the board sits at the word being said, no further.
@@ -226,7 +259,10 @@ function advance(dtWall) {
       return;
     }
   }
-  t = Math.min(plan.total, t + dtWall * SPEEDS[speedKey].ink);
+  // Between sentences the clock free-runs, and it free-runs in the audio's own seconds:
+  // wall time multiplied by the playback rate, so a second of reading at "fast" is the
+  // same second of board the plan set aside, and the hand never gains on the voice.
+  t = Math.min(plan.total, t + dtWall * SPEEDS[speedKey]);
   startDue();
   if (t >= plan.total - 0.005 && !voicing) finish();
 }
@@ -250,7 +286,7 @@ function speakBeat(i, offset) {
   const part = offset > 0.05 ? remainder(b.text, offset / (b.speech || b.dur)) : b.text;
   voicing = { i, base: b.at + offset, dur: Math.max(0.3, b.dur - offset), wall: 0 };
   if (!part || !Voice.available()) { voicing = null; return; }
-  Voice.setRate(SPEEDS[speedKey].rate);
+  Voice.setRate(SPEEDS[speedKey]);
   Voice.speak(part);
   // Stay three lines ahead of the pen: a line the server has already voiced plays from
   // cache, and one it hasn't gets begun now while there is still reading time left.
@@ -366,7 +402,7 @@ function wireControls() {
   playBtn.addEventListener("click", () => setPlaying(!playing));
   document.getElementById("speed").addEventListener("change", (e) => {
     speedKey = e.target.value;
-    Voice.setRate(SPEEDS[speedKey].rate);
+    Voice.setRate(SPEEDS[speedKey]);
   });
   document.getElementById("btn-replay").addEventListener("click", () => {
     closeDetour();
@@ -414,6 +450,11 @@ function wireControls() {
     else if (e.key === "ArrowRight") { e.preventDefault(); lineJump(1); }
     else if (e.key === "ArrowLeft") { e.preventDefault(); lineJump(-1); }
     else if (e.key === "?" || e.key.toLowerCase() === "a") { e.preventDefault(); openAskPanel(); }
+  });
+  if (SMALL_BOARD) SMALL_BOARD.addEventListener("change", () => {
+    // Turning a phone sideways, or dragging a desktop window narrow, moves the board
+    // between the two sheets it writes on. The ink is the same; its rows are not.
+    if (wb && wb.narrow(SMALL_BOARD.matches) && lesson) replan();
   });
   window.addEventListener("beforeunload", () => Voice.cancel());
 }
@@ -531,7 +572,7 @@ function renderAnswer(data, question) {
   });
   // Say it, then carry on from the exact word the board stopped on.
   voicing = null;
-  Voice.setRate(SPEEDS[speedKey].rate);
+  Voice.setRate(SPEEDS[speedKey]);
   if (data.answer && Voice.available()) Voice.speak(data.answer);
   // A student who has read the answer should not have to wait for the voice, but the
   // lesson has to pick up where it left off, so the wait ends with the sentence.

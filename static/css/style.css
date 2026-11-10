@@ -1459,6 +1459,9 @@ table.history td.bad { color: var(--coral); }
   .doodles { height: 84px; }
   .load-sub { max-width: 100%; }
   .board-wrap { padding: 0; border-radius: var(--radius); }
+  /* The whole sheet on the screen: below this width the board writes itself for the
+     room it has, so nothing needs sliding sideways to finish reading a line. */
+  #board { min-width: 0; }
   .player { padding: 6px; }
   .board-strip { padding: 8px 6px 10px; min-height: 54px; }
   .bs-line { font-size: 1rem; }

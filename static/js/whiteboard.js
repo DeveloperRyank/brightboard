@@ -15,23 +15,42 @@
 const WB_NS = "http://www.w3.org/2000/svg";
 const WB_ENGINE = 2;
 
+// A row of board is 46 units of hand and 72 units of standing room. Both numbers come
+// from the glyphs themselves: measured at weight 600, Caveat runs 15.7 units a character,
+// so a row between the margins holds fifty-six of them — and a row of working, which is a
+// formula and not a sentence, holds forty-nine.
 const WB_LAYOUT = {
   left: 60,
   right: 940,
-  rowTop: 112,
-  rowGap: 110,
-  rows: 5,
-  size: 54,
-  noteSize: 34,
+  rowTop: 104,
+  rowGap: 72,
+  rows: 7,
+  size: 46,
+  noteSize: 30,
   sheetGap: 0.6,          // seconds of quiet reading time between sheets
 };
 
+// A small screen gets the same sheet but not the same hand. The board is a thousand units
+// wide, so on a phone the desktop hand arrives at a third of its height and the sheet is
+// wider than the screen — the student slides the board sideways to finish a sentence.
+// There the hand grows, the lines it writes stay shorter, and the sheet keeps just as many
+// of them as it can before the next one is put up.
+const WB_SMALL = { size: 70, noteSize: 46, rowTop: 96, rowGap: 104, rows: 5 };
+
+// The same 15.7 units of Caveat per character, written down as a fraction of the size, so
+// an unmeasured line can still be given room.
+const WB_FALLBACK_ADVANCE = 15.7 / 46;
+
 // Per-character cadence in seconds, uneven on purpose: a hand is not a printer.
+// The middle of each band is a quarter slower than the narrator, who runs at about twelve
+// and a half characters a second: the pen then finishes a line just after it has been
+// said, which is the direction a teacher works in. The other way round is a hand that
+// writes the answer before it has explained it.
 const WB_CADENCE = {
-  char: [0.058, 0.112],
-  space: [0.046, 0.12],
-  punct: 0.11,            // , ; . ! each cost a small pause
-  label: [0.014, 0.028],  // diagram labels: still written, just quickly
+  char: [0.075, 0.125],
+  space: [0.055, 0.1],
+  punct: 0.22,            // , ; . ! each cost a small pause
+  label: [0.025, 0.05],   // diagram labels: still written, just quickly
 };
 
 const WB_INK = "var(--wb-ink)";
@@ -57,6 +76,7 @@ function wbLen(pts) {
 
 class Whiteboard {
   constructor(svg, opts = {}) {
+    this.opts = opts;
     this.o = Object.assign({}, WB_LAYOUT, opts);
     this.svg = svg;
     this.plan = null;
@@ -96,10 +116,23 @@ class Whiteboard {
   async ready() {
     if (!document.fonts) return;
     try {
-      await Promise.all([document.fonts.load("600 54px Caveat"),
-                         document.fonts.load("600 34px Caveat")]);
+      await Promise.all([document.fonts.load(`600 ${this.o.size}px Caveat`),
+                         document.fonts.load(`600 ${this.o.noteSize}px Caveat`)]);
       await document.fonts.ready;
     } catch (e) { /* measure against whatever font did resolve */ }
+  }
+
+  /**
+   * Switch between the desktop sheet and the phone's. True when the layout actually
+   * changed, which is when a plan already made against the old one has to be planned
+   * again — the rows a line takes up are decided by the size of the hand.
+   */
+  narrow(on) {
+    const o = Object.assign({}, WB_LAYOUT, on ? WB_SMALL : {}, this.opts);
+    const keys = ["size", "noteSize", "rowTop", "rowGap", "rows"];
+    if (keys.every((k) => o[k] === this.o[k])) return false;
+    this.o = o;
+    return true;
   }
 
   // ---------- planning ----------
@@ -131,7 +164,9 @@ class Whiteboard {
         continue;
       }
       if (op.op === "write" && scene.nextRow >= this.o.rows) {
-        scenes.push(scene); scene = this._scene(""); beat = this._beat(scene);
+        // A sheet that fills up is still the same piece of work, so the next one keeps
+        // its title. An unnamed sheet in the middle of an example reads as a new lesson.
+        scenes.push(scene); scene = this._scene(scene.caption); beat = this._beat(scene);
       }
       const built = this._build(op, scene);
       if (built) for (const it of built) { it.beat = beat; beat.items.push(it); }
@@ -158,7 +193,8 @@ class Whiteboard {
     return b;
   }
 
-  _estimate(text) { return wbClamp(String(text).length / 14.5, 1.2, 40); }
+  /** A spoken line that arrived without a measured length, timed at the narrator's pace. */
+  _estimate(text) { return wbClamp(String(text).length / 12.5, 1.2, 40); }
 
   /** Fold every beat's spoken line and ink onto one absolute clock. */
   _timed(scenes) {
@@ -214,11 +250,13 @@ class Whiteboard {
     }
   }
 
-  /** Rows are counted, not measured: the engine owns the sheet, the script owns the order. */
-  _rowY(scene, op) {
-    let row = op.row == null ? scene.nextRow : wbClamp(Math.round(Number(op.row)), 0, this.o.rows - 1);
-    row = wbClamp(row, 0, this.o.rows - 1);
-    scene.nextRow = Math.max(scene.nextRow, row + 1);
+  /** Rows are counted, not measured: the engine owns the sheet, the script owns the order.
+      A line that wraps takes every row it stands on, so nothing lands underneath it. */
+  _rowY(scene, op, taken = 1) {
+    let row = op.row == null ? scene.nextRow
+                             : wbClamp(Math.round(Number(op.row)), 0, this.o.rows - 1);
+    row = wbClamp(Math.max(row, scene.nextRow), 0, this.o.rows - 1);
+    scene.nextRow = Math.min(this.o.rows, row + taken);
     return this.o.rowTop + row * this.o.rowGap + (Number(op.dy) || 0);
   }
 
@@ -228,10 +266,14 @@ class Whiteboard {
     const size = Number(op.size) || this.o.size;
     const x = op.x == null ? this.o.left : Number(op.x);
     const maxW = Math.max(140, (op.w ? Number(op.x) + Number(op.w) : this.o.right) - x);
-    const y = this._rowY(scene, op);
     const color = wbRole(op.color);
     const rot = Number(op.rot) || 0;
     const lines = this._measure(text, size, maxW);
+    if (!lines.length) return null;
+    // Measured before the row is chosen: a question two lines tall belongs on a sheet with
+    // two rows left on it, not on one with one, where its second line would run off the
+    // bench or be written straight through by the next line of working.
+    const y = this._rowY(scene, op, lines.length);
     const items = lines.map((line, i) =>
       this._textItem(line, x, y + i * size * 1.16, size, rot, color, op.id));
     // Index every line under its id so a later mark can find its words wherever they
@@ -248,11 +290,24 @@ class Whiteboard {
     let n = 0;
     try { n = node.getNumberOfChars(); } catch (e) { n = 0; }
     if (!n) { node.textContent = ""; return []; }
+    // Writing the size and the words does not itself re-run layout, and a read that comes
+    // back before the browser has caught up returns the boxes of the previous pass — a
+    // line laid out at sixteen points, which fits in any row and so never wraps. Asking
+    // for the node's own box is what forces that pass to happen.
+    try { node.getBoundingClientRect(); } catch (e) { /* no box to force */ }
     const ext = [];
+    let ink = 0;
     for (let i = 0; i < n; i++) {
       const e = node.getExtentOfChar(i);
       ext.push({ x: e.x, w: e.width });
+      ink = Math.max(ink, e.x + e.width);
     }
+    // The flush is the fix; this is the check that it worked. Caveat at a given size is
+    // never narrower than most of its own advance per character, so an answer that small
+    // is still the old layout, and the row maths runs on the hand's known width instead.
+    const adv = size * WB_FALLBACK_ADVANCE;
+    const real = ink / n > adv * 0.6;
+    if (!real) for (let i = 0; i < n; i++) ext[i] = { x: i * adv, w: adv };
     const ranges = [];
     let start = 0, lastSpace = -1;
     for (let i = 0; i < n; i++) {
@@ -265,21 +320,19 @@ class Whiteboard {
       }
     }
     ranges.push([start, n]);
+    node.textContent = "";
+    // Every line's boxes come out of the one pass over the whole write: measuring each
+    // slice again is a second round of reads against a layout the engine has just asked
+    // the browser to redo, and the two can disagree.
     return ranges.map(([a, b]) => {
-      const slice = text.slice(a, b);
-      node.textContent = slice;
-      let m = 0;
-      try { m = node.getNumberOfChars(); } catch (e) { m = 0; }
+      const base = ext[a].x;
       const chars = [];
-      let x0 = 0, width = 0;
-      for (let i = 0; i < m; i++) {
-        const e = node.getExtentOfChar(i);
-        if (i === 0) x0 = e.x;
-        chars.push({ x0: e.x - x0, x1: e.x + e.width - x0 });
-        width = Math.max(width, e.x + e.width - x0);
+      let width = 0;
+      for (let i = a; i < b; i++) {
+        chars.push({ x0: ext[i].x - base, x1: ext[i].x + ext[i].w - base });
+        width = Math.max(width, ext[i].x + ext[i].w - base);
       }
-      node.textContent = "";
-      return { text: slice, chars, width };
+      return { text: text.slice(a, b), chars, width };
     }).filter((l) => l.text.length);
   }
 
@@ -501,7 +554,9 @@ class Whiteboard {
 
   _textNode(it) {
     const g = this._el("g", it.rot ? { transform: `rotate(${it.rot} ${it.x} ${it.y})` } : null, this.layer);
-    const text = this._el("text", { x: it.x, y: it.y }, g);
+    // The size every glyph was measured at has to be the size it is drawn at, or the hand
+    // writes sixteen-point chalk in the spaces it left for fifty-six.
+    const text = this._el("text", { x: it.x, y: it.y, "font-size": it.size }, g);
     text.style.fontFamily = WB_HAND;
     text.style.fontWeight = "600";
     text.style.fill = wbPaint(it.color);

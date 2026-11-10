@@ -367,6 +367,18 @@ KOKORO_VOICE = (os.environ.get("KOKORO_VOICE", "") or "af_heart").strip()
 # covered by the browser's own voice (see TtsWarming).
 KOKORO_WAIT = float(os.environ.get("KOKORO_WAIT_SECONDS", "") or 3)
 KOKORO_WORKERS = max(1, int(os.environ.get("KOKORO_WORKERS", "") or 4))
+# The pace a lesson is spoken at, in the narrator's own units: 1.0 is how fast Kokoro reads
+# on its own, and this is deliberately below it. A student learning an idea for the first
+# time needs the sentence to arrive more slowly than a news reader would deliver it, and
+# the player's "slow / normal / fast" control then works around this middle rather than
+# having to undo a voice that was recorded too quick. Changing it re-keys the narration
+# cache below, so every line is regenerated at the new pace instead of serving old audio.
+# 0.8 is the middle the control is built around: its fastest setting (1.25x) lands back on
+# 1.0, the narrator's own reading pace, so speeding up returns to a news reader rather
+# than leaving one behind.
+NARRATION_SPEED = max(0.5, min(1.6, float(os.environ.get("NARRATION_SPEED", "") or 0.8)))
+# The hosted fallback speaks the same pace, in the one form its API takes it.
+NARRATION_RATE = f"{round((NARRATION_SPEED - 1) * 100):+d}%"
 
 
 class TtsWarming(RuntimeError):
@@ -422,7 +434,9 @@ def _kokoro_failed():
 
 
 def _kokoro_wav_path(voice, text):
-    digest = hashlib.sha1(f"{voice}|{text}".encode("utf-8", "replace")).hexdigest()
+    # The pace belongs in the key: a cached line recorded at another speed would otherwise
+    # keep playing long after the narrator's tone had been changed.
+    digest = hashlib.sha1(f"{voice}|{NARRATION_SPEED}|{text}".encode("utf-8", "replace")).hexdigest()
     return os.path.join(KOKORO_WAV_DIR, digest + ".wav")
 
 
@@ -448,7 +462,7 @@ def _kokoro_queue():
 def _kokoro_write_wav(path, text, voice):
     import numpy as np
     import soundfile as sf
-    audio, sr = _kokoro().create(text, voice, speed=1.0)
+    audio, sr = _kokoro().create(text, voice, speed=NARRATION_SPEED)
     buf = io.BytesIO()
     sf.write(buf, np.asarray(audio, dtype="float32"), sr, format="WAV", subtype="PCM_16")
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -614,7 +628,9 @@ def _edge_synthesize(text, voice):
 
     async def _collect():
         chunks = []
-        async for chunk in edge_tts.Communicate(text, voice).stream():
+        # The hosted voice has to be heard at the lesson's own pace, not at the rate it
+        # reads a page out loud, or the fallback would talk over the hand.
+        async for chunk in edge_tts.Communicate(text, voice, rate=NARRATION_RATE).stream():
             if chunk.get("type") == "audio":
                 chunks.append(chunk["data"])
         return b"".join(chunks)

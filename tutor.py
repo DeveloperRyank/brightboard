@@ -184,19 +184,29 @@ operation is thrown away.
 Operations (every one of these keys is exactly as written):
   {"op":"caption","text":"Title of this sheet of board — at most 6 words"}
   {"op":"say","text":"One or two spoken sentences. This is also what appears as the caption line."}
-  {"op":"write","text":"What the hand writes on the board","id":"short_snake_id","row":0-4,"color":"accent"}
+  {"op":"write","text":"What the hand writes on the board","id":"short_snake_id","row":0-6,"color":"accent"}
   {"op":"ring","target":"id","find":"exact words inside that write"}
   {"op":"underline","target":"id","find":"exact words inside that write"}
   {"op":"arrow","target":"id","find":"exact words","from":"another id on the same sheet"}
   {"op":"tick","target":"id"}
-  {"op":"figure","name":"template","variant":"...","labels":{"slot":"short text"},"row":0-4}
+  {"op":"figure","name":"template","variant":"...","labels":{"slot":"short text"},"row":0-6}
   {"op":"pause","ms":400}
 
 Hard rules, all of them checked:
-- A caption starts a sheet. Five rows fit on a sheet, so use a new caption before row 0 again.
+- A caption starts a sheet. Seven rows fit on a sheet, so use a new caption before row 0 again.
 - "row" is which line of the sheet, counting from 0 at the top — never a pixel.
-- "write" is what a student would copy into an exercise book: a formula, a substitution, the
-  answer, one short phrase. AT MOST 64 characters, and never a sentence you have also said.
+- "write" is what a student would copy into an exercise book. A step of the working is ONE short
+  line of at most 48 characters: a formula, a substitution, the answer, a phrase. A question is
+  allowed 96, and the engine bends it over two rows on its own. Nothing runs past 96, and no
+  working line repeats a sentence you have also said.
+- EVERY WORKED EXAMPLE BEGINS BY WRITING ITS QUESTION. The first write on the sheet is the whole
+  question, in the words the notes use, with an "id" of its own so the answer can be rung under it
+  and an arrow drawn back to it. Reading a question out and then writing only the answer leaves
+  the student with a board that only makes sense to someone who happened to remember being told.
+  The question is the one thing on the board you also say aloud: say it while the hand writes it.
+- "say" is heard once, by someone meeting the idea for the first time. Short sentences, plain
+  words, one idea in each — and talk about the line the hand is writing at that moment, not the
+  one it finished two sheets ago.
 - "id" is required on any line a later ring / underline / arrow / tick points at, and must be
   unique within the sheet. "find" must appear character-for-character inside that write's text,
   so quote the words instead of paraphrasing them.
@@ -205,10 +215,12 @@ Hard rules, all of them checked:
   listed for that name may be filled.
 - Colour is a word, not a hex: leave "color" out for the working, or "accent" for the one thing
   on the sheet the student must look at — the answer, the product, the peak. One accent per sheet.
-- Worked examples are written line by line the way a teacher does it: the given data, then the
-  formula, then the substitution, then the answer. Ring or tick the answer after writing it.
-- A sheet holds a thought, so it holds two to five writes. One write per sheet is a slideshow,
-  and the hand would spend half the lesson standing still."""
+- Worked examples are written line by line the way a teacher does it: the question, then the given
+  data, then the formula, then the substitution, then the answer. Ring or tick the answer after
+  writing it.
+- A sheet holds a thought, so it holds two to five writes — and the question it starts with is one
+  of them. One write per sheet is a slideshow, and the hand would spend half the lesson standing
+  still."""
 
 FIGURE_LETTERS = """FIGURES AVAILABLE TO YOU (name — variants — slots):
 <<figures>>
@@ -236,8 +248,10 @@ def _script_head():
     """The shape, in the same one-per-line form the model is asked to write in."""
     return ('{"op":"caption","text":"What this sheet is about"}\n'
             '{"op":"say","text":"The sentence the tutor says out loud."}\n'
-            '{"op":"write","text":"M = 20 g","id":"given","row":0}\n'
-            '{"op":"write","text":"n = 20/100 = 0.2 mol","id":"answer","row":1,"color":"accent"}\n'
+            '{"op":"write","text":"20 g of salt is dissolved in 100 cm3 of water. How many '
+            'moles of salt are in the solution?","id":"question","row":0}\n'
+            '{"op":"write","text":"n = m/M = 20/100","id":"working","row":2}\n'
+            '{"op":"write","text":"n = 0.2 mol","id":"answer","row":3,"color":"accent"}\n'
             '{"op":"ring","target":"answer","find":"0.2 mol"}')
 
 
@@ -246,14 +260,18 @@ SCRIPT_SHAPE_NOTES = """Teach the topic as a teacher would at the board, in this
 2. RULE — at most ONE short written line for the rule or formula. Everything after that is worked.
 3. FOUR TO SIX WORKED EXAMPLES, easiest first, each on its own sheet. At least 70% of the whole
    lesson must be examples being worked, not explanations being read out. One idea per example.
-   For each: say what you are doing, write the data, write the substitution, write the answer,
-   then ring or tick the answer and say one sentence about why it came out that way.
+   For each, in this order: write the WHOLE QUESTION as the first line of the sheet and read it
+   out as the hand writes it, then write the data, then the substitution, then the answer, then
+   ring or tick the answer and say one sentence about why it came out that way. A sheet whose
+   first mark is a number is a sheet the student cannot follow after the lesson is over.
 4. TRAPS — the mistakes students actually make, shown by working the wrong way and crossing it out.
-5. YOU TRY — one example where the saying guides but the board only shows the question's own data.
+5. YOU TRY — one example where the saying guides but the board shows the question in full and
+   nothing of the working under it.
 6. MINI-CHECK then RECAP — two spoken questions and then the three lines worth copying down.
 
-Show, mark, then one short sentence. Never put a paragraph on the board: if it needs reading,
-say it with "say" and write only the skeleton with "write"."""
+The board keeps what a student copies out of the exercise book: the question, the working, the
+answer. The teaching that connects them is spoken, so write a line and then say the sentence
+about it — never a paragraph of explanation under the chalk."""
 
 NOTES_SCRIPT_TEMPLATE = """Plan a complete lesson that teaches the WHOLE topic "{topic}" to a
 KCSE {subject_name} student, as one continuous board rather than a set of slides.
@@ -271,11 +289,12 @@ Coverage rules — these are checked, and a lesson that breaks them is thrown aw
   to be taught; give each one at least one sheet.
 - Keep the notes' definitions, formulae, units and constants exactly as written. Where the notes
   work an example with real numbers, teach that example with those numbers — do not invent a
-  tidier one.
+  tidier one, and write its question on the board in the notes' own words before you work it.
 - The student cannot see the booklet's diagrams. Where the notes say "as shown below" or refer to
   an arrangement, describe it in "say" and draw it with "figure" if a figure exists for it.
-- Do NOT write exam questions for the student to answer. Practice comes only from the question
-  bank. Use the notes' examples as teaching material.
+- Do NOT set the student a question to answer. Writing a question on the board and working it
+  through is teaching; leaving it on the board for them to try is not, and practice comes only
+  from the question bank. Use the notes' examples as teaching material.
 {outline}{style}
 {adapt}
 
@@ -298,9 +317,13 @@ Coverage rules — these are checked, and a lesson that breaks them is thrown aw
   are genuinely one idea, and do not invent concepts that are not on the list.
 - Put "concept": "<slug>" on the first op of every sheet, copied exactly from the list.
 - Give the bigger concepts more sheets; every concept gets at least one.
+- Every worked example you take from the questions below starts by writing that question on the
+  board, in its own words, and then works it. A number on the board with no question over it is
+  the thing students cannot revise from.
 
 These real past-paper questions show the STYLE to teach towards — the command words, the mark
-allocations and the depth KNEC expects. Use them for depth only, never as questions to answer:
+allocations and the depth KNEC expects. Use them for depth only, and never as a question you
+leave the student to answer on their own:
 {examples}
 
 {adapt}
@@ -317,7 +340,9 @@ PLAIN_SCRIPT_TEMPLATE = """Plan a complete lesson that teaches the WHOLE topic "
 KCSE {subject_name} student, as one continuous board rather than a set of slides. Every concept
 in the topic, in teaching order — a student who finishes it must handle any exam question on it.
 
-The past-paper questions the topic is examined by:
+The past-paper questions the topic is examined by. Take each worked example's question from
+them and write it on the board in full before working it — never set one for the student to
+answer and move on:
 {examples}
 
 {adapt}
@@ -900,16 +925,35 @@ def _style_block(example_questions):
 # Everything checkable about a script is checked here, before a student ever sees it: that
 # the ops are real, that a mark names a line that exists on the same sheet, that "find" is
 # quoted rather than paraphrased, that no line is a paragraph, that the board is not asked
-# for a sixth row, and above all that the model has kept its hands off the geometry.
+# for a row past the bench, and above all that the model has kept its hands off the geometry.
 
 SCRIPT_OPS = {"caption", "say", "write", "ring", "underline", "arrow", "tick", "figure", "pause"}
 MARK_OPS = {"ring", "underline", "arrow", "tick"}
-ROW_LIMIT = 5
-LINE_LIMIT = 64
+ROW_LIMIT = 7
+LINE_LIMIT = 96
+# How many characters the engine's own hand fits across one row of the sheet, at the size
+# it writes at. Measured off Caveat 600 in the browser against the 880 units of board
+# between the margins: 15.7 units a character in prose, which is fifty-six a row, and 17.6
+# in the fractions and superscripts a step of working is made of, which is forty-nine. The
+# tighter figure is the one to book rows with, because this number decides how much room a
+# line is given: guessing too few leaves air on the sheet, guessing too many writes the next
+# line straight through it.
+CHARS_PER_ROW = 49
 _SHEET_LIMIT = 26
 # What one lesson is asked for when nothing fixes its size. Every sheet is a caption, a
 # spoken line and two to five writes, so the count is what the student waits through.
 LO_PLAIN, HI_PLAIN = 8, 12
+
+# Characters a second the narrator gets through. Measured at 14.5 on the local voice at its
+# own pace, then scaled by the pace the lesson is actually spoken at, so a line the audio
+# has not been heard yet is timed the way the audio would time it. The board's own fallback
+# uses the same figure (whiteboard.js, _estimate).
+SPEECH_CHARS_PER_SEC = 14.5 * llm.NARRATION_SPEED
+# The longest breath the tutor is allowed to take before the board moves on. Anything past
+# twenty seconds of one sentence is a lecture, and the tail of it would be cut off anyway:
+# two short sentences are an explanation, and the student gets a gap between them to look at
+# what the hand just wrote.
+SAY_LIMIT = 260
 
 # A lesson is written while the student watches a loading board, so the whole job — both
 # attempts, and every retry the provider makes inside them — has one wall-clock ceiling.
@@ -1091,7 +1135,7 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
             text = _as_text(op.get("text"))
             if not text:
                 problems.append(f"step {i}: a spoken line with nothing in it")
-            if len(text) > 320:
+            if len(text) > SAY_LIMIT:
                 problems.append(f"step {i}: say at most two sentences before the board moves on")
             if not text.endswith((".", "!", "?")):
                 problems.append(f"step {i}: 'say' must end in a full stop so the narrator stops cleanly")
@@ -1107,10 +1151,10 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
                 problems.append(f"step {i}: a write with nothing in it")
                 continue
             if len(text) > LINE_LIMIT:
-                problems.append(f"step {i}: '{text[:24]}…' is {len(text)} characters — the board takes "
-                                "one short line at a time; say the rest instead")
+                problems.append(f"step {i}: '{text[:24]}…' is {len(text)} characters — the board holds "
+                                f"{LINE_LIMIT} on a line, however wide the question is; say the rest")
             # The engine wipes the board when the rows run out, whatever row number the
-            # next line asks for, so a sixth line of working is a new sheet rather than a
+            # next line asks for, so an eighth line of working is a new sheet rather than a
             # fault. Counting it on the requested row instead would call it a second
             # "line1" on the old sheet and reject a lesson the board plays happily.
             if rows >= ROW_LIMIT:
@@ -1119,7 +1163,11 @@ def validate_script(script, allowed_concepts=None, gate=None, subject=None):
             if row is not None and not (isinstance(row, (int, float)) and 0 <= int(row) < ROW_LIMIT):
                 problems.append(f"step {i}: row must be 0 to {ROW_LIMIT - 1}")
                 row = None
-            needed = (int(row) + 1) if isinstance(row, (int, float)) else rows + 1
+            # A wide line is wrapped onto the rows under it by the engine, so it is counted
+            # as standing on all of them here — or the next write would be put on a row the
+            # end of this one is already occupying.
+            taken = _rows_taken(text)
+            needed = (int(row) + taken) if isinstance(row, (int, float)) else rows + taken
             rows = max(rows, needed)
             if op.get("color") not in (None, "", "accent"):
                 problems.append(f"step {i}: colour is a word, 'accent' or nothing at all")
@@ -1256,9 +1304,11 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
             note.append(f"dropped the empty sheet '{steps[-1]['text']}'")
             steps.pop()
 
-    def place(wanted):
-        """A row on this sheet that nothing else is standing on. Two items given the same
-        row write one over the other, which is the one overlap the engine cannot fix."""
+    def place(wanted, need=1):
+        """A run of rows on this sheet that nothing else is standing on. Two items given the
+        same row write one over the other, which is the one overlap the engine cannot fix —
+        and a line wide enough to be a whole question stands on two rows, so it has to be
+        given both before the hand reaches for them."""
         want = _num(wanted)
         if want is None:
             order = range(ROW_LIMIT)                      # no row asked for: go in order
@@ -1266,7 +1316,7 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
             start = max(0, min(int(want), ROW_LIMIT - 1))
             order = list(range(start, ROW_LIMIT)) + list(range(0, start))
         for row in order:
-            if row not in used:
+            if all(r not in used for r in range(row, min(ROW_LIMIT, row + need))):
                 return row
         return None
 
@@ -1327,14 +1377,15 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
             if not text:
                 note.append(f"step {i}: a write with nothing in it")
                 continue
-            row = place(op.get("row"))
+            need = _rows_taken(text)
+            row = place(op.get("row"), need)
             if row is None:
                 if not wipe_sheet():
                     note.append(f"step {i}: the board is out of sheets, so '{text[:24]}' "
                                 "was left out")
                     continue
-                row = place(op.get("row"))
-            used.add(row)
+                row = place(op.get("row"), need)
+            used.update(range(row, min(ROW_LIMIT, row + need)))
             line = {"op": "write", "text": text, "row": row}
             # A line has to be nameable or nothing can be marked on it later, so a write
             # the model never gave an id still gets one. Models very often skip the id and
@@ -1359,15 +1410,16 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
             shown = True
             steps.append(line)
             # The part that would not fit still has to reach the student: it goes on the
-            # next free row, and whatever is left after the rows run out is spoken.
+            # next free rows, and whatever is left after the rows run out is spoken.
             while rest:
-                spot = place(None)
-                if spot is None:
-                    break
                 more, rest = _split_line(rest)
                 if not more:
                     break
-                used.add(spot)
+                spot = place(None, _rows_taken(more))
+                if spot is None:
+                    rest = more
+                    break
+                used.update(range(spot, min(ROW_LIMIT, spot + _rows_taken(more))))
                 more_id = f"line{len(ids) + 1}"
                 ids[more_id] = more
                 steps.append({"op": "write", "text": more, "row": spot, "id": more_id,
@@ -1444,6 +1496,16 @@ def normalize_script(script, allowed_concepts=None, durations=None, subject=None
     return {"title": _as_text((script or {}).get("title")) or "Lesson", "steps": steps}
 
 
+def _rows_taken(text):
+    """How many rows of the sheet one write stands on.
+
+    The engine wraps a line at the real width of its glyphs, so a whole question is two rows
+    of board and a step of working is one. Nothing here measures the font — that is the
+    browser's job — but the rows have to be booked out in advance, on both sides of the same
+    lesson, or the next line of working lands on top of the question's second one."""
+    return max(1, -(-len(str(text or "").strip()) // CHARS_PER_ROW))
+
+
 def _short_line(text, limit=LINE_LIMIT):
     """A board line, cut at a word — never in the middle of a formula."""
     text = " ".join(str(text or "").split())
@@ -1458,7 +1520,7 @@ def _split_line(text, limit=LINE_LIMIT):
 
     A model that wants to write a paragraph on one row is really writing two rows. The
     break looks for punctuation or the start of a numbered item — the places a hand
-    would lift — rather than stopping at whatever character lands on column 64."""
+    would lift — rather than stopping at whatever character lands on column 96."""
     text = " ".join(str(text or "").split())
     if len(text) <= limit:
         return text, ""
@@ -1488,7 +1550,7 @@ def _say(text, concept=None, durations=None, raw=None):
         return None
     line = {"op": "say", "text": spoken}
     secs = (durations or {}).get(spoken) or (durations or {}).get(raw or "")
-    line["dur"] = round(secs, 2) if secs else max(1.0, round(len(spoken) / 14.5, 2))
+    line["dur"] = round(secs, 2) if secs else max(1.0, round(len(spoken) / SPEECH_CHARS_PER_SEC, 2))
     if concept:
         line["concept"] = concept
     return line
@@ -1497,9 +1559,9 @@ def _say(text, concept=None, durations=None, raw=None):
 def _spoken_line(text):
     """A sentence the narrator can finish: whole sentences only, and a stop at the end."""
     text = " ".join(str(text or "").split())
-    if len(text) <= 320:
+    if len(text) <= SAY_LIMIT:
         return text if text.endswith((".", "!", "?")) else (text + "." if text else "")
-    head = text[:320]
+    head = text[:SAY_LIMIT]
     cut = max(head.rfind(". "), head.rfind("! "), head.rfind("? "), head.rfind(". "))
     if cut < 60:
         cut = head.rfind(" ")
@@ -1528,8 +1590,8 @@ def speech_durations(lines):
     """Seconds each line will take to say, measured off the narrator's own audio when that
     line has already been generated.
 
-    A line that has not been heard yet is estimated at 14.5 characters a second — the rate
-    the engine's own fallback uses, measured here off 23 real Kokoro recordings — so the
+    A line that has not been heard yet is estimated at SPEECH_CHARS_PER_SEC characters a
+    second — the rate the narrator runs at, measured off real recordings of it — so the
     server and the board never disagree about how long a sentence lasts. The player reads
     the clock from the voice every frame regardless, so an estimate buys a slightly wrong
     reading pause; it cannot desynchronise anything."""
@@ -1537,7 +1599,7 @@ def speech_durations(lines):
     for text in lines:
         secs = llm.narration_seconds(text)
         if not secs:
-            secs = max(1.0, len(str(text)) / 14.5)
+            secs = max(1.0, len(str(text)) / SPEECH_CHARS_PER_SEC)
         out[text] = round(secs, 2)
     return out
 
